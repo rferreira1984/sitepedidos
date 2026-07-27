@@ -30,8 +30,8 @@ app.use((err, req, res, next) => {
 async function start() {
     const connected = await testConnection();
     if (connected) {
-        app.listen(PORT, '0.0.0.0', () => {
-            console.log(`Servidor rodando em http://0.0.0.0:${PORT}`);
+        app.listen(PORT, '76.13.171.134', () => {
+            console.log(`Servidor rodando em http://76.13.171.134:${PORT}`);
         });
     } else {
         console.error('Falha ao conectar no banco. Verifique o .env');
