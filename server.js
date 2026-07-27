@@ -1,4 +1,4 @@
-require('dotenv').config({ path: require('path').resolve(__dirname, '.env') });
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -6,25 +6,28 @@ const pedidosRoutes = require('./src/routes/pedidos');
 const { testConnection } = require('./src/config/database');
 
 const app = express();
-const PORT = process.env.PORT || 80;
+
+// PORT: usa a variável de ambiente do easypanel, ou 3001 como fallback
+const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
 
-// Servir arquivos estáticos (index.html, styles.css)
-app.use(express.static(path.join(__dirname, '..', 'public')));
+// Servir arquivos estáticos — CORRIGIDO: sem o '..'
+app.use(express.static(path.join(__dirname, 'public')));
 
 // API
 app.use('/api/pedidos', pedidosRoutes);
 
-// Qualquer rota não reconhecida → index.html (SPA fallback)
+// Fallback: qualquer rota não reconhecida → index.html
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Tratamento de erros
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({ success: false, message: 'Erro interno do servidor' });
+    console.error('Erro:', err.message);
+    res.status(500).json({ success: false, message: 'Erro interno' });
 });
 
 async function start() {
@@ -34,7 +37,7 @@ async function start() {
             console.log(`Servidor rodando em http://0.0.0.0:${PORT}`);
         });
     } else {
-        console.error('Falha ao conectar no banco. Verifique o .env');
+        console.error('Falha no banco');
         process.exit(1);
     }
 }
