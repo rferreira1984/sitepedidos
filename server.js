@@ -1,4 +1,4 @@
-require('dotenv').config();
+equire('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -6,14 +6,12 @@ const pedidosRoutes = require('./src/routes/pedidos');
 const { testConnection } = require('./src/config/database');
 
 const app = express();
-
-// PORT: usa a variável de ambiente do easypanel, ou 3001 como fallback
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
 
-// Servir arquivos estáticos — CORRIGIDO: sem o '..'
+// Servir arquivos estáticos — CORRIGIDO: caminho absoluto a partir de __dirname
 app.use(express.static(path.join(__dirname, 'public')));
 
 // API
@@ -24,7 +22,6 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Tratamento de erros
 app.use((err, req, res, next) => {
     console.error('Erro:', err.message);
     res.status(500).json({ success: false, message: 'Erro interno' });
