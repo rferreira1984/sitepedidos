@@ -118,7 +118,7 @@
         document.getElementById('currentDate').textContent =
             new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 
-        const API = 'http://76.13.171.134:3001/api/pedidos';
+        const API = '/api/pedidos';
         let currentPage = 1, totalPages = 1;
 
         function fmtMoney(v) {
