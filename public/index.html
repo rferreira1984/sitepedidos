@@ -3,147 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Pedidos - Salgados Cia</title>
+    <title>Salgados Cia - Cardápio Digital</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; background: #0f0f1a; color: #e2e8f0; min-height: 100vh; }
-        .container { max-width: 1400px; margin: 0 auto; padding: 0 20px; }
+        body { font-family: 'Inter', sans-serif; background: #f8f5f0; color: #1a1a2e; min-height: 100vh; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
 
-        /* ===== LOGIN ===== */
-        .login-screen { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%); }
-        .login-card { background: #1e1e36; border-radius: 20px; padding: 48px 40px; width: 100%; max-width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); border: 1px solid #2a2a4a; }
-        .login-card h1 { font-size: 28px; font-weight: 800; margin-bottom: 8px; color: #fff; }
-        .login-card p { color: #9ca3af; margin-bottom: 32px; font-size: 14px; }
-        .login-card .logo-icon { font-size: 48px; margin-bottom: 16px; }
-        .form-group { margin-bottom: 20px; }
-        .form-group label { display: block; font-size: 13px; font-weight: 600; color: #c4b5fd; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .form-group input { width: 100%; padding: 14px 16px; background: #2a2a4a; border: 1px solid #3a3a5a; border-radius: 12px; color: #fff; font-size: 15px; transition: all 0.2s; outline: none; }
-        .form-group input:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,0.2); }
-        .btn-primary { width: 100%; padding: 14px; background: linear-gradient(135deg, #7c3aed, #6d28d9); border: none; border-radius: 12px; color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
-        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 25px rgba(124,58,237,0.3); }
-        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-        .login-error { color: #f87171; font-size: 13px; margin-top: 12px; text-align: center; display: none; }
+        .header-cliente { background: linear-gradient(135deg, #7c3aed, #6d28d9); padding: 16px 0; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 20px rgba(124,58,237,0.3); }
+        .header-cliente .container { display: flex; justify-content: space-between; align-items: center; }
+        .header-cliente h1 { font-size: 20px; font-weight: 800; color: #fff; }
+        .header-cliente h1 span { font-weight: 300; }
+        .header-cliente .subtitle { color: #c4b5fd; font-size: 12px; }
+        .header-actions { display: flex; align-items: center; gap: 8px; }
+        .btn-cart { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 8px 14px; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: all 0.2s; position: relative; }
+        .btn-cart:hover { background: rgba(255,255,255,0.25); }
+        .cart-count { background: #fbbf24; color: #1a1a2e; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; position: absolute; top: -6px; right: -6px; }
+        .btn-admin-link { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: #c4b5fd; padding: 6px 10px; border-radius: 8px; cursor: pointer; font-size: 11px; transition: all 0.2s; text-decoration: none; }
+        .btn-admin-link:hover { background: rgba(255,255,255,0.1); color: #fff; }
 
-        /* ===== LAYOUT ===== */
-        .app-screen { display: none; }
-        .app-screen.active { display: block; }
+        .categorias-nav { display: flex; gap: 8px; padding: 16px 0; overflow-x: auto; flex-wrap: nowrap; }
+        .categorias-nav::-webkit-scrollbar { height: 4px; }
+        .categorias-nav::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+        .cat-btn { padding: 8px 16px; background: #fff; border: 1px solid #e5e7eb; border-radius: 50px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 4px; color: #4b5563; }
+        .cat-btn:hover { border-color: #7c3aed; color: #7c3aed; }
+        .cat-btn.active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
 
-        .main-header { background: #1a1a2e; border-bottom: 1px solid #2a2a4a; padding: 16px 0; position: sticky; top: 0; z-index: 100; }
-        .header-content { display: flex; justify-content: space-between; align-items: center; }
-        .logo-area { display: flex; align-items: center; gap: 12px; }
-        .logo-area h1 { font-size: 20px; font-weight: 700; color: #fff; }
-        .badge-total { background: #7c3aed; color: #fff; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
-        .user-area { display: flex; align-items: center; gap: 16px; }
-        .user-area .user-name { font-size: 14px; color: #c4b5fd; }
-        .avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #7c3aed, #6d28d9); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: #fff; }
-        .btn-logout { background: transparent; border: 1px solid #3a3a5a; color: #9ca3af; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
-        .btn-logout:hover { border-color: #f87171; color: #f87171; }
+        .produtos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; padding-bottom: 100px; }
+        .produto-card { background: #fff; border-radius: 14px; padding: 16px; border: 1px solid #e5e7eb; transition: all 0.2s; display: flex; flex-direction: column; }
+        .produto-card:hover { border-color: #7c3aed; box-shadow: 0 4px 16px rgba(124,58,237,0.1); transform: translateY(-2px); }
+        .produto-icon { font-size: 36px; margin-bottom: 8px; }
+        .produto-nome { font-size: 16px; font-weight: 700; color: #1a1a2e; margin-bottom: 4px; }
+        .produto-desc { font-size: 12px; color: #6b7280; margin-bottom: 8px; flex: 1; }
+        .produto-opcao { width: 100%; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 12px; background: #fff; margin-bottom: 8px; cursor: pointer; outline: none; }
+        .produto-opcao:focus { border-color: #7c3aed; }
+        .produto-footer { display: flex; justify-content: space-between; align-items: center; }
+        .produto-preco { font-size: 18px; font-weight: 800; color: #7c3aed; }
+        .btn-add-cart { background: #7c3aed; border: none; color: #fff; width: 36px; height: 36px; border-radius: 10px; cursor: pointer; font-size: 16px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .btn-add-cart:hover { background: #6d28d9; transform: scale(1.05); }
 
-        /* ===== STATS ===== */
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 24px 0; }
-        .stat-card { background: #1e1e36; border-radius: 16px; padding: 20px; display: flex; align-items: center; gap: 16px; border: 1px solid #2a2a4a; transition: all 0.2s; }
-        .stat-card:hover { border-color: #7c3aed; transform: translateY(-2px); }
-        .stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
-        .icon-total { background: rgba(124,58,237,0.15); color: #a78bfa; }
-        .icon-pending { background: rgba(251,191,36,0.15); color: #fbbf24; }
-        .icon-production { background: rgba(147,51,234,0.15); color: #c084fc; }
-        .icon-progress { background: rgba(59,130,246,0.15); color: #60a5fa; }
-        .icon-delivered { background: rgba(52,211,153,0.15); color: #34d399; }
-        .icon-canceled { background: rgba(248,113,113,0.15); color: #f87171; }
-        .stat-info .stat-label { font-size: 12px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; }
-        .stat-info .stat-value { font-size: 28px; font-weight: 800; color: #fff; display: block; margin-top: 4px; }
+        .cart-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 200; }
+        .cart-overlay.active { display: block; }
+        .cart-sidebar { position: fixed; top: 0; right: -400px; width: 100%; max-width: 400px; height: 100%; background: #fff; z-index: 201; transition: right 0.3s ease; display: flex; flex-direction: column; box-shadow: -10px 0 30px rgba(0,0,0,0.1); }
+        .cart-sidebar.open { right: 0; }
+        .cart-header { padding: 16px 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
+        .cart-header h2 { font-size: 18px; font-weight: 700; }
+        .cart-close { background: transparent; border: none; font-size: 22px; cursor: pointer; color: #6b7280; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+        .cart-close:hover { background: #f3f4f6; }
+        .cart-items { flex: 1; overflow-y: auto; padding: 12px 20px; }
+        .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
+        .cart-item-info { flex: 1; }
+        .cart-item-name { font-weight: 600; font-size: 13px; }
+        .cart-item-label { font-size: 11px; color: #7c3aed; }
+        .cart-item-qty { display: flex; align-items: center; gap: 6px; }
+        .cart-item-qty button { width: 26px; height: 26px; border-radius: 6px; border: 1px solid #e5e7eb; background: #fff; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+        .cart-item-qty button:hover { background: #f3f4f6; }
+        .cart-item-qty span { font-weight: 700; font-size: 13px; min-width: 18px; text-align: center; }
+        .cart-item-total { font-weight: 700; font-size: 13px; min-width: 55px; text-align: right; }
+        .cart-empty { text-align: center; padding: 40px 20px; color: #9ca3af; }
+        .cart-empty i { font-size: 40px; margin-bottom: 10px; }
+        .cart-footer { padding: 16px 20px; border-top: 1px solid #e5e7eb; }
+        .cart-total { display: flex; justify-content: space-between; font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+        .btn-checkout { width: 100%; padding: 12px; background: linear-gradient(135deg, #7c3aed, #6d28d9); border: none; border-radius: 10px; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+        .btn-checkout:hover { transform: translateY(-1px); box-shadow: 0 8px 25px rgba(124,58,237,0.3); }
 
-        /* ===== FILTERS ===== */
-        .filter-bar { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
-        .search-box { flex: 1; min-width: 200px; position: relative; }
-        .search-box i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #6b7280; }
-        .search-box input { width: 100%; padding: 12px 14px 12px 40px; background: #1e1e36; border: 1px solid #2a2a4a; border-radius: 12px; color: #fff; font-size: 14px; outline: none; }
-        .search-box input:focus { border-color: #7c3aed; }
-        .filters-group { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-        .filter-select { padding: 12px 14px; background: #1e1e36; border: 1px solid #2a2a4a; border-radius: 12px; color: #fff; font-size: 14px; outline: none; cursor: pointer; }
-        .filter-select:focus { border-color: #7c3aed; }
-        .btn-filter { padding: 12px 20px; background: #7c3aed; border: none; border-radius: 12px; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
-        .btn-filter:hover { background: #6d28d9; }
-        .btn-filter-secondary { background: #2a2a4a; }
-        .btn-filter-secondary:hover { background: #3a3a5a; }
+        .checkout-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 300; justify-content: center; align-items: center; padding: 16px; }
+        .checkout-overlay.active { display: flex; }
+        .checkout-modal { background: #fff; border-radius: 16px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; padding: 24px; }
+        .checkout-modal h2 { font-size: 20px; font-weight: 700; margin-bottom: 20px; }
+        .checkout-modal .form-group { margin-bottom: 14px; }
+        .checkout-modal .form-group label { display: block; font-size: 12px; font-weight: 600; color: #4b5563; margin-bottom: 4px; }
+        .checkout-modal .form-group input, .checkout-modal .form-group select, .checkout-modal .form-group textarea { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; outline: none; font-family: 'Inter', sans-serif; }
+        .checkout-modal .form-group input:focus, .checkout-modal .form-group select:focus, .checkout-modal .form-group textarea:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
+        .checkout-modal .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .checkout-modal .resumo-pedido { background: #f9fafb; border-radius: 10px; padding: 14px; margin: 14px 0; }
+        .checkout-modal .resumo-item { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; }
+        .checkout-modal .resumo-total { display: flex; justify-content: space-between; font-size: 16px; font-weight: 700; padding-top: 10px; border-top: 1px solid #e5e7eb; margin-top: 6px; }
 
-        /* ===== TABLE ===== */
-        .table-container { background: #1e1e36; border-radius: 16px; border: 1px solid #2a2a4a; overflow: hidden; }
-        .orders-table { width: 100%; border-collapse: collapse; }
-        .orders-table thead { background: #2a2a4a; }
-        .orders-table th { padding: 14px 16px; text-align: left; font-size: 12px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
-        .orders-table td { padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #2a2a4a; }
-        .orders-table tbody tr:hover { background: rgba(124,58,237,0.05); }
-        .orders-table tbody tr:last-child td { border-bottom: none; }
-
-        .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-        .status-badge.pending { background: rgba(251,191,36,0.15); color: #fbbf24; }
-        .status-badge.production { background: rgba(147,51,234,0.15); color: #c084fc; }
-        .status-badge.in-progress { background: rgba(59,130,246,0.15); color: #60a5fa; }
-        .status-badge.delivered { background: rgba(52,211,153,0.15); color: #34d399; }
-        .status-badge.canceled { background: rgba(248,113,113,0.15); color: #f87171; }
-
-        .btn-action { background: transparent; border: 1px solid #3a3a5a; color: #9ca3af; width: 36px; height: 36px; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
-        .btn-action:hover { border-color: #7c3aed; color: #a78bfa; }
-
-        /* ===== PAGINATION ===== */
-        .pagination-bar { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; gap: 12px; flex-wrap: wrap; }
-        .pagination-info { font-size: 13px; color: #6b7280; }
-        .pagination-buttons { display: flex; gap: 8px; }
-        .btn-page { padding: 8px 16px; background: #2a2a4a; border: 1px solid #3a3a5a; border-radius: 8px; color: #e2e8f0; cursor: pointer; font-size: 13px; transition: all 0.2s; }
-        .btn-page:hover { border-color: #7c3aed; }
-        .btn-page:disabled { opacity: 0.4; cursor: not-allowed; }
-
-        /* ===== MODAL ===== */
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; padding: 20px; backdrop-filter: blur(4px); }
-        .modal-overlay.active { display: flex; }
-        .modal { background: #1e1e36; border-radius: 20px; width: 100%; max-width: 700px; max-height: 90vh; overflow-y: auto; border: 1px solid #2a2a4a; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 24px 28px; border-bottom: 1px solid #2a2a4a; position: sticky; top: 0; background: #1e1e36; z-index: 1; }
-        .modal-header h2 { font-size: 20px; font-weight: 700; color: #fff; }
-        .modal-close { background: transparent; border: none; color: #6b7280; font-size: 24px; cursor: pointer; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
-        .modal-close:hover { background: #2a2a4a; color: #fff; }
-        .modal-body { padding: 24px 28px; }
-
-        .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
-        .detail-item label { display: block; font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-        .detail-item span { font-size: 15px; color: #e2e8f0; font-weight: 500; }
-        .detail-item.full { grid-column: 1 / -1; }
-
-        .section-title { font-size: 14px; font-weight: 700; color: #c4b5fd; text-transform: uppercase; letter-spacing: 0.5px; margin: 20px 0 12px; padding-top: 16px; border-top: 1px solid #2a2a4a; }
-
-        .status-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
-        .btn-status { padding: 10px 18px; border: none; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-        .btn-status:hover { transform: translateY(-1px); }
-        .btn-status.active { box-shadow: 0 0 0 2px #fff; }
-        .btn-status-pending { background: rgba(251,191,36,0.15); color: #fbbf24; }
-        .btn-status-production { background: rgba(147,51,234,0.15); color: #c084fc; }
-        .btn-status-progress { background: rgba(59,130,246,0.15); color: #60a5fa; }
-        .btn-status-delivered { background: rgba(52,211,153,0.15); color: #34d399; }
-        .btn-status-canceled { background: rgba(248,113,113,0.15); color: #f87171; }
-
-        .observacao-input { width: 100%; padding: 12px 14px; background: #2a2a4a; border: 1px solid #3a3a5a; border-radius: 10px; color: #fff; font-size: 14px; margin: 8px 0; outline: none; resize: vertical; min-height: 60px; font-family: 'Inter', sans-serif; }
-        .observacao-input:focus { border-color: #7c3aed; }
-
-        .historico-list { list-style: none; }
-        .historico-item { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid #2a2a4a; }
-        .historico-item:last-child { border-bottom: none; }
-        .historico-icon { width: 32px; height: 32px; border-radius: 50%; background: #2a2a4a; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
-        .historico-info { flex: 1; }
-        .historico-info .h-status { font-weight: 600; font-size: 14px; }
-        .historico-info .h-detail { font-size: 12px; color: #6b7280; margin-top: 2px; }
-        .historico-info .h-obs { font-size: 13px; color: #9ca3af; margin-top: 4px; font-style: italic; }
-
-        .whatsapp-area { margin-top: 16px; }
-        .whatsapp-area textarea { width: 100%; padding: 12px 14px; background: #2a2a4a; border: 1px solid #3a3a5a; border-radius: 10px; color: #fff; font-size: 14px; margin: 8px 0; outline: none; resize: vertical; min-height: 80px; font-family: 'Inter', sans-serif; }
-        .whatsapp-area textarea:focus { border-color: #25D366; }
-        .btn-whatsapp { padding: 12px 24px; background: #25D366; border: none; border-radius: 10px; color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; }
-        .btn-whatsapp:hover { background: #1ebe5d; transform: translateY(-1px); }
-
-        .toast { position: fixed; bottom: 24px; right: 24px; padding: 16px 24px; border-radius: 12px; color: #fff; font-size: 14px; font-weight: 500; z-index: 2000; display: none; animation: slideIn 0.3s ease; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .toast { position: fixed; bottom: 20px; right: 20px; padding: 14px 20px; border-radius: 10px; color: #fff; font-size: 13px; font-weight: 500; z-index: 2000; display: none; animation: slideIn 0.3s ease; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
         .toast.success { background: #059669; }
         .toast.error { background: #dc2626; }
         .toast.info { background: #2563eb; }
@@ -151,180 +91,132 @@
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
         .loading-spinner { text-align: center; padding: 40px; color: #6b7280; }
-        .loading-spinner i { font-size: 32px; animation: spin 1s linear infinite; }
+        .loading-spinner i { font-size: 28px; animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
         @media (max-width: 768px) {
-            .stats-grid { grid-template-columns: repeat(2, 1fr); }
-            .detail-grid { grid-template-columns: 1fr; }
-            .filter-bar { flex-direction: column; }
-            .search-box { min-width: 100%; }
-            .filters-group { width: 100%; }
-            .filters-group select { flex: 1; }
-            .modal { max-width: 100%; margin: 10px; }
-            .header-content { flex-wrap: wrap; gap: 12px; }
-            .logo-area h1 { font-size: 16px; }
+            .produtos-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .produto-card { padding: 12px; }
+            .produto-icon { font-size: 28px; }
+            .produto-nome { font-size: 14px; }
+            .produto-preco { font-size: 15px; }
+            .checkout-modal .form-row { grid-template-columns: 1fr; }
+            .cart-sidebar { max-width: 100%; }
         }
     </style>
 </head>
 <body>
-    <!-- Toast -->
     <div id="toast" class="toast"></div>
 
-    <!-- Tela de Login -->
-    <div id="loginScreen" class="login-screen">
-        <div class="login-card">
-            <div class="logo-icon">📦</div>
-            <h1>Painel de Pedidos</h1>
-            <p>Faça login para gerenciar os pedidos</p>
-            <form id="loginForm" onsubmit="return fazerLogin(event)">
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" id="loginEmail" placeholder="seu@email.com" required autocomplete="email">
-                </div>
-                <div class="form-group">
-                    <label>Senha</label>
-                    <input type="password" id="loginSenha" placeholder="••••••••" required autocomplete="current-password">
-                </div>
-                <div id="loginError" class="login-error"></div>
-                <button type="submit" id="loginBtn" class="btn-primary">Entrar</button>
-            </form>
+    <header class="header-cliente">
+        <div class="container">
+            <div>
+                <h1>Salgados <span>Cia</span></h1>
+                <div class="subtitle">Faça seu pedido online 📱</div>
+            </div>
+            <div class="header-actions">
+                <a href="/admin" class="btn-admin-link"><i class="fas fa-user-shield"></i> Admin</a>
+                <button class="btn-cart" onclick="abrirCarrinho()">
+                    <i class="fas fa-shopping-bag"></i> Carrinho
+                    <span class="cart-count" id="cartCount">0</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <nav class="categorias-nav" id="categoriasNav">
+            <button class="cat-btn active" onclick="filtrarCategoria('')">🍽️ Todos</button>
+        </nav>
+
+        <section class="produtos-grid" id="produtosGrid">
+            <div class="loading-spinner"><i class="fas fa-spinner"></i><br><br>Carregando cardápio...</div>
+        </section>
+    </main>
+
+    <div class="cart-overlay" id="cartOverlay" onclick="fecharCarrinho()"></div>
+    <div class="cart-sidebar" id="cartSidebar">
+        <div class="cart-header">
+            <h2>🛒 Carrinho</h2>
+            <button class="cart-close" onclick="fecharCarrinho()">&times;</button>
+        </div>
+        <div class="cart-items" id="cartItems">
+            <div class="cart-empty">
+                <i class="fas fa-shopping-bag"></i>
+                <p>Seu carrinho está vazio</p>
+                <p style="font-size:12px;color:#d1d5db;">Adicione produtos do cardápio</p>
+            </div>
+        </div>
+        <div class="cart-footer" id="cartFooter" style="display:none;">
+            <div class="cart-total">
+                <span>Total</span>
+                <span id="cartTotal">R$ 0,00</span>
+            </div>
+            <button class="btn-checkout" onclick="abrirCheckout()"><i class="fas fa-check-circle"></i> Fechar Pedido</button>
         </div>
     </div>
 
-    <!-- App -->
-    <div id="appScreen" class="app-screen">
-        <header class="main-header">
-            <div class="container header-content">
-                <div class="logo-area">
-                    <h1>📦 Painel de Pedidos</h1>
-                    <span class="badge-total" id="totalBadge">0</span>
+    <div class="checkout-overlay" id="checkoutOverlay">
+        <div class="checkout-modal">
+            <h2>📋 Finalizar Pedido</h2>
+            <form id="checkoutForm" onsubmit="return finalizarPedido(event)">
+                <div class="form-group">
+                    <label>Nome completo *</label>
+                    <input type="text" id="checkoutNome" placeholder="Seu nome" required>
                 </div>
-                <div class="user-area">
-                    <span class="user-name" id="userNameDisplay">Carregando...</span>
-                    <div class="avatar" id="userAvatar">AD</div>
-                    <button class="btn-logout" onclick="fazerLogout()"><i class="fas fa-sign-out-alt"></i> Sair</button>
+                <div class="form-group">
+                    <label>Telefone / WhatsApp *</label>
+                    <input type="tel" id="checkoutTelefone" placeholder="(11) 99999-9999" required>
                 </div>
-            </div>
-        </header>
-
-        <main class="container">
-            <section class="stats-grid" id="statsGrid">
-                <div class="stat-card">
-                    <div class="stat-icon icon-total"><i class="fas fa-shopping-cart"></i></div>
-                    <div class="stat-info">
-                        <span class="stat-label">Total</span>
-                        <span class="stat-value" id="statTotal">0</span>
+                <div class="form-group">
+                    <label>Endereço de entrega</label>
+                    <div class="form-row">
+                        <input type="text" id="checkoutRua" placeholder="Rua" style="grid-column:1/-1;">
+                    </div>
+                    <div class="form-row" style="margin-top:6px;">
+                        <input type="text" id="checkoutNumero" placeholder="Número">
+                        <input type="text" id="checkoutBairro" placeholder="Bairro">
                     </div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-icon icon-pending"><i class="fas fa-clock"></i></div>
-                    <div class="stat-info">
-                        <span class="stat-label">Pendentes</span>
-                        <span class="stat-value" id="statPendentes">0</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon icon-production"><i class="fas fa-cogs"></i></div>
-                    <div class="stat-info">
-                        <span class="stat-label">Em Produção</span>
-                        <span class="stat-value" id="statProducao">0</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon icon-progress"><i class="fas fa-truck-fast"></i></div>
-                    <div class="stat-info">
-                        <span class="stat-label">Em Andamento</span>
-                        <span class="stat-value" id="statAndamento">0</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon icon-delivered"><i class="fas fa-check-circle"></i></div>
-                    <div class="stat-info">
-                        <span class="stat-label">Entregues</span>
-                        <span class="stat-value" id="statEntregues">0</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon icon-canceled"><i class="fas fa-times-circle"></i></div>
-                    <div class="stat-info">
-                        <span class="stat-label">Cancelados</span>
-                        <span class="stat-value" id="statCancelados">0</span>
-                    </div>
-                </div>
-            </section>
-
-            <section class="filter-bar">
-                <div class="search-box">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="searchInput" placeholder="Buscar por cliente, ID, telefone ou produto..." onkeyup="if(event.key==='Enter')carregarPedidos(1)">
-                </div>
-                <div class="filters-group">
-                    <select class="filter-select" id="statusFilter">
-                        <option value="">Todos os Status</option>
-                        <option value="Pendente">Pendente</option>
-                        <option value="Em Producao">Em Produção</option>
-                        <option value="Em Andamento">Em Andamento</option>
-                        <option value="Entregue">Entregue</option>
-                        <option value="Cancelado">Cancelado</option>
+                <div class="form-group">
+                    <label>Forma de pagamento</label>
+                    <select id="checkoutPagamento">
+                        <option value="Dinheiro">Dinheiro</option>
+                        <option value="Pix">Pix</option>
+                        <option value="Cartão Crédito">Cartão de Crédito</option>
+                        <option value="Cartão Débito">Cartão de Débito</option>
                     </select>
-                    <button class="btn-filter" onclick="carregarPedidos(1)"><i class="fas fa-filter"></i> Buscar</button>
-                    <button class="btn-filter btn-filter-secondary" onclick="limparFiltros()"><i class="fas fa-undo"></i> Limpar</button>
                 </div>
-            </section>
-
-            <section class="table-container">
-                <div style="overflow-x: auto;">
-                    <table class="orders-table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Cliente</th>
-                                <th>Telefone</th>
-                                <th>Produtos</th>
-                                <th>Valor</th>
-                                <th>Pagamento</th>
-                                <th>Logística</th>
-                                <th>Data</th>
-                                <th>Status</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="ordersBody">
-                            <tr><td colspan="10" style="text-align:center;padding:40px;color:#6b7280;"><div class="loading-spinner"><i class="fas fa-spinner"></i><br><br>Carregando pedidos...</div></td></tr>
-                        </tbody>
-                    </table>
+                <div class="form-group">
+                    <label>Tipo de entrega</label>
+                    <select id="checkoutLogistica">
+                        <option value="Entrega">Entrega</option>
+                        <option value="Retirada">Retirada no local</option>
+                    </select>
                 </div>
-                <div class="pagination-bar">
-                    <span class="pagination-info" id="paginationInfo">Carregando...</span>
-                    <div class="pagination-buttons">
-                        <button class="btn-page" id="prevPage" onclick="mudarPagina(currentPage - 1)"><i class="fas fa-chevron-left"></i> Anterior</button>
-                        <button class="btn-page" id="nextPage" onclick="mudarPagina(currentPage + 1)">Próximo <i class="fas fa-chevron-right"></i></button>
+                <div class="form-group">
+                    <label>Observações</label>
+                    <textarea id="checkoutObs" rows="2" placeholder="Alguma observação?"></textarea>
+                </div>
+                <div class="resumo-pedido" id="resumoPedido">
+                    <div style="font-weight:600;margin-bottom:6px;font-size:13px;">Resumo do pedido</div>
+                    <div id="resumoItems"></div>
+                    <div class="resumo-total">
+                        <span>Total</span>
+                        <span id="resumoTotal">R$ 0,00</span>
                     </div>
                 </div>
-            </section>
-        </main>
-    </div>
-
-    <!-- Modal -->
-    <div id="modalOverlay" class="modal-overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <h2 id="modalTitle">Detalhes do Pedido</h2>
-                <button class="modal-close" onclick="fecharModal()">&times;</button>
-            </div>
-            <div class="modal-body" id="modalBody">
-                <div class="loading-spinner"><i class="fas fa-spinner"></i><br><br>Carregando...</div>
-            </div>
+                <button type="submit" id="btnFinalizar" class="btn-checkout"><i class="fas fa-check-circle"></i> Confirmar Pedido</button>
+                <button type="button" class="btn-checkout" style="background:#6b7280;margin-top:6px;" onclick="fecharCheckout()">Voltar</button>
+            </form>
         </div>
     </div>
 
     <script>
         const API = '/api';
-        let token = localStorage.getItem('token');
-        let currentPage = 1;
-        let totalPages = 1;
-        let usuarioLogado = null;
+        let carrinho = JSON.parse(localStorage.getItem('carrinho') || '[]');
+        let produtosData = [];
+        let categoriasData = [];
 
         function mostrarToast(msg, tipo) {
             const t = document.getElementById('toast');
@@ -333,229 +225,194 @@
             setTimeout(() => t.classList.remove('show'), 4000);
         }
 
-        async function fazerLogin(e) {
-            e.preventDefault();
-            const email = document.getElementById('loginEmail').value;
-            const senha = document.getElementById('loginSenha').value;
-            const btn = document.getElementById('loginBtn');
-            const errEl = document.getElementById('loginError');
-            btn.disabled = true;
-            btn.textContent = 'Entrando...';
-            errEl.style.display = 'none';
+        async function carregarCardapio() {
             try {
-                const res = await fetch(API + '/auth/login', {
+                const [catRes, prodRes] = await Promise.all([
+                    fetch(API + '/categorias'),
+                    fetch(API + '/produtos')
+                ]);
+                const catJson = await catRes.json();
+                const prodJson = await prodRes.json();
+                categoriasData = catJson.data || [];
+                produtosData = prodJson.data || [];
+
+                const nav = document.getElementById('categoriasNav');
+                nav.innerHTML = '<button class="cat-btn active" onclick="filtrarCategoria(\'\')">🍽️ Todos</button>';
+                categoriasData.forEach(c => {
+                    nav.innerHTML += `<button class="cat-btn" onclick="filtrarCategoria('${c.name}')">${c.slug === 'salgados-fritos' ? '🍤' : c.slug === 'salgados-assados' ? '🥟' : c.slug === 'doces-tradicionais' ? '🍩' : c.slug === 'doces-gourmet' ? '✨' : c.slug === 'bolos-por-kg' ? '🎂' : c.slug === 'sobremesas' ? '🍮' : c.slug === 'kits-festa' ? '🎉' : '📦'} ${c.name}</button>`;
+                });
+                renderizarProdutos(produtosData);
+            } catch (err) {
+                document.getElementById('produtosGrid').innerHTML = '<p style="text-align:center;padding:40px;color:#f87171;">Erro ao carregar cardápio</p>';
+            }
+        }
+
+        function renderizarProdutos(produtos) {
+            const grid = document.getElementById('produtosGrid');
+            if (!produtos || produtos.length === 0) {
+                grid.innerHTML = '<p style="text-align:center;padding:40px;color:#6b7280;">Nenhum produto disponível.</p>';
+                return;
+            }
+            grid.innerHTML = produtos.map(p => {
+                const precos = p.prices || [];
+                const menorPreco = precos.length > 0 ? Math.min(...precos.map(pr => parseFloat(pr.price))) : 0;
+                const icone = p.slug === 'coxinha' ? '🥟' : p.slug === 'brigadeiro' ? '🍫' : p.slug === 'beijinho' ? '🥥' : p.slug === 'bolo-de-chocolate' ? '🎂' : p.slug === 'kit-festa-completo' ? '🎉' : p.slug === 'festa-na-caixa' ? '📦' : '🍽️';
+                return `
+                    <div class="produto-card">
+                        <div class="produto-icon">${icone}</div>
+                        <div class="produto-nome">${p.name}</div>
+                        <div class="produto-desc">${p.description || ''}</div>
+                        ${precos.length > 0 ? `
+                            <select class="produto-opcao" id="opcao-${p.id}">
+                                ${precos.map(pr =>
+                                    `<option value='${JSON.stringify({priceId: pr.id, price: pr.price, label: pr.label, qty: pr.quantity, unit: pr.unit_label, priceType: pr.price_type, composicao: pr.composicao || '', opcoes: pr.opcoes || '', regras: pr.regras || ''})}'>
+                                        ${pr.label} — R$ ${parseFloat(pr.price).toFixed(2).replace('.', ',')}
+                                    </option>`
+                                ).join('')}
+                            </select>
+                        ` : '<div style="height:36px;"></div>'}
+                        <div class="produto-footer">
+                            <div class="produto-preco">${menorPreco > 0 ? `R$ ${menorPreco.toFixed(2).replace('.', ',')}` : ''}</div>
+                            <button class="btn-add-cart" onclick="adicionarAoCarrinho(${p.id}, '${p.name.replace(/'/g, "\'")}', '${icone}')"><i class="fas fa-plus"></i></button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function filtrarCategoria(categoria) {
+            document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            if (!categoria) {
+                renderizarProdutos(produtosData);
+            } else {
+                renderizarProdutos(produtosData.filter(p => p.categoria_nome === categoria));
+            }
+        }
+
+        function adicionarAoCarrinho(id, nome, icone) {
+            const select = document.getElementById(`opcao-${id}`);
+            if (!select) { mostrarToast('Erro: produto sem opção', 'error'); return; }
+            const opt = JSON.parse(select.value);
+            const precoUnit = parseFloat(opt.price);
+            const existente = carrinho.find(i => i.id === id && i.priceId === opt.priceId);
+            if (existente) {
+                existente.qtd += 1;
+            } else {
+                carrinho.push({ id, priceId: opt.priceId, nome, icone: icone || '🍽️', preco: precoUnit, label: opt.label, qtd: 1, priceType: opt.priceType, composicao: opt.composicao, opcoes: opt.opcoes, regras: opt.regras });
+            }
+            localStorage.setItem('carrinho', JSON.stringify(carrinho));
+            atualizarCarrinhoUI();
+            mostrarToast(`${nome} (${opt.label}) adicionado!`, 'success');
+        }
+
+        function alterarQtd(id, priceId, delta) {
+            const item = carrinho.find(i => i.id === id && i.priceId === priceId);
+            if (!item) return;
+            item.qtd += delta;
+            if (item.qtd <= 0) {
+                carrinho = carrinho.filter(i => !(i.id === id && i.priceId === priceId));
+            }
+            localStorage.setItem('carrinho', JSON.stringify(carrinho));
+            atualizarCarrinhoUI();
+        }
+
+        function atualizarCarrinhoUI() {
+            const count = carrinho.reduce((s, i) => s + i.qtd, 0);
+            document.getElementById('cartCount').textContent = count;
+            const itemsEl = document.getElementById('cartItems');
+            const footerEl = document.getElementById('cartFooter');
+            if (carrinho.length === 0) {
+                itemsEl.innerHTML = '<div class="cart-empty"><i class="fas fa-shopping-bag"></i><p>Seu carrinho está vazio</p><p style="font-size:12px;color:#d1d5db;">Adicione produtos do cardápio</p></div>';
+                footerEl.style.display = 'none';
+                return;
+            }
+            footerEl.style.display = 'block';
+            let total = 0;
+            itemsEl.innerHTML = carrinho.map(item => {
+                const sub = item.preco * item.qtd;
+                total += sub;
+                return `<div class="cart-item">
+                    <div class="cart-item-info">
+                        <div class="cart-item-name">${item.icone || '🍽️'} ${item.nome}</div>
+                        <div class="cart-item-label">${item.label}</div>
+                    </div>
+                    <div class="cart-item-qty">
+                        <button onclick="alterarQtd(${item.id}, ${item.priceId}, -1)">−</button>
+                        <span>${item.qtd}</span>
+                        <button onclick="alterarQtd(${item.id}, ${item.priceId}, 1)">+</button>
+                    </div>
+                    <div class="cart-item-total">R$ ${sub.toFixed(2).replace('.', ',')}</div>
+                </div>`;
+            }).join('');
+            document.getElementById('cartTotal').textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
+        }
+
+        function abrirCarrinho() {
+            document.getElementById('cartOverlay').classList.add('active');
+            document.getElementById('cartSidebar').classList.add('open');
+        }
+
+        function fecharCarrinho() {
+            document.getElementById('cartOverlay').classList.remove('active');
+            document.getElementById('cartSidebar').classList.remove('open');
+        }
+
+        function abrirCheckout() {
+            if (carrinho.length === 0) { mostrarToast('Carrinho vazio!', 'error'); return; }
+            fecharCarrinho();
+            let total = 0;
+            const itemsHtml = carrinho.map(i => {
+                const sub = i.preco * i.qtd;
+                total += sub;
+                return `<div class="resumo-item"><span>${i.icone || '🍽️'} ${i.nome} - ${i.label} x${i.qtd}</span><span>R$ ${sub.toFixed(2).replace('.', ',')}</span></div>`;
+            }).join('');
+            document.getElementById('resumoItems').innerHTML = itemsHtml;
+            document.getElementById('resumoTotal').textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
+            document.getElementById('checkoutOverlay').classList.add('active');
+        }
+
+        function fecharCheckout() {
+            document.getElementById('checkoutOverlay').classList.remove('active');
+        }
+
+        async function finalizarPedido(e) {
+            e.preventDefault();
+            const nome = document.getElementById('checkoutNome').value.trim();
+            const telefone = document.getElementById('checkoutTelefone').value.trim();
+            if (!nome || !telefone) { mostrarToast('Nome e telefone obrigatórios', 'error'); return; }
+            if (carrinho.length === 0) { mostrarToast('Carrinho vazio!', 'error'); return; }
+            const btn = document.getElementById('btnFinalizar');
+            btn.disabled = true; btn.textContent = 'Enviando...';
+            const itemsStr = carrinho.map(i => `${i.icone || ''} ${i.nome} (${i.label}) x${i.qtd} = R$ ${(i.preco * i.qtd).toFixed(2)}`).join(' | ');
+            const total = carrinho.reduce((s, i) => s + i.preco * i.qtd, 0);
+            try {
+                const res = await fetch(API + '/pedidos', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, senha })
+                    body: JSON.stringify({
+                        nome_cliente: nome, telefone,
+                        endereco_rua: document.getElementById('checkoutRua').value,
+                        endereco_numero: document.getElementById('checkoutNumero').value,
+                        endereco_bairro: document.getElementById('checkoutBairro').value,
+                        items: itemsStr, valor_total: total,
+                        forma_pagamento: document.getElementById('checkoutPagamento').value,
+                        tipo_logistica: document.getElementById('checkoutLogistica').value,
+                        observacoes: document.getElementById('checkoutObs').value
+                    })
                 });
                 const json = await res.json();
                 if (!json.success) throw new Error(json.message);
-                token = json.token;
-                usuarioLogado = json.usuario;
-                localStorage.setItem('token', token);
-                localStorage.setItem('usuario', JSON.stringify(usuarioLogado));
-                entrarApp();
-            } catch (err) {
-                errEl.textContent = err.message;
-                errEl.style.display = 'block';
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Entrar';
-            }
-            return false;
+                mostrarToast('✅ Pedido realizado com sucesso!', 'success');
+                carrinho = []; localStorage.setItem('carrinho', JSON.stringify(carrinho));
+                atualizarCarrinhoUI(); fecharCheckout();
+                document.getElementById('checkoutForm').reset();
+            } catch (err) { mostrarToast('Erro: ' + err.message, 'error'); }
+            finally { btn.disabled = false; btn.textContent = 'Confirmar Pedido'; }
         }
 
-        function fazerLogout() {
-            localStorage.removeItem('token');
-            localStorage.removeItem('usuario');
-            token = null;
-            usuarioLogado = null;
-            document.getElementById('appScreen').classList.remove('active');
-            document.getElementById('loginScreen').style.display = 'flex';
-        }
-
-        function entrarApp() {
-            document.getElementById('loginScreen').style.display = 'none';
-            document.getElementById('appScreen').classList.add('active');
-            const u = usuarioLogado || JSON.parse(localStorage.getItem('usuario') || '{}');
-            document.getElementById('userNameDisplay').textContent = u.nome || 'Usuário';
-            document.getElementById('userAvatar').textContent = (u.nome || 'AD').substring(0, 2).toUpperCase();
-            carregarPedidos(1);
-        }
-
-        async function apiFetch(url, options) {
-            const headers = { 'Authorization': 'Bearer ' + token };
-            if (options && options.body && !(options.body instanceof FormData)) {
-                headers['Content-Type'] = 'application/json';
-            }
-            const res = await fetch(API + url, { ...options, headers });
-            const json = await res.json();
-            if (!json.success) throw new Error(json.message || 'Erro na requisição');
-            return json;
-        }
-
-        async function carregarPedidos(page) {
-            page = page || 1;
-            const search = document.getElementById('searchInput').value;
-            const status = document.getElementById('statusFilter').value;
-            let url = '/pedidos?page=' + page + '&limit=20';
-            if (search) url += '&search=' + encodeURIComponent(search);
-            if (status) url += '&status=' + encodeURIComponent(status);
-            try {
-                const json = await apiFetch(url);
-                const data = json.data;
-                const pagination = json.pagination;
-                const stats = json.stats;
-                currentPage = pagination.page;
-                totalPages = pagination.totalPages;
-
-                if (stats) {
-                    document.getElementById('statTotal').textContent = stats.total || 0;
-                    document.getElementById('statPendentes').textContent = stats.pendentes || 0;
-                    document.getElementById('statProducao').textContent = stats.em_producao || 0;
-                    document.getElementById('statAndamento').textContent = stats.em_andamento || 0;
-                    document.getElementById('statEntregues').textContent = stats.entregues || 0;
-                    document.getElementById('statCancelados').textContent = stats.cancelados || 0;
-                }
-                document.getElementById('totalBadge').textContent = pagination.total;
-
-                const tbody = document.getElementById('ordersBody');
-                if (!data || data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:40px;color:#6b7280;">Nenhum pedido encontrado.</td></tr>';
-                } else {
-                    tbody.innerHTML = data.map(function(p) {
-                        const sc = p.status === 'Pendente' ? 'pending' : p.status === 'Em Producao' ? 'production' : p.status === 'Em Andamento' ? 'in-progress' : p.status === 'Entregue' ? 'delivered' : 'canceled';
-                        return '<tr>' +
-                            '<td><strong>#' + String(p.id).padStart(3, '0') + '</strong></td>' +
-                            '<td>' + (p.nome_cliente || '-') + '</td>' +
-                            '<td>' + (p.telefone || '-') + '</td>' +
-                            '<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (p.items || '') + '">' + (p.items || '-') + '</td>' +
-                            '<td><strong>R$ ' + parseFloat(p.valor_total || 0).toFixed(2).replace('.', ',') + '</strong></td>' +
-                            '<td>' + (p.forma_pagamento || '-') + '</td>' +
-                            '<td>' + (p.tipo_logistica || '-') + '</td>' +
-                            '<td>' + (p.data_criacao ? new Date(p.data_criacao).toLocaleDateString('pt-BR') : '-') + '</td>' +
-                            '<td><span class="status-badge ' + sc + '">' + p.status + '</span></td>' +
-                            '<td><button class="btn-action" onclick="abrirDetalhes(' + p.id + ')" title="Ver detalhes"><i class="fas fa-eye"></i></button></td>' +
-                            '</tr>';
-                    }).join('');
-                }
-                document.getElementById('paginationInfo').textContent = 'Página ' + currentPage + ' de ' + totalPages + ' (' + pagination.total + ' pedidos)';
-                document.getElementById('prevPage').disabled = currentPage <= 1;
-                document.getElementById('nextPage').disabled = currentPage >= totalPages;
-            } catch (err) {
-                document.getElementById('ordersBody').innerHTML = '<tr><td colspan="10" style="text-align:center;padding:40px;color:#f87171;">Erro: ' + err.message + '</td></tr>';
-            }
-        }
-
-        function mudarPagina(page) {
-            if (page < 1 || page > totalPages) return;
-            carregarPedidos(page);
-        }
-
-        function limparFiltros() {
-            document.getElementById('searchInput').value = '';
-            document.getElementById('statusFilter').value = '';
-            carregarPedidos(1);
-        }
-
-        async function abrirDetalhes(id) {
-            document.getElementById('modalOverlay').classList.add('active');
-            document.getElementById('modalBody').innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner"></i><br><br>Carregando...</div>';
-            document.getElementById('modalTitle').textContent = 'Pedido #' + String(id).padStart(3, '0');
-            try {
-                const json = await apiFetch('/pedidos/' + id);
-                const p = json.data;
-                const historico = json.historico || [];
-                const sc = p.status === 'Pendente' ? 'pending' : p.status === 'Em Producao' ? 'production' : p.status === 'Em Andamento' ? 'in-progress' : p.status === 'Entregue' ? 'delivered' : 'canceled';
-                const statusBtns = ['Pendente', 'Em Producao', 'Em Andamento', 'Entregue', 'Cancelado'].map(function(s) {
-                    const cls = s === 'Pendente' ? 'btn-status-pending' : s === 'Em Producao' ? 'btn-status-production' : s === 'Em Andamento' ? 'btn-status-progress' : s === 'Entregue' ? 'btn-status-delivered' : 'btn-status-canceled';
-                    const active = s === p.status ? ' active' : '';
-                    return '<button class="btn-status ' + cls + active + '" onclick="alterarStatus(' + p.id + ',\'' + s + '\')">' + s + '</button>';
-                }).join('');
-                const historicoHtml = historico.length > 0 ? historico.map(function(h) {
-                    const icon = h.status_novo === 'Entregue' ? '✅' : h.status_novo === 'Cancelado' ? '❌' : h.status_novo === 'Em Producao' ? '🔧' : h.status_novo === 'Em Andamento' ? '🚚' : '⏳';
-                    return '<li class="historico-item"><div class="historico-icon">' + icon + '</div><div class="historico-info"><div class="h-status">' + h.status_anterior + ' → ' + h.status_novo + '</div><div class="h-detail">' + (h.usuario_nome || 'Sistema') + ' • ' + new Date(h.created_at).toLocaleString('pt-BR') + '</div>' + (h.observacao ? '<div class="h-obs">"' + h.observacao + '"</div>' : '') + '</div></li>';
-                }).join('') : '<li style="color:#6b7280;padding:10px 0;">Nenhuma alteração registrada.</li>';
-
-                document.getElementById('modalBody').innerHTML = `
-                    <div class="detail-grid">
-                        <div class="detail-item"><label>Cliente</label><span>${p.nome_cliente || '-'}</span></div>
-                        <div class="detail-item"><label>Telefone</label><span>${p.telefone || '-'}</span></div>
-                        <div class="detail-item"><label>Endereço</label><span>${p.endereco_rua || ''}${p.endereco_numero ? ', ' + p.endereco_numero : ''}${p.endereco_bairro ? ' - ' + p.endereco_bairro : ''}</span></div>
-                        <div class="detail-item"><label>CEP</label><span>${p.endereco_cep || '-'}</span></div>
-                        <div class="detail-item"><label>Produtos</label><span>${p.items || '-'}</span></div>
-                        <div class="detail-item"><label>Valor Total</label><span><strong>R$ ${parseFloat(p.valor_total || 0).toFixed(2).replace('.', ',')}</strong></span></div>
-                        <div class="detail-item"><label>Taxa Entrega</label><span>R$ ${parseFloat(p.taxa_entrega || 0).toFixed(2).replace('.', ',')}</span></div>
-                        <div class="detail-item"><label>Pagamento</label><span>${p.forma_pagamento || '-'}</span></div>
-                        <div class="detail-item"><label>Logística</label><span>${p.tipo_logistica || '-'}</span></div>
-                        <div class="detail-item"><label>Data</label><span>${p.data_criacao ? new Date(p.data_criacao).toLocaleString('pt-BR') : '-'}</span></div>
-                        <div class="detail-item"><label>Status Atual</label><span><span class="status-badge ${sc}">${p.status}</span></span></div>
-                        ${p.observacoes ? '<div class="detail-item full"><label>Observações</label><span>' + p.observacoes + '</span></div>' : ''}
-                    </div>
-                    <div class="section-title">Alterar Status</div>
-                    <div class="status-actions">${statusBtns}</div>
-                    <textarea class="observacao-input" id="obsInput" placeholder="Observação sobre a alteração (opcional)..." rows="2"></textarea>
-                    <div class="section-title">Histórico de Status</div>
-                    <ul class="historico-list">${historicoHtml}</ul>
-                    <div class="section-title whatsapp-area">Enviar WhatsApp</div>
-                    <textarea id="whatsappMsg" placeholder="Digite a mensagem para o cliente..." rows="3">Olá ${p.nome_cliente || ''}! Seu pedido #${String(p.id).padStart(3, '0')} está ${p.status.toLowerCase()}. Qualquer dúvida, estamos à disposição! 🎉</textarea>
-                    <button class="btn-whatsapp" onclick="enviarWhatsApp(${p.id}, '${p.telefone || ''}')"><i class="fab fa-whatsapp"></i> Enviar WhatsApp</button>
-                `;
-            } catch (err) {
-                document.getElementById('modalBody').innerHTML = '<p style="color:#f87171;text-align:center;padding:20px;">Erro: ' + err.message + '</p>';
-            }
-        }
-
-        function fecharModal() {
-            document.getElementById('modalOverlay').classList.remove('active');
-        }
-        document.getElementById('modalOverlay').addEventListener('click', function(e) {
-            if (e.target === this) fecharModal();
-        });
-
-        async function alterarStatus(id, novoStatus) {
-            const obs = document.getElementById('obsInput').value;
-            try {
-                const json = await apiFetch('/pedidos/' + id + '/status', {
-                    method: 'PUT',
-                    body: JSON.stringify({ status: novoStatus, observacao: obs })
-                });
-                mostrarToast(json.message || 'Status atualizado!', 'success');
-                abrirDetalhes(id);
-                carregarPedidos(currentPage);
-            } catch (err) {
-                mostrarToast('Erro: ' + err.message, 'error');
-            }
-        }
-
-        async function enviarWhatsApp(pedidoId, telefone) {
-            const mensagem = document.getElementById('whatsappMsg').value;
-            if (!mensagem.trim()) { mostrarToast('Digite uma mensagem para enviar', 'error'); return; }
-            if (!telefone || telefone === '-') { mostrarToast('Este pedido não tem telefone cadastrado', 'error'); return; }
-            try {
-                await apiFetch('/pedidos/' + pedidoId + '/mensagem', {
-                    method: 'POST',
-                    body: JSON.stringify({ mensagem: mensagem.trim() })
-                });
-                const numero = telefone.replace(/\D/g, '');
-                window.open('https://wa.me/55' + numero + '?text=' + encodeURIComponent(mensagem.trim()), '_blank');
-                mostrarToast('Mensagem registrada e WhatsApp aberto!', 'success');
-            } catch (err) {
-                mostrarToast('Erro: ' + err.message, 'error');
-            }
-        }
-
-        (function init() {
-            const savedToken = localStorage.getItem('token');
-            const savedUser = localStorage.getItem('usuario');
-            if (savedToken && savedUser) {
-                token = savedToken;
-                usuarioLogado = JSON.parse(savedUser);
-                entrarApp();
-            } else {
-                document.getElementById('loginScreen').style.display = 'flex';
-            }
-        })();
+        carregarCardapio();
+        atualizarCarrinhoUI();
     </script>
 </body>
 </html>
