@@ -113,10 +113,23 @@ app.post('/api/pedidos', async (req, res) => {
         if (!nome_cliente || !telefone || !items || !valor_total) {
             return res.status(400).json({ success: false, message: 'Nome, telefone, items e valor total são obrigatórios' });
         }
+
+        // Normalizar data e hora (aceita datetime-local ou ISO)
+        let dataEntrega = data_entrega || null;
+        let horaEntrega = hora_entrega || null;
+        if (dataEntrega && String(dataEntrega).includes('T')) {
+            dataEntrega = String(dataEntrega).substring(0, 10);
+        }
+        if (horaEntrega && String(horaEntrega).includes('T')) {
+            horaEntrega = String(horaEntrega).substring(11, 16);
+        }
+        if (horaEntrega && horaEntrega.length > 5) {
+            horaEntrega = horaEntrega.substring(0, 5);
+        }
         const result = await pool.query(
             `INSERT INTO s_pedidos (nome_cliente, telefone, endereco_rua, endereco_numero, endereco_bairro, endereco_cep, items, valor_total, taxa_entrega, forma_pagamento, tipo_logistica, observacoes, data_entrega, hora_entrega, status)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'Pendente') RETURNING *`,
-            [nome_cliente, telefone, endereco_rua || '', endereco_numero || '', endereco_bairro || '', endereco_cep || '', items, valor_total, taxa_entrega || 0, forma_pagamento || '', tipo_logistica || '', observacoes || '', data_entrega || null, hora_entrega || null]
+            [nome_cliente, telefone, endereco_rua || '', endereco_numero || '', endereco_bairro || '', endereco_cep || '', items, valor_total, taxa_entrega || 0, forma_pagamento || '', tipo_logistica || '', observacoes || '', dataEntrega, horaEntrega]
         );
         res.status(201).json({ success: true, data: result.rows[0], message: 'Pedido criado com sucesso!' });
     } catch (err) {
