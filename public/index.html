@@ -45,6 +45,26 @@
         .btn-add-cart { background: #7c3aed; border: none; color: #fff; width: 36px; height: 36px; border-radius: 10px; cursor: pointer; font-size: 16px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .btn-add-cart:hover { background: #6d28d9; transform: scale(1.05); }
 
+        .kit-card { background: #fff; border-radius: 14px; padding: 20px; border: 1px solid #e5e7eb; transition: all 0.2s; }
+        .kit-card:hover { border-color: #7c3aed; box-shadow: 0 4px 16px rgba(124,58,237,0.1); }
+        .kit-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+        .kit-header .kit-icon { font-size: 40px; }
+        .kit-header .kit-title { font-size: 18px; font-weight: 700; color: #1a1a2e; }
+        .kit-header .kit-subtitle { font-size: 13px; color: #6b7280; margin-top: 2px; }
+        .kit-opcoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+        .kit-opcao { background: #f9fafb; border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; cursor: pointer; transition: all 0.2s; }
+        .kit-opcao:hover { border-color: #7c3aed; background: #f5f3ff; }
+        .kit-opcao.selected { border-color: #7c3aed; background: #f5f3ff; box-shadow: 0 0 0 3px rgba(124,58,237,0.15); }
+        .kit-opcao .ko-nome { font-weight: 700; font-size: 15px; color: #7c3aed; }
+        .kit-opcao .ko-preco { font-size: 22px; font-weight: 800; color: #1a1a2e; margin: 6px 0; }
+        .kit-opcao .ko-composicao { font-size: 12px; color: #6b7280; line-height: 1.5; }
+        .kit-opcao .ko-regras { font-size: 11px; color: #9ca3af; margin-top: 6px; font-style: italic; padding-top: 6px; border-top: 1px dashed #e5e7eb; }
+        .kit-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb; }
+        .kit-footer .kit-selecionado { font-size: 14px; color: #6b7280; }
+        .kit-footer .btn-add-kit { background: #7c3aed; border: none; color: #fff; padding: 12px 24px; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s; display: flex; align-items: center; gap: 8px; }
+        .kit-footer .btn-add-kit:hover { background: #6d28d9; transform: translateY(-1px); }
+        .kit-footer .btn-add-kit:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
         .cart-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 200; }
         .cart-overlay.active { display: block; }
         .cart-sidebar { position: fixed; top: 0; right: -400px; width: 100%; max-width: 400px; height: 100%; background: #fff; z-index: 201; transition: right 0.3s ease; display: flex; flex-direction: column; box-shadow: -10px 0 30px rgba(0,0,0,0.1); }
@@ -58,6 +78,7 @@
         .cart-item-info { flex: 1; }
         .cart-item-name { font-weight: 600; font-size: 13px; }
         .cart-item-label { font-size: 11px; color: #7c3aed; }
+        .cart-item-detail { font-size: 10px; color: #9ca3af; margin-top: 2px; }
         .cart-item-qty { display: flex; align-items: center; gap: 6px; }
         .cart-item-qty button { width: 26px; height: 26px; border-radius: 6px; border: 1px solid #e5e7eb; background: #fff; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; }
         .cart-item-qty button:hover { background: #f3f4f6; }
@@ -94,12 +115,37 @@
         .loading-spinner i { font-size: 28px; animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
+        .kit-modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 500; justify-content: center; align-items: center; padding: 16px; backdrop-filter: blur(4px); }
+        .kit-modal-overlay.active { display: flex; }
+        .kit-modal { background: #fff; border-radius: 20px; width: 100%; max-width: 580px; max-height: 90vh; overflow-y: auto; padding: 28px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        .kit-modal h2 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+        .kit-modal .km-subtitle { font-size: 13px; color: #6b7280; margin-bottom: 20px; }
+        .kit-modal .km-section { margin-bottom: 16px; }
+        .kit-modal .km-section label { display: block; font-size: 12px; font-weight: 700; color: #7c3aed; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+        .kit-modal .km-section .km-info { font-size: 13px; color: #4b5563; background: #f9fafb; padding: 10px 12px; border-radius: 8px; line-height: 1.5; }
+        .kit-modal .km-section select { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; outline: none; background: #fff; margin-bottom: 6px; font-family: 'Inter', sans-serif; }
+        .kit-modal .km-section select:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
+        .kit-modal .km-section .km-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        .kit-modal .km-section .km-chip { padding: 6px 14px; border: 1px solid #d1d5db; border-radius: 20px; font-size: 12px; cursor: pointer; transition: all 0.2s; background: #fff; }
+        .kit-modal .km-section .km-chip:hover { border-color: #7c3aed; color: #7c3aed; }
+        .kit-modal .km-section .km-chip.selected { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+        .kit-modal .km-total { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-top: 1px solid #e5e7eb; margin-top: 16px; }
+        .kit-modal .km-total .km-price { font-size: 24px; font-weight: 800; color: #7c3aed; }
+        .kit-modal .km-actions { display: flex; gap: 10px; margin-top: 16px; }
+        .kit-modal .km-actions button { flex: 1; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .kit-modal .km-actions .btn-km-cancel { background: #f3f4f6; border: 1px solid #e5e7eb; color: #4b5563; }
+        .kit-modal .km-actions .btn-km-cancel:hover { background: #e5e7eb; }
+        .kit-modal .km-actions .btn-km-confirm { background: #7c3aed; border: none; color: #fff; }
+        .kit-modal .km-actions .btn-km-confirm:hover { background: #6d28d9; }
+        .kit-modal .km-actions .btn-km-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
+
         @media (max-width: 768px) {
             .produtos-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
             .produto-card { padding: 12px; }
             .produto-icon { font-size: 28px; }
             .produto-nome { font-size: 14px; }
             .produto-preco { font-size: 15px; }
+            .kit-opcoes { grid-template-columns: 1fr 1fr; }
             .checkout-modal .form-row { grid-template-columns: 1fr; }
             .cart-sidebar { max-width: 100%; }
         }
@@ -212,11 +258,67 @@
         </div>
     </div>
 
+    <!-- Modal Kit Festa -->
+    <div class="kit-modal-overlay" id="kitModalOverlay">
+        <div class="kit-modal">
+            <h2 id="kmTitle">🎉 Kit Festa Completo</h2>
+            <div class="km-subtitle" id="kmSubtitle">Personalize seu kit</div>
+
+            <div class="km-section">
+                <label>📋 Composição</label>
+                <div class="km-info" id="kmComposicao"></div>
+            </div>
+
+            <div class="km-section" id="kmBoloSection">
+                <label>🎂 Bolo</label>
+                <div class="km-info" style="font-size:11px;color:#9ca3af;margin-bottom:6px;" id="kmBoloInfo"></div>
+                <div id="kmBoloSelects"></div>
+            </div>
+
+            <div class="km-section" id="kmDocesSection">
+                <label>🍩 Doces</label>
+                <div class="km-info" style="font-size:11px;color:#9ca3af;margin-bottom:6px;" id="kmDocesInfo"></div>
+                <div class="km-chips" id="kmDocesChips"></div>
+            </div>
+
+            <div class="km-section" id="kmSalgadosSection">
+                <label>🥟 Salgados</label>
+                <div class="km-info" style="font-size:11px;color:#9ca3af;margin-bottom:6px;" id="kmSalgadosInfo"></div>
+                <div class="km-chips" id="kmSalgadosChips"></div>
+            </div>
+
+            <div class="km-section" id="kmRefriSection">
+                <label>🥤 Refrigerante</label>
+                <div class="km-info" style="font-size:11px;color:#9ca3af;margin-bottom:6px;" id="kmRefriInfo"></div>
+                <div id="kmRefriSelects"></div>
+            </div>
+
+            <div class="km-total">
+                <span>Total do Kit</span>
+                <span class="km-price" id="kmPreco">R$ 0,00</span>
+            </div>
+
+            <div class="km-actions">
+                <button class="btn-km-cancel" onclick="fecharKitModal()">Cancelar</button>
+                <button class="btn-km-confirm" id="btnKmConfirm" onclick="confirmarKit()" disabled>Adicionar ao Carrinho</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const API = '/api';
         let carrinho = JSON.parse(localStorage.getItem('carrinho') || '[]');
         let produtosData = [];
         let categoriasData = [];
+        let kitAtual = null;
+        let kitOpcaoAtual = null;
+        let kitPrecoAtual = 0;
+        let kitQtds = { Doces: 2, Salgados: 3, Bolo: 1, Refrigerante: 1 };
+
+        const SABORES_BOLO = ['Brigadeiro', 'Prestígio', 'Dois Amores', 'Quatro Leites'];
+        const SABORES_DOCES = ['Brigadeiro', 'Beijinho', 'Cajuzinho', 'Olho de Sogra', 'Bicho de Pé', 'Doce de Coco', 'Suspiro', 'Pé de Moleque'];
+        const SABORES_SALGADOS = ['Coxinha', 'Bolinha de Queijo', 'Risole de Carne', 'Risole de Queijo', 'Pastelzinho', 'Esfiha', 'Empadinha', 'Kibe', 'Bolinha de Bacalhau', 'Enroladinho de Salsicha'];
+        const SABORES_REFRIGERANTE = ['Coca-Cola', 'Sprite', 'Fanta Laranja', 'Guaraná'];
 
         function mostrarToast(msg, tipo) {
             const t = document.getElementById('toast');
@@ -239,7 +341,8 @@
                 const nav = document.getElementById('categoriasNav');
                 nav.innerHTML = '<button class="cat-btn active" onclick="filtrarCategoria(\'\')">🍽️ Todos</button>';
                 categoriasData.forEach(c => {
-                    nav.innerHTML += `<button class="cat-btn" onclick="filtrarCategoria('${c.name}')">${c.slug === 'salgados-fritos' ? '🍤' : c.slug === 'salgados-assados' ? '🥟' : c.slug === 'doces-tradicionais' ? '🍩' : c.slug === 'doces-gourmet' ? '✨' : c.slug === 'bolos-por-kg' ? '🎂' : c.slug === 'sobremesas' ? '🍮' : c.slug === 'kits-festa' ? '🎉' : '📦'} ${c.name}</button>`;
+                    const icone = c.slug === 'salgados-fritos' ? '🍤' : c.slug === 'salgados-assados' ? '🥟' : c.slug === 'doces-tradicionais' ? '🍩' : c.slug === 'doces-gourmet' ? '✨' : c.slug === 'bolos-por-kg' ? '🎂' : c.slug === 'sobremesas' ? '🍮' : c.slug === 'kits-festa' ? '🎉' : '📦';
+                    nav.innerHTML += `<button class="cat-btn" onclick="filtrarCategoria('${c.name}')">${icone} ${c.name}</button>`;
                 });
                 renderizarProdutos(produtosData);
             } catch (err) {
@@ -254,9 +357,12 @@
                 return;
             }
             grid.innerHTML = produtos.map(p => {
+                if (p.category_id === 7 || p.categoria_nome === 'Kits Festa') {
+                    return renderizarKitFesta(p);
+                }
                 const precos = p.prices || [];
                 const menorPreco = precos.length > 0 ? Math.min(...precos.map(pr => parseFloat(pr.price))) : 0;
-                const icone = p.slug === 'coxinha' ? '🥟' : p.slug === 'brigadeiro' ? '🍫' : p.slug === 'beijinho' ? '🥥' : p.slug === 'bolo-de-chocolate' ? '🎂' : p.slug === 'kit-festa-completo' ? '🎉' : p.slug === 'festa-na-caixa' ? '📦' : '🍽️';
+                const icone = '🍽️';
                 return `
                     <div class="produto-card">
                         <div class="produto-icon">${icone}</div>
@@ -265,7 +371,7 @@
                         ${precos.length > 0 ? `
                             <select class="produto-opcao" id="opcao-${p.id}">
                                 ${precos.map(pr =>
-                                    `<option value='${JSON.stringify({priceId: pr.id, price: pr.price, label: pr.label, qty: pr.quantity, unit: pr.unit_label, priceType: pr.price_type, composicao: pr.composicao || '', opcoes: pr.opcoes || '', regras: pr.regras || ''})}'>
+                                    `<option value='${JSON.stringify({priceId: pr.id, price: pr.price, label: pr.label, qty: pr.quantity, unit: pr.unit_label, priceType: pr.price_type})}'>
                                         ${pr.label} — R$ ${parseFloat(pr.price).toFixed(2).replace('.', ',')}
                                     </option>`
                                 ).join('')}
@@ -278,6 +384,219 @@
                     </div>
                 `;
             }).join('');
+        }
+
+        function renderizarKitFesta(p) {
+            const precos = p.prices || [];
+            const precosTier = precos.filter(pr => pr.price_type === 'tier');
+            if (precosTier.length === 0) return '';
+            return `
+                <div class="kit-card" style="grid-column:1/-1;">
+                    <div class="kit-header">
+                        <div class="kit-icon">🎉</div>
+                        <div>
+                            <div class="kit-title">${p.name}</div>
+                            <div class="kit-subtitle">${p.description || 'Kit completo para festa'}</div>
+                        </div>
+                    </div>
+                    <div class="kit-opcoes" id="kitOpcoes-${p.id}">
+                        ${precosTier.map((pr, idx) => `
+                            <div class="kit-opcao" id="kitOpt-${p.id}-${idx}" onclick="selecionarKitOpcao(${p.id}, ${idx})">
+                                <div class="ko-nome">${pr.label}</div>
+                                <div class="ko-preco">R$ ${parseFloat(pr.price).toFixed(2).replace('.', ',')}</div>
+                                <div class="ko-composicao">${pr.composicao || ''}</div>
+                                <div class="ko-regras">${pr.regras || ''}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="kit-footer">
+                        <div class="kit-selecionado" id="kitSelecionado-${p.id}">Selecione um tamanho acima</div>
+                        <button class="btn-add-kit" id="btnAddKit-${p.id}" disabled onclick="abrirKitModal(${p.id})">
+                            <i class="fas fa-plus"></i> Personalizar Kit
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        let kitSelecionado = {};
+
+        function selecionarKitOpcao(produtoId, idx) {
+            const p = produtosData.find(pr => pr.id === produtoId);
+            if (!p) return;
+            document.querySelectorAll(`#kitOpcoes-${produtoId} .kit-opcao`).forEach(el => el.classList.remove('selected'));
+            document.getElementById(`kitOpt-${produtoId}-${idx}`).classList.add('selected');
+            kitSelecionado[produtoId] = idx;
+            const precos = p.prices.filter(pr => pr.price_type === 'tier');
+            const opcao = precos[idx];
+            document.getElementById(`kitSelecionado-${produtoId}`).textContent = `${opcao.label} — R$ ${parseFloat(opcao.price).toFixed(2).replace('.', ',')}`;
+            document.getElementById(`btnAddKit-${produtoId}`).disabled = false;
+        }
+
+        // ===== MODAL KIT DINÂMICO =====
+        function abrirKitModal(produtoId) {
+            const p = produtosData.find(pr => pr.id === produtoId);
+            if (!p) return;
+            const idx = kitSelecionado[produtoId];
+            if (idx === undefined) { mostrarToast('Selecione um tamanho do kit', 'error'); return; }
+            const precos = p.prices.filter(pr => pr.price_type === 'tier');
+            const opcao = precos[idx];
+
+            kitAtual = produtoId;
+            kitOpcaoAtual = idx;
+            kitPrecoAtual = parseFloat(opcao.price);
+
+            // Quantidades vindas do banco (coluna regras_quantidades - JSON)
+            const rq = opcao.regras_quantidades || {};
+            kitQtds = {
+                Doces: parseInt(rq.Doces) || 2,
+                Salgados: parseInt(rq.Salgados) || 3,
+                Bolo: parseInt(rq.Bolo) || 1,
+                Refrigerante: parseInt(rq.Refrigerante) || 1
+            };
+
+            document.getElementById('kmTitle').textContent = `🎉 ${p.name}`;
+            document.getElementById('kmSubtitle').textContent = opcao.label;
+            document.getElementById('kmComposicao').textContent = opcao.composicao || '';
+            document.getElementById('kmPreco').textContent = `R$ ${kitPrecoAtual.toFixed(2).replace('.', ',')}`;
+
+            montarSecaoBolo();
+            montarSecaoDoces();
+            montarSecaoSalgados();
+            montarSecaoRefri();
+
+            document.getElementById('btnKmConfirm').disabled = true;
+            document.getElementById('kitModalOverlay').classList.add('active');
+        }
+
+        function montarSecaoBolo() {
+            const qtd = kitQtds.Bolo;
+            const section = document.getElementById('kmBoloSection');
+            if (qtd <= 0) { section.style.display = 'none'; return; }
+            section.style.display = '';
+            document.getElementById('kmBoloInfo').textContent = qtd === 1 ? 'Selecione 1 sabor de bolo' : `Selecione ${qtd} sabores de bolo`;
+            let html = '';
+            for (let i = 1; i <= qtd; i++) {
+                html += `<select class="km-select-bolo" data-idx="${i}">
+                    <option value="">${qtd > 1 ? 'Bolo ' + i + ' — ' : ''}selecione o sabor</option>
+                    ${SABORES_BOLO.map(s => `<option value="${s}">${s}</option>`).join('')}
+                </select>`;
+            }
+            document.getElementById('kmBoloSelects').innerHTML = html;
+            document.querySelectorAll('.km-select-bolo').forEach(s => s.addEventListener('change', verificarKitCompleto));
+        }
+
+        function montarSecaoDoces() {
+            const qtd = kitQtds.Doces;
+            const section = document.getElementById('kmDocesSection');
+            if (qtd <= 0) { section.style.display = 'none'; return; }
+            section.style.display = '';
+            document.getElementById('kmDocesInfo').textContent = qtd === 1 ? 'Selecione 1 sabor de doce' : `Selecione até ${qtd} sabores de doces`;
+            const container = document.getElementById('kmDocesChips');
+            container.dataset.max = qtd;
+            container.innerHTML = SABORES_DOCES.map(s => `<span class="km-chip" data-value="${s}">${s}</span>`).join('');
+        }
+
+        function montarSecaoSalgados() {
+            const qtd = kitQtds.Salgados;
+            const section = document.getElementById('kmSalgadosSection');
+            if (qtd <= 0) { section.style.display = 'none'; return; }
+            section.style.display = '';
+            document.getElementById('kmSalgadosInfo').textContent = qtd === 1 ? 'Selecione 1 sabor de salgado' : `Selecione até ${qtd} sabores de salgados`;
+            const container = document.getElementById('kmSalgadosChips');
+            container.dataset.max = qtd;
+            container.innerHTML = SABORES_SALGADOS.map(s => `<span class="km-chip" data-value="${s}">${s}</span>`).join('');
+        }
+
+        function montarSecaoRefri() {
+            const qtd = kitQtds.Refrigerante;
+            const section = document.getElementById('kmRefriSection');
+            if (qtd <= 0) { section.style.display = 'none'; return; }
+            section.style.display = '';
+            document.getElementById('kmRefriInfo').textContent = qtd === 1 ? 'Selecione 1 refrigerante' : `Selecione ${qtd} refrigerantes`;
+            let html = '';
+            for (let i = 1; i <= qtd; i++) {
+                html += `<select class="km-select-refri" data-idx="${i}">
+                    <option value="">${qtd > 1 ? 'Refrigerante ' + i + ' — ' : ''}selecione a bebida</option>
+                    ${SABORES_REFRIGERANTE.map(s => `<option value="${s}">${s}</option>`).join('')}
+                </select>`;
+            }
+            document.getElementById('kmRefriSelects').innerHTML = html;
+            document.querySelectorAll('.km-select-refri').forEach(s => s.addEventListener('change', verificarKitCompleto));
+        }
+
+        function fecharKitModal() {
+            document.getElementById('kitModalOverlay').classList.remove('active');
+            kitAtual = null;
+            kitOpcaoAtual = null;
+        }
+
+        document.addEventListener('click', function(e) {
+            const chip = e.target.closest('.km-chip');
+            if (!chip) return;
+            const container = chip.closest('.km-chips');
+            if (!container) return;
+            const max = parseInt(container.dataset.max || 99);
+            if (chip.classList.contains('selected')) {
+                chip.classList.remove('selected');
+            } else {
+                const selected = container.querySelectorAll('.km-chip.selected').length;
+                if (selected < max) {
+                    chip.classList.add('selected');
+                } else {
+                    mostrarToast(`Máximo de ${max} seleções`, 'info');
+                }
+            }
+            verificarKitCompleto();
+        });
+
+        function verificarKitCompleto() {
+            const bolos = Array.from(document.querySelectorAll('.km-select-bolo')).map(s => s.value).filter(Boolean);
+            const refris = Array.from(document.querySelectorAll('.km-select-refri')).map(s => s.value).filter(Boolean);
+            const doces = document.querySelectorAll('#kmDocesChips .km-chip.selected').length;
+            const salgados = document.querySelectorAll('#kmSalgadosChips .km-chip.selected').length;
+            const ok = bolos.length >= kitQtds.Bolo &&
+                       refris.length >= kitQtds.Refrigerante &&
+                       doces >= kitQtds.Doces &&
+                       salgados >= kitQtds.Salgados;
+            document.getElementById('btnKmConfirm').disabled = !ok;
+        }
+
+        function confirmarKit() {
+            if (!kitAtual || kitOpcaoAtual === null) return;
+            const p = produtosData.find(pr => pr.id === kitAtual);
+            if (!p) return;
+            const precos = p.prices.filter(pr => pr.price_type === 'tier');
+            const opcao = precos[kitOpcaoAtual];
+
+            const bolos = Array.from(document.querySelectorAll('.km-select-bolo')).map(s => s.value).filter(Boolean).join(', ');
+            const refris = Array.from(document.querySelectorAll('.km-select-refri')).map(s => s.value).filter(Boolean).join(', ');
+            const doces = Array.from(document.querySelectorAll('#kmDocesChips .km-chip.selected')).map(c => c.dataset.value).join(', ');
+            const salgados = Array.from(document.querySelectorAll('#kmSalgadosChips .km-chip.selected')).map(c => c.dataset.value).join(', ');
+
+            const descricao = `${opcao.label} | Bolo: ${bolos} | Doces: ${doces} | Salgados: ${salgados} | Refrigerante: ${refris}`;
+            const itemKey = `${kitAtual}-${kitOpcaoAtual}-${Date.now()}`;
+
+            const existente = carrinho.find(i => i.itemKey === itemKey);
+            if (existente) {
+                existente.qtd += 1;
+            } else {
+                carrinho.push({
+                    id: kitAtual,
+                    itemKey,
+                    nome: `${p.name} - ${opcao.label}`,
+                    icone: '🎉',
+                    preco: kitPrecoAtual,
+                    label: opcao.label,
+                    descricao,
+                    composicao: opcao.composicao || '',
+                    qtd: 1
+                });
+            }
+            localStorage.setItem('carrinho', JSON.stringify(carrinho));
+            atualizarCarrinhoUI();
+            fecharKitModal();
+            mostrarToast(`🎉 Kit adicionado ao carrinho!`, 'success');
         }
 
         function filtrarCategoria(categoria) {
@@ -299,7 +618,7 @@
             if (existente) {
                 existente.qtd += 1;
             } else {
-                carrinho.push({ id, priceId: opt.priceId, nome, icone: icone || '🍽️', preco: precoUnit, label: opt.label, qtd: 1, priceType: opt.priceType, composicao: opt.composicao, opcoes: opt.opcoes, regras: opt.regras });
+                carrinho.push({ id, priceId: opt.priceId, nome, icone: icone || '🍽️', preco: precoUnit, label: opt.label, qtd: 1, priceType: opt.priceType });
             }
             localStorage.setItem('carrinho', JSON.stringify(carrinho));
             atualizarCarrinhoUI();
@@ -312,6 +631,17 @@
             item.qtd += delta;
             if (item.qtd <= 0) {
                 carrinho = carrinho.filter(i => !(i.id === id && i.priceId === priceId));
+            }
+            localStorage.setItem('carrinho', JSON.stringify(carrinho));
+            atualizarCarrinhoUI();
+        }
+
+        function alterarQtdKit(itemKey, delta) {
+            const item = carrinho.find(i => i.itemKey === itemKey);
+            if (!item) return;
+            item.qtd += delta;
+            if (item.qtd <= 0) {
+                carrinho = carrinho.filter(i => i.itemKey !== itemKey);
             }
             localStorage.setItem('carrinho', JSON.stringify(carrinho));
             atualizarCarrinhoUI();
@@ -332,6 +662,21 @@
             itemsEl.innerHTML = carrinho.map(item => {
                 const sub = item.preco * item.qtd;
                 total += sub;
+                if (item.itemKey) {
+                    return `<div class="cart-item">
+                        <div class="cart-item-info">
+                            <div class="cart-item-name">${item.icone || '🎉'} ${item.nome}</div>
+                            <div class="cart-item-label">R$ ${item.preco.toFixed(2).replace('.', ',')}</div>
+                            <div class="cart-item-detail">${item.descricao || item.composicao || ''}</div>
+                        </div>
+                        <div class="cart-item-qty">
+                            <button onclick="alterarQtdKit('${item.itemKey}', -1)">−</button>
+                            <span>${item.qtd}</span>
+                            <button onclick="alterarQtdKit('${item.itemKey}', 1)">+</button>
+                        </div>
+                        <div class="cart-item-total">R$ ${sub.toFixed(2).replace('.', ',')}</div>
+                    </div>`;
+                }
                 return `<div class="cart-item">
                     <div class="cart-item-info">
                         <div class="cart-item-name">${item.icone || '🍽️'} ${item.nome}</div>
@@ -365,7 +710,7 @@
             const itemsHtml = carrinho.map(i => {
                 const sub = i.preco * i.qtd;
                 total += sub;
-                return `<div class="resumo-item"><span>${i.icone || '🍽️'} ${i.nome} - ${i.label} x${i.qtd}</span><span>R$ ${sub.toFixed(2).replace('.', ',')}</span></div>`;
+                return `<div class="resumo-item"><span>${i.icone || '🍽️'} ${i.nome} x${i.qtd}</span><span>R$ ${sub.toFixed(2).replace('.', ',')}</span></div>`;
             }).join('');
             document.getElementById('resumoItems').innerHTML = itemsHtml;
             document.getElementById('resumoTotal').textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
@@ -384,7 +729,7 @@
             if (carrinho.length === 0) { mostrarToast('Carrinho vazio!', 'error'); return; }
             const btn = document.getElementById('btnFinalizar');
             btn.disabled = true; btn.textContent = 'Enviando...';
-            const itemsStr = carrinho.map(i => `${i.icone || ''} ${i.nome} (${i.label}) x${i.qtd} = R$ ${(i.preco * i.qtd).toFixed(2)}`).join(' | ');
+            const itemsStr = carrinho.map(i => `${i.icone || ''} ${i.nome} x${i.qtd} = R$ ${(i.preco * i.qtd).toFixed(2)}${i.descricao ? ' (' + i.descricao + ')' : ''}`).join(' | ');
             const total = carrinho.reduce((s, i) => s + i.preco * i.qtd, 0);
             try {
                 const res = await fetch(API + '/pedidos', {

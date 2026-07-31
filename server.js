@@ -75,9 +75,9 @@ app.get('/api/produtos', async (req, res) => {
 
         for (const p of products.rows) {
             const prices = await pool.query(
-                'SELECT id, price_type, quantity, unit_label, label, price, is_active, opcoes, composicao, regras FROM s_product_prices WHERE product_id = $1 AND is_active = true ORDER BY price_type, quantity',
-                [p.id]
-            );
+    'SELECT id, price_type, quantity, unit_label, label, price, is_active, opcoes, composicao, regras, regras_quantidades FROM s_product_prices WHERE product_id = $1 AND is_active = true ORDER BY price_type, quantity',
+    [p.id]
+);
             result.push({ ...p, prices: prices.rows });
         }
 
@@ -267,10 +267,13 @@ app.delete('/api/produtos/:id', authMiddleware, async (req, res) => {
 // CRUD Preços (admin)
 app.post('/api/precos', authMiddleware, async (req, res) => {
     try {
-        const { product_id, price_type, quantity, unit_label, label, price, opcoes, composicao, regras } = req.body;
+        const { product_id, price_type, quantity, unit_label, label, price, opcoes, composicao, regras, regras_quantidades } = req.body;
+        const rq = typeof regras_quantidades === 'object' && regras_quantidades !== null
+            ? JSON.stringify(regras_quantidades)
+            : (regras_quantidades || null);
         const result = await pool.query(
-            'INSERT INTO s_product_prices (product_id, price_type, quantity, unit_label, label, price, opcoes, composicao, regras) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
-            [product_id, price_type, quantity, unit_label, label, price, opcoes || '', composicao || '', regras || '']
+            'INSERT INTO s_product_prices (product_id, price_type, quantity, unit_label, label, price, opcoes, composicao, regras, regras_quantidades) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *',
+            [product_id, price_type, quantity, unit_label, label, price, opcoes || '', composicao || '', regras || '', rq]
         );
         res.status(201).json({ success: true, data: result.rows[0] });
     } catch (err) {
@@ -280,10 +283,13 @@ app.post('/api/precos', authMiddleware, async (req, res) => {
 
 app.put('/api/precos/:id', authMiddleware, async (req, res) => {
     try {
-        const { price_type, quantity, unit_label, label, price, is_active, opcoes, composicao, regras } = req.body;
+        const { price_type, quantity, unit_label, label, price, is_active, opcoes, composicao, regras, regras_quantidades } = req.body;
+        const rq = typeof regras_quantidades === 'object' && regras_quantidades !== null
+            ? JSON.stringify(regras_quantidades)
+            : (regras_quantidades || null);
         const result = await pool.query(
-            'UPDATE s_product_prices SET price_type=$1, quantity=$2, unit_label=$3, label=$4, price=$5, is_active=$6, opcoes=$7, composicao=$8, regras=$9 WHERE id=$10 RETURNING *',
-            [price_type, quantity, unit_label, label, price, is_active, opcoes, composicao, regras, req.params.id]
+            'UPDATE s_product_prices SET price_type=$1, quantity=$2, unit_label=$3, label=$4, price=$5, is_active=$6, opcoes=$7, composicao=$8, regras=$9, regras_quantidades=$10 WHERE id=$11 RETURNING *',
+            [price_type, quantity, unit_label, label, price, is_active, opcoes, composicao, regras, rq, req.params.id]
         );
         if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Preço não encontrado' });
         res.json({ success: true, data: result.rows[0] });
