@@ -109,14 +109,14 @@ app.get('/api/produtos/:id', async (req, res) => {
 // POST /api/pedidos - Cliente cria pedido
 app.post('/api/pedidos', async (req, res) => {
     try {
-        const { nome_cliente, telefone, endereco_rua, endereco_numero, endereco_bairro, endereco_cep, items, valor_total, taxa_entrega, forma_pagamento, tipo_logistica, observacoes } = req.body;
+        const { nome_cliente, telefone, endereco_rua, endereco_numero, endereco_bairro, endereco_cep, items, valor_total, taxa_entrega, forma_pagamento, tipo_logistica, observacoes, data_entrega, hora_entrega } = req.body;
         if (!nome_cliente || !telefone || !items || !valor_total) {
             return res.status(400).json({ success: false, message: 'Nome, telefone, items e valor total são obrigatórios' });
         }
         const result = await pool.query(
-            `INSERT INTO s_pedidos (nome_cliente, telefone, endereco_rua, endereco_numero, endereco_bairro, endereco_cep, items, valor_total, taxa_entrega, forma_pagamento, tipo_logistica, observacoes, status)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'Pendente') RETURNING *`,
-            [nome_cliente, telefone, endereco_rua || '', endereco_numero || '', endereco_bairro || '', endereco_cep || '', items, valor_total, taxa_entrega || 0, forma_pagamento || '', tipo_logistica || '', observacoes || '']
+            `INSERT INTO s_pedidos (nome_cliente, telefone, endereco_rua, endereco_numero, endereco_bairro, endereco_cep, items, valor_total, taxa_entrega, forma_pagamento, tipo_logistica, observacoes, data_entrega, hora_entrega, status)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'Pendente') RETURNING *`,
+            [nome_cliente, telefone, endereco_rua || '', endereco_numero || '', endereco_bairro || '', endereco_cep || '', items, valor_total, taxa_entrega || 0, forma_pagamento || '', tipo_logistica || '', observacoes || '', data_entrega || null, hora_entrega || null]
         );
         res.status(201).json({ success: true, data: result.rows[0], message: 'Pedido criado com sucesso!' });
     } catch (err) {

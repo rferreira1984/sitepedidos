@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Salgados Cia - Cardápio Digital</title>
+    <title>Salgados & Cia - Cardápio Digital</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -215,29 +215,54 @@
                     <input type="tel" id="checkoutTelefone" placeholder="(11) 99999-9999" required>
                 </div>
                 <div class="form-group">
-                    <label>Endereço de entrega</label>
-                    <div class="form-row">
-                        <input type="text" id="checkoutRua" placeholder="Rua" style="grid-column:1/-1;">
-                    </div>
-                    <div class="form-row" style="margin-top:6px;">
-                        <input type="text" id="checkoutNumero" placeholder="Número">
-                        <input type="text" id="checkoutBairro" placeholder="Bairro">
-                    </div>
-                </div>
-                <div class="form-group">
+    <label>Tipo de entrega</label>
+    <select id="checkoutLogistica" onchange="toggleEndereco()">
+        <option value="Entrega">Entrega</option>
+        <option value="Retirada">Retirada no local</option>
+    </select>
+</div>
+
+<div id="enderecoSection">
+    <div class="form-group">
+        <label>Endereço de entrega</label>
+        <div class="form-row">
+            <input type="text" id="checkoutRua" placeholder="Rua" style="grid-column:1/-1;">
+        </div>
+        <div class="form-row" style="margin-top:6px;">
+            <input type="text" id="checkoutNumero" placeholder="Número">
+            <input type="text" id="checkoutBairro" placeholder="Bairro">
+            <input type="text" id="checkoutcep" placeholder="Cep">
+        </div>
+    </div>
+</div>
+
+<div id="retiradaInfo" style="display:none;" class="form-group">
+    <label>📍 Local de Retirada</label>
+    <div style="background:#f9fafb;border-radius:8px;padding:12px;font-size:13px;line-height:1.6;">
+        <strong>Salgados Cia</strong><br>
+        Rua Espinelo, 123 - Esmeralda<br>
+        <br>
+        <span style="color:#7c3aed;">🕐 Seg-Sex: 8h-19h | Sáb: 8h-17h</span>
+    </div>
+</div>
+
+<div class="form-row" style="gap:10px;">
+    <div class="form-group" style="flex:1;">
+        <label>📅 Data de Entrega/Retirada *</label>
+        <input type="date" id="checkoutData" required>
+    </div>
+    <div class="form-group" style="flex:1;">
+        <label>⏰ Horário *</label>
+        <input type="time" id="checkoutHora" required>
+    </div>
+</div>
+<div class="form-group">
                     <label>Forma de pagamento</label>
                     <select id="checkoutPagamento">
                         <option value="Dinheiro">Dinheiro</option>
                         <option value="Pix">Pix</option>
                         <option value="Cartão Crédito">Cartão de Crédito</option>
                         <option value="Cartão Débito">Cartão de Débito</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Tipo de entrega</label>
-                    <select id="checkoutLogistica">
-                        <option value="Entrega">Entrega</option>
-                        <option value="Retirada">Retirada no local</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -702,7 +727,11 @@
             document.getElementById('cartOverlay').classList.remove('active');
             document.getElementById('cartSidebar').classList.remove('open');
         }
-
+        function toggleEndereco() {
+    const tipo = document.getElementById('checkoutLogistica').value;
+    document.getElementById('enderecoSection').style.display = tipo === 'Retirada' ? 'none' : '';
+    document.getElementById('retiradaInfo').style.display = tipo === 'Retirada' ? '' : 'none';
+}
         function abrirCheckout() {
             if (carrinho.length === 0) { mostrarToast('Carrinho vazio!', 'error'); return; }
             fecharCarrinho();
@@ -722,39 +751,45 @@
         }
 
         async function finalizarPedido(e) {
-            e.preventDefault();
-            const nome = document.getElementById('checkoutNome').value.trim();
-            const telefone = document.getElementById('checkoutTelefone').value.trim();
-            if (!nome || !telefone) { mostrarToast('Nome e telefone obrigatórios', 'error'); return; }
-            if (carrinho.length === 0) { mostrarToast('Carrinho vazio!', 'error'); return; }
-            const btn = document.getElementById('btnFinalizar');
-            btn.disabled = true; btn.textContent = 'Enviando...';
-            const itemsStr = carrinho.map(i => `${i.icone || ''} ${i.nome} x${i.qtd} = R$ ${(i.preco * i.qtd).toFixed(2)}${i.descricao ? ' (' + i.descricao + ')' : ''}`).join(' | ');
-            const total = carrinho.reduce((s, i) => s + i.preco * i.qtd, 0);
-            try {
-                const res = await fetch(API + '/pedidos', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        nome_cliente: nome, telefone,
-                        endereco_rua: document.getElementById('checkoutRua').value,
-                        endereco_numero: document.getElementById('checkoutNumero').value,
-                        endereco_bairro: document.getElementById('checkoutBairro').value,
-                        items: itemsStr, valor_total: total,
-                        forma_pagamento: document.getElementById('checkoutPagamento').value,
-                        tipo_logistica: document.getElementById('checkoutLogistica').value,
-                        observacoes: document.getElementById('checkoutObs').value
-                    })
-                });
-                const json = await res.json();
-                if (!json.success) throw new Error(json.message);
-                mostrarToast('✅ Pedido realizado com sucesso!', 'success');
-                carrinho = []; localStorage.setItem('carrinho', JSON.stringify(carrinho));
-                atualizarCarrinhoUI(); fecharCheckout();
-                document.getElementById('checkoutForm').reset();
-            } catch (err) { mostrarToast('Erro: ' + err.message, 'error'); }
-            finally { btn.disabled = false; btn.textContent = 'Confirmar Pedido'; }
-        }
+    e.preventDefault();
+    const nome = document.getElementById('checkoutNome').value.trim();
+    const telefone = document.getElementById('checkoutTelefone').value.trim();
+    const data = document.getElementById('checkoutData').value;
+    const hora = document.getElementById('checkoutHora').value;
+    if (!nome || !telefone) { mostrarToast('Nome e telefone obrigatórios', 'error'); return; }
+    if (!data || !hora) { mostrarToast('Selecione data e horário', 'error'); return; }
+    if (carrinho.length === 0) { mostrarToast('Carrinho vazio!', 'error'); return; }
+    const btn = document.getElementById('btnFinalizar');
+    btn.disabled = true; btn.textContent = 'Enviando...';
+    const itemsStr = carrinho.map(i => `${i.icone || ''} ${i.nome} x${i.qtd} = R$ ${(i.preco * i.qtd).toFixed(2)}${i.descricao ? ' (' + i.descricao + ')' : ''}`).join(' | ');
+    const total = carrinho.reduce((s, i) => s + i.preco * i.qtd, 0);
+    try {
+        const res = await fetch(API + '/pedidos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                nome_cliente: nome, telefone,
+                endereco_rua: document.getElementById('checkoutRua').value,
+                endereco_numero: document.getElementById('checkoutNumero').value,
+                endereco_bairro: document.getElementById('checkoutBairro').value,
+                endereco_cep: document.getElementById('checkoutBairro').value,
+                items: itemsStr, valor_total: total,
+                forma_pagamento: document.getElementById('checkoutPagamento').value,
+                tipo_logistica: document.getElementById('checkoutLogistica').value,
+                observacoes: document.getElementById('checkoutObs').value,
+                data_entrega: data,
+                hora_entrega: hora
+            })
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.message);
+        mostrarToast('✅ Pedido realizado com sucesso!', 'success');
+        carrinho = []; localStorage.setItem('carrinho', JSON.stringify(carrinho));
+        atualizarCarrinhoUI(); fecharCheckout();
+        document.getElementById('checkoutForm').reset();
+    } catch (err) { mostrarToast('Erro: ' + err.message, 'error'); }
+    finally { btn.disabled = false; btn.textContent = 'Confirmar Pedido'; }
+}
 
         carregarCardapio();
         atualizarCarrinhoUI();

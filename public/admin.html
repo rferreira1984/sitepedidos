@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel Admin - Salgados Cia</title>
+    <title>Painel Admin - Salgados & Cia</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -239,7 +239,7 @@
                 <section class="table-container">
                     <div style="overflow-x:auto;">
                         <table class="orders-table">
-                            <thead><tr><th>ID</th><th>Cliente</th><th>Telefone</th><th>Produtos</th><th>Valor</th><th>Pagamento</th><th>Logística</th><th>Data</th><th>Status</th><th>Ações</th></tr></thead>
+                            <thead><tr><th>ID</th><th>Cliente</th><th>Telefone</th><th>Produtos</th><th>Valor</th><th>Pagamento</th><th>Logística</th><th>Data Pedido</th><th>Data Entrega</th><th>Hora Agendada</th><th>Status</th><th>Ações</th></tr></thead>
                             <tbody id="ordersBody"><tr><td colspan="10" style="text-align:center;padding:40px;color:#6b7280;"><div class="loading-spinner"><i class="fas fa-spinner"></i><br><br>Carregando pedidos...</div></td></tr></tbody>
                         </table>
                     </div>
@@ -368,7 +368,7 @@
                 } else {
                     tbody.innerHTML = data.map(p => {
                         const sc = p.status === 'Pendente' ? 'pending' : p.status === 'Em Producao' ? 'production' : p.status === 'Em Andamento' ? 'in-progress' : p.status === 'Entregue' ? 'delivered' : 'canceled';
-                        return '<tr><td><strong>#' + String(p.id).padStart(3,'0') + '</strong></td><td>' + (p.nome_cliente||'-') + '</td><td>' + (p.telefone||'-') + '</td><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (p.items||'') + '">' + (p.items||'-') + '</td><td><strong>R$ ' + parseFloat(p.valor_total||0).toFixed(2).replace('.',',') + '</strong></td><td>' + (p.forma_pagamento||'-') + '</td><td>' + (p.tipo_logistica||'-') + '</td><td>' + (p.data_criacao ? new Date(p.data_criacao).toLocaleDateString('pt-BR') : '-') + '</td><td><span class="status-badge ' + sc + '">' + p.status + '</span></td><td><button class="btn-action" onclick="abrirDetalhes(' + p.id + ')" title="Ver detalhes"><i class="fas fa-eye"></i></button></td></tr>';
+                        return '<tr><td><strong>#' + String(p.id).padStart(3,'0') + '</strong></td><td>' + (p.nome_cliente||'-') + '</td><td>' + (p.telefone||'-') + '</td><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (p.items||'') + '">' + (p.items||'-') + '</td><td><strong>R$ ' + parseFloat(p.valor_total||0).toFixed(2).replace('.',',') + '</strong></td><td>' + (p.forma_pagamento||'-') + '</td><td>' + (p.tipo_logistica||'-') + '</td><td>' + (p.data_criacao ? new Date(p.data_criacao).toLocaleDateString('pt-BR') : '-') + '<td>' + (p.data_entrega ? new Date(p.data_entrega).toLocaleDateString('pt-BR') +  '<td>'  + (p.hora_entrega || '') : '-') + '</td>' +'</td><td><span class="status-badge ' + sc + '">' + p.status + '</span></td><td><button class="btn-action" onclick="abrirDetalhes(' + p.id + ')" title="Ver detalhes"><i class="fas fa-eye"></i></button></td></tr>';
                     }).join('');
                 }
                 document.getElementById('paginationInfo').textContent = 'Página ' + currentPage + ' de ' + totalPages + ' (' + pagination.total + ' pedidos)';
@@ -408,6 +408,8 @@
                         <div class="detail-item"><label>Valor Total</label><span><strong>R$ ${parseFloat(p.valor_total||0).toFixed(2).replace('.',',')}</strong></span></div>
                         <div class="detail-item"><label>Pagamento</label><span>${p.forma_pagamento || '-'}</span></div>
                         <div class="detail-item"><label>Logística</label><span>${p.tipo_logistica || '-'}</span></div>
+                        <div class="detail-item"><label>Data Entrega</label><span>${p.data_entrega ? new Date(p.data_entrega).toLocaleDateString('pt-BR') : '-'}</span></div>
+                        <div class="detail-item"><label>Horário</label><span>${p.hora_entrega || '-'}</span></div>
                         <div class="detail-item"><label>Data</label><span>${p.data_criacao ? new Date(p.data_criacao).toLocaleString('pt-BR') : '-'}</span></div>
                         <div class="detail-item"><label>Status Atual</label><span><span class="status-badge ${sc}">${p.status}</span></span></div>
                         ${p.observacoes ? '<div class="detail-item full"><label>Observações</label><span>' + p.observacoes + '</span></div>' : ''}
