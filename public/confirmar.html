@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirmação de Pedido - Salgados & Cia</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #0f0f1a, #1a1a2e); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .card { background: #1e1e36; border: 1px solid #2a2a4a; border-radius: 20px; padding: 48px 40px; max-width: 420px; width: 100%; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+        .icon { font-size: 64px; margin-bottom: 16px; }
+        h1 { color: #fff; font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+        p { color: #9ca3af; font-size: 14px; margin-bottom: 8px; line-height: 1.6; }
+        .status { font-size: 15px; font-weight: 700; margin-top: 16px; }
+        .ok { color: #34d399; }
+        .err { color: #f87171; }
+        .loading { color: #fbbf24; }
+        .btn { display: inline-block; margin-top: 24px; padding: 14px 32px; background: #7c3aed; color: #fff; border-radius: 12px; text-decoration: none; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon" id="icon">⏳</div>
+        <h1 id="titulo">Confirmando pedido...</h1>
+        <p id="mensagem">Aguarde um instante.</p>
+        <div class="status loading" id="status">Verificando link...</div>
+        <a class="btn" href="/" style="display:none;" id="btnVoltar">← Voltar ao cardápio</a>
+    </div>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token');
+        if (!token) {
+            document.getElementById('icon').textContent = '❌';
+            document.getElementById('titulo').textContent = 'Link inválido';
+            document.getElementById('mensagem').textContent = 'Este link não é válido.';
+            document.getElementById('status').className = 'status err';
+            document.getElementById('btnVoltar').style.display = 'inline-block';
+        } else {
+            fetch('/api/pedidos/confirmar/' + token)
+                .then(r => r.json())
+                .then(json => {
+                    if (json.success) {
+                        document.getElementById('icon').textContent = '✅';
+                        document.getElementById('titulo').textContent = 'Pedido confirmado!';
+                        document.getElementById('mensagem').textContent = 'Seu pedido #' + String(json.pedido_id).padStart(3, '0') + ' foi confirmado. Em breve entraremos em contato!';
+                        document.getElementById('status').className = 'status ok';
+                    } else {
+                        document.getElementById('icon').textContent = '❌';
+                        document.getElementById('titulo').textContent = 'Link inválido ou expirado';
+                        document.getElementById('mensagem').textContent = json.message || 'Não foi possível confirmar o pedido.';
+                        document.getElementById('status').className = 'status err';
+                    }
+                    document.getElementById('btnVoltar').style.display = 'inline-block';
+                })
+                .catch(() => {
+                    document.getElementById('icon').textContent = '❌';
+                    document.getElementById('titulo').textContent = 'Erro';
+                    document.getElementById('mensagem').textContent = 'Não foi possível confirmar. Tente novamente.';
+                    document.getElementById('status').className = 'status err';
+                    document.getElementById('btnVoltar').style.display = 'inline-block';
+                });
+        }
+    </script>
+</body>
+</html>

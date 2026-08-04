@@ -230,6 +230,7 @@
                             <option value="Em Andamento">Em Andamento</option>
                             <option value="Entregue">Entregue</option>
                             <option value="Cancelado">Cancelado</option>
+                            <option value="Aguardando Confirmacao">Aguardando Confirmação</option>
                         </select>
                         <button class="btn-filter" onclick="carregarPedidos(1)"><i class="fas fa-filter"></i> Buscar</button>
                         <button class="btn-filter btn-filter-secondary" onclick="limparFiltros()"><i class="fas fa-undo"></i> Limpar</button>
@@ -367,7 +368,7 @@
                     tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:40px;color:#6b7280;">Nenhum pedido encontrado.</td></tr>';
                 } else {
                     tbody.innerHTML = data.map(p => {
-                        const sc = p.status === 'Pendente' ? 'pending' : p.status === 'Em Producao' ? 'production' : p.status === 'Em Andamento' ? 'in-progress' : p.status === 'Entregue' ? 'delivered' : 'canceled';
+                        const sc = p.status === 'Pendente' ? 'pending' : p.status === 'Aguardando Confirmacao' ? 'pending' : p.status === 'Em Producao' ? 'production' : p.status === 'Em Andamento' ? 'in-progress' : p.status === 'Entregue' ? 'delivered' : 'canceled';
                         return '<tr><td><strong>#' + String(p.id).padStart(3,'0') + '</strong></td><td>' + (p.nome_cliente||'-') + '</td><td>' + (p.telefone||'-') + '</td><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (p.items||'') + '">' + (p.items||'-') + '</td><td><strong>R$ ' + parseFloat(p.valor_total||0).toFixed(2).replace('.',',') + '</strong></td><td>' + (p.forma_pagamento||'-') + '</td><td>' + (p.tipo_logistica||'-') + '</td><td>' + (p.data_criacao ? new Date(p.data_criacao).toLocaleDateString('pt-BR') : '-') + '<td>' + (p.data_entrega ? new Date(p.data_entrega).toLocaleDateString('pt-BR') +  '<td>'  + (p.hora_entrega || '') : '-') + '</td>' +'</td><td><span class="status-badge ' + sc + '">' + p.status + '</span></td><td><button class="btn-action" onclick="abrirDetalhes(' + p.id + ')" title="Ver detalhes"><i class="fas fa-eye"></i></button></td></tr>';
                     }).join('');
                 }

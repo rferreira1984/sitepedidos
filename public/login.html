@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entrar - Salgados & Cia</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #7c3aed, #4c1d95); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .card { background: #fff; border-radius: 20px; padding: 40px 36px; max-width: 420px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        .logo { text-align: center; margin-bottom: 24px; }
+        .logo .icon { font-size: 48px; }
+        .logo h1 { font-size: 24px; font-weight: 800; color: #1a1a2e; margin-top: 8px; }
+        .logo p { font-size: 13px; color: #6b7280; margin-top: 4px; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 12px; font-weight: 600; color: #4b5563; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .form-group input { width: 100%; padding: 13px 14px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 15px; outline: none; font-family: 'Inter', sans-serif; transition: all 0.2s; }
+        .form-group input:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,0.15); }
+        .btn-primary { width: 100%; padding: 14px; background: linear-gradient(135deg, #7c3aed, #6d28d9); border: none; border-radius: 12px; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif; }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 25px rgba(124,58,237,0.3); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .error-msg { background: #fef2f2; color: #dc2626; font-size: 13px; padding: 10px 12px; border-radius: 8px; margin-bottom: 14px; display: none; text-align: center; }
+        .error-msg.show { display: block; }
+        .links { text-align: center; margin-top: 20px; font-size: 13px; color: #6b7280; }
+        .links a { color: #7c3aed; font-weight: 600; text-decoration: none; }
+        .links a:hover { text-decoration: underline; }
+        .back { display: block; text-align: center; margin-top: 16px; font-size: 13px; color: #9ca3af; text-decoration: none; }
+        .back:hover { color: #6b7280; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="logo">
+            <div class="icon">👤</div>
+            <h1>Entrar na sua conta</h1>
+            <p>Faça login para pedir sem confirmação</p>
+        </div>
+
+        <div class="error-msg" id="errorMsg"></div>
+
+        <form id="loginForm" onsubmit="return fazerLogin(event)">
+            <div class="form-group">
+                <label>Telefone / WhatsApp</label>
+                <input type="tel" id="telefone" placeholder="(11) 99999-9999" required>
+            </div>
+            <div class="form-group">
+                <label>Senha</label>
+                <input type="password" id="senha" placeholder="••••••••" required>
+            </div>
+            <button type="submit" class="btn-primary" id="btnLogin">Entrar</button>
+        </form>
+
+        <div class="links">
+            Não tem conta? <a href="/cadastro.html" id="linkCadastro">Cadastre-se</a>
+        </div>
+        <a href="/" class="back">← Voltar ao cardápio</a>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const checkout = params.get('checkout') === '1';
+
+        document.getElementById('linkCadastro').href = '/cadastro.html' + (checkout ? '?checkout=1' : '');
+
+        async function fazerLogin(e) {
+            e.preventDefault();
+            const telefone = document.getElementById('telefone').value.trim();
+            const senha = document.getElementById('senha').value;
+            const btn = document.getElementById('btnLogin');
+            const errEl = document.getElementById('errorMsg');
+            errEl.classList.remove('show');
+            btn.disabled = true; btn.textContent = 'Entrando...';
+            try {
+                const res = await fetch('/api/auth/cliente/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ telefone, senha })
+                });
+                const json = await res.json();
+                if (!json.success) throw new Error(json.message);
+                localStorage.setItem('clienteToken', json.token);
+                localStorage.setItem('clienteDados', JSON.stringify(json.cliente));
+                window.location.href = '/' + (checkout ? '?checkout=1' : '');
+            } catch (err) {
+                errEl.textContent = err.message;
+                errEl.classList.add('show');
+                btn.disabled = false; btn.textContent = 'Entrar';
+            }
+            return false;
+        }
+    </script>
+</body>
+</html>

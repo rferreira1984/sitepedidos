@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const crypto = require('crypto');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -9,6 +10,7 @@ const jwt = require('jsonwebtoken');
 const app = express();
 const PORT = process.env.PORT || 80;
 const JWT_SECRET = process.env.JWT_SECRET || 'salgadoscia_secret_key_2026';
+const SITE_URL = process.env.SITE_URL || 'http://localhost:3001';
 
 app.use(cors());
 app.use(express.json());
@@ -47,7 +49,6 @@ function authMiddleware(req, res, next) {
 
 // ==================== ROTAS PÚBLICAS ====================
 
-// GET /api/categorias
 app.get('/api/categorias', async (req, res) => {
     try {
         const result = await pool.query('SELECT id, name, slug, description, display_order FROM s_categories ORDER BY display_order');
@@ -58,7 +59,6 @@ app.get('/api/categorias', async (req, res) => {
     }
 });
 
-// GET /api/produtos - com preços
 app.get('/api/produtos', async (req, res) => {
     try {
         const { categoria } = req.query;
@@ -69,18 +69,15 @@ app.get('/api/produtos', async (req, res) => {
             params.push(categoria);
         }
         productQuery += ' ORDER BY c.display_order, p.display_order, p.name';
-
         const products = await pool.query(productQuery, params);
         const result = [];
-
         for (const p of products.rows) {
             const prices = await pool.query(
-    'SELECT id, price_type, quantity, unit_label, label, price, is_active, opcoes, composicao, regras, regras_quantidades FROM s_product_prices WHERE product_id = $1 AND is_active = true ORDER BY price_type, quantity',
-    [p.id]
-);
+                'SELECT id, price_type, quantity, unit_label, label, price, is_active, opcoes, composicao, regras, regras_quantidades FROM s_product_prices WHERE product_id = $1 AND is_active = true ORDER BY price_type, quantity',
+                [p.id]
+            );
             result.push({ ...p, prices: prices.rows });
         }
-
         res.json({ success: true, data: result });
     } catch (err) {
         console.error('Erro ao buscar produtos:', err);
@@ -88,7 +85,6 @@ app.get('/api/produtos', async (req, res) => {
     }
 });
 
-// GET /api/produtos/:id
 app.get('/api/produtos/:id', async (req, res) => {
     try {
         const product = await pool.query(
@@ -106,38 +102,85 @@ app.get('/api/produtos/:id', async (req, res) => {
     }
 });
 
-// POST /api/pedidos - Cliente cria pedido
+// POST /api/pedidos - Cliente cria pedido (com opção de link de confirmação)
 app.post('/api/pedidos', async (req, res) => {
     try {
-        const { nome_cliente, telefone, endereco_rua, endereco_numero, endereco_bairro, endereco_cep, items, valor_total, taxa_entrega, forma_pagamento, tipo_logistica, observacoes, data_entrega, hora_entrega } = req.body;
+        const { nome_cliente, telefone, endereco_rua, endereco_numero, endereco_bairro, endereco_cep, items, valor_total, taxa_entrega, forma_pagamento, tipo_logistica, observacoes, data_entrega, hora_entrega, cliente_id, confirmar_whatsapp } = req.body;
         if (!nome_cliente || !telefone || !items || !valor_total) {
             return res.status(400).json({ success: false, message: 'Nome, telefone, items e valor total são obrigatórios' });
         }
 
-        // Normalizar data e hora (aceita datetime-local ou ISO)
         let dataEntrega = data_entrega || null;
         let horaEntrega = hora_entrega || null;
-        if (dataEntrega && String(dataEntrega).includes('T')) {
-            dataEntrega = String(dataEntrega).substring(0, 10);
-        }
-        if (horaEntrega && String(horaEntrega).includes('T')) {
-            horaEntrega = String(horaEntrega).substring(11, 16);
-        }
-        if (horaEntrega && horaEntrega.length > 5) {
-            horaEntrega = horaEntrega.substring(0, 5);
-        }
+        if (dataEntrega && String(dataEntrega).includes('T')) dataEntrega = String(dataEntrega).substring(0, 10);
+        if (horaEntrega && String(horaEntrega).includes('T')) horaEntrega = String(horaEntrega).substring(11, 16);
+        if (horaEntrega && horaEntrega.length > 5) horaEntrega = horaEntrega.substring(0, 5);
+
+        const statusInicial = (confirmar_whatsapp && !cliente_id) ? 'Aguardando Confirmacao' : 'Pendente';
+
         const result = await pool.query(
-            `INSERT INTO s_pedidos (nome_cliente, telefone, endereco_rua, endereco_numero, endereco_bairro, endereco_cep, items, valor_total, taxa_entrega, forma_pagamento, tipo_logistica, observacoes, data_entrega, hora_entrega, status)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'Pendente') RETURNING *`,
-            [nome_cliente, telefone, endereco_rua || '', endereco_numero || '', endereco_bairro || '', endereco_cep || '', items, valor_total, taxa_entrega || 0, forma_pagamento || '', tipo_logistica || '', observacoes || '', dataEntrega, horaEntrega]
+            `INSERT INTO s_pedidos (nome_cliente, telefone, endereco_rua, endereco_numero, endereco_bairro, endereco_cep, items, valor_total, taxa_entrega, forma_pagamento, tipo_logistica, observacoes, data_entrega, hora_entrega, cliente_id, status)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
+            [nome_cliente, telefone, endereco_rua || '', endereco_numero || '', endereco_bairro || '', endereco_cep || '', items, valor_total, taxa_entrega || 0, forma_pagamento || '', tipo_logistica || '', observacoes || '', dataEntrega, horaEntrega, cliente_id || null, statusInicial]
         );
-        res.status(201).json({ success: true, data: result.rows[0], message: 'Pedido criado com sucesso!' });
+
+        const pedido = result.rows[0];
+
+        // Se pediu confirmação por link: gera token e retorna o link (sem enviar WhatsApp por enquanto)
+        if (confirmar_whatsapp) {
+            const token = crypto.randomBytes(32).toString('hex');
+            const expiraEm = new Date(Date.now() + 30 * 60 * 1000); // 30 min
+            await pool.query(
+                'INSERT INTO tokens_confirmacao (pedido_id, telefone, token, expira_em) VALUES ($1,$2,$3,$4)',
+                [pedido.id, telefone, token, expiraEm]
+            );
+            const link = `${SITE_URL}/confirmar.html?token=${token}`;
+            return res.status(201).json({ success: true, data: pedido, link_confirmacao: link, message: 'Pedido criado! Confirme pelo link.' });
+        }
+
+        res.status(201).json({ success: true, data: pedido, message: 'Pedido criado com sucesso!' });
     } catch (err) {
         console.error('Erro ao criar pedido:', err);
         res.status(500).json({ success: false, message: 'Erro ao criar pedido' });
     }
 });
 
+// Confirmar pedido pelo link (público)
+app.get('/api/pedidos/confirmar/:token', async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT tc.*, p.status FROM tokens_confirmacao tc
+             JOIN s_pedidos p ON p.id = tc.pedido_id
+             WHERE tc.token = $1`,
+            [req.params.token]
+        );
+        if (result.rows.length === 0) {
+            return res.status(400).json({ success: false, message: 'Link inválido ou expirado. Solicite um novo link.' });
+        }
+        const token = result.rows[0];
+
+        // Já confirmado antes — não é erro, é aviso
+        if (token.confirmado) {
+            return res.json({ success: true, message: 'Este pedido já foi confirmado anteriormente!', pedido_id: token.pedido_id });
+        }
+
+        // Expirado
+        if (new Date(token.expira_em) < new Date()) {
+            return res.status(400).json({ success: false, message: 'Link expirado. Faça um novo pedido ou solicite outro link.' });
+        }
+
+        await pool.query('UPDATE tokens_confirmacao SET confirmado = true WHERE id = $1', [token.id]);
+        await pool.query('UPDATE s_pedidos SET status = $1 WHERE id = $2', ['Pendente', token.pedido_id]);
+        await pool.query(
+            'INSERT INTO status_historico (pedido_id, status_anterior, status_novo, observacao) VALUES ($1,$2,$3,$4)',
+            [token.pedido_id, 'Aguardando Confirmacao', 'Pendente', 'Confirmado pelo link']
+        );
+        res.json({ success: true, message: 'Pedido confirmado com sucesso!', pedido_id: token.pedido_id });
+    } catch (err) {
+        console.error('Erro ao confirmar pedido:', err);
+        res.status(500).json({ success: false, message: 'Erro ao confirmar pedido' });
+    }
+});
 // ==================== ROTAS DE AUTENTICAÇÃO ====================
 
 app.post('/api/auth/login', async (req, res) => {
@@ -164,6 +207,91 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     } catch (err) {
         res.status(500).json({ success: false, message: 'Erro interno' });
     }
+});
+
+// ==================== AUTENTICAÇÃO DO CLIENTE (login telefone + senha) ====================
+
+app.post('/api/auth/cliente/registrar', async (req, res) => {
+    try {
+        const { nome, telefone, senha } = req.body;
+        if (!nome || !telefone || !senha) {
+            return res.status(400).json({ success: false, message: 'Nome, telefone e senha são obrigatórios' });
+        }
+        const telefoneLimpo = telefone.replace(/\D/g, '');
+        if (telefoneLimpo.length < 10) {
+            return res.status(400).json({ success: false, message: 'Telefone inválido' });
+        }
+        const existente = await pool.query('SELECT * FROM clientes WHERE telefone = $1', [telefoneLimpo]);
+        if (existente.rows.length > 0) {
+            return res.status(400).json({ success: false, message: 'Este telefone já está cadastrado. Faça login.' });
+        }
+        const senhaHash = await bcrypt.hash(senha, 10);
+        const result = await pool.query(
+            'INSERT INTO clientes (nome, telefone, senha_hash) VALUES ($1, $2, $3) RETURNING id, nome, telefone',
+            [nome, telefoneLimpo, senhaHash]
+        );
+        const token = jwt.sign({ id: result.rows[0].id, tipo: 'cliente' }, JWT_SECRET, { expiresIn: '30d' });
+        res.status(201).json({ success: true, token, cliente: result.rows[0], message: 'Conta criada!' });
+    } catch (err) {
+        console.error('Erro ao registrar cliente:', err);
+        res.status(500).json({ success: false, message: 'Erro ao registrar' });
+    }
+});
+
+app.post('/api/auth/cliente/login', async (req, res) => {
+    try {
+        const { telefone, senha } = req.body;
+        if (!telefone || !senha) {
+            return res.status(400).json({ success: false, message: 'Telefone e senha são obrigatórios' });
+        }
+        const telefoneLimpo = telefone.replace(/\D/g, '');
+        const result = await pool.query('SELECT * FROM clientes WHERE telefone = $1', [telefoneLimpo]);
+        if (result.rows.length === 0) {
+            return res.status(401).json({ success: false, message: 'Telefone não cadastrado' });
+        }
+        const cliente = result.rows[0];
+        const senhaValida = await bcrypt.compare(senha, cliente.senha_hash);
+        if (!senhaValida) {
+            return res.status(401).json({ success: false, message: 'Senha incorreta' });
+        }
+        const token = jwt.sign({ id: cliente.id, tipo: 'cliente' }, JWT_SECRET, { expiresIn: '30d' });
+        res.json({ success: true, token, cliente: { id: cliente.id, nome: cliente.nome, telefone: cliente.telefone } });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Erro no login' });
+    }
+});
+
+function authClienteMiddleware(req, res, next) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ success: false, message: 'Token não fornecido' });
+    const token = authHeader.split(' ')[1];
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        if (decoded.tipo !== 'cliente') throw new Error('Token inválido');
+        req.cliente = decoded;
+        next();
+    } catch (err) {
+        return res.status(401).json({ success: false, message: 'Token inválido ou expirado' });
+    }
+}
+
+app.get('/api/meus-pedidos', authClienteMiddleware, async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT * FROM s_pedidos WHERE cliente_id = $1 ORDER BY data_criacao DESC',
+            [req.cliente.id]
+        );
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Erro ao buscar pedidos' });
+    }
+});
+app.get('/login.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.get('/cadastro.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'cadastro.html'));
 });
 
 // ==================== ROTAS ADMIN (PROTEGIDAS) ====================
@@ -206,7 +334,7 @@ app.get('/api/pedidos/:id', authMiddleware, async (req, res) => {
 app.put('/api/pedidos/:id/status', authMiddleware, async (req, res) => {
     try {
         const { status, observacao } = req.body;
-        const validos = ['Pendente', 'Em Producao', 'Em Andamento', 'Entregue', 'Cancelado'];
+        const validos = ['Aguardando Confirmacao', 'Pendente', 'Em Producao', 'Em Andamento', 'Entregue', 'Cancelado'];
         if (!validos.includes(status)) return res.status(400).json({ success: false, message: 'Status inválido' });
         const atual = await pool.query('SELECT status FROM s_pedidos WHERE id = $1', [req.params.id]);
         if (atual.rows.length === 0) return res.status(404).json({ success: false, message: 'Pedido não encontrado' });
@@ -320,13 +448,17 @@ app.delete('/api/precos/:id', authMiddleware, async (req, res) => {
     }
 });
 
-// ==================== FALLBACK SPA ====================
+// ==================== PÁGINAS ====================
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+app.get('/confirmar.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'confirmar.html'));
 });
 
 app.get('*', (req, res) => {
