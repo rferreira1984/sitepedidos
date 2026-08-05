@@ -11,6 +11,7 @@ const app = express();
 const PORT = process.env.PORT || 80;
 const JWT_SECRET = process.env.JWT_SECRET || 'salgadoscia_secret_key_2026';
 const SITE_URL = process.env.SITE_URL || 'http://localhost:3001';
+const WEBHOOK_CONFIRMACAO = process.env.WEBHOOK_CONFIRMACAO || 'https://n8n-salgadoscia-n8n.hjs9cn.easypanel.host/webhook/27084bb2-983f-45b7-8a91-f3627a1704b7';
 
 app.use(cors());
 app.use(express.json());
@@ -135,6 +136,8 @@ app.post('/api/pedidos', async (req, res) => {
                 [pedido.id, telefone, token, expiraEm]
             );
             const link = `${SITE_URL}/confirmar.html?token=${token}`;
+            // Enviar link para o webhook (n8n)
+            await enviarWebhookConfirmacao(link);
             return res.status(201).json({ success: true, data: pedido, link_confirmacao: link, message: 'Pedido criado! Confirme pelo link.' });
         }
 
@@ -181,6 +184,24 @@ app.get('/api/pedidos/confirmar/:token', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao confirmar pedido' });
     }
 });
+
+async function enviarWebhookConfirmacao(link) {
+    try {
+        const res = await fetch(WEBHOOK_CONFIRMACAO, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                mensagem: 'Clique no link para abaixo para Confirmar seu Pedido',
+                link: link
+            })
+        });
+        console.log('Webhook de confirmação enviado:', res.status);
+        return true;
+    } catch (err) {
+        console.error('Erro ao enviar webhook:', err.message);
+        return false;
+    }
+}
 // ==================== ROTAS DE AUTENTICAÇÃO ====================
 
 app.post('/api/auth/login', async (req, res) => {
@@ -208,6 +229,7 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro interno' });
     }
 });
+
 
 // ==================== AUTENTICAÇÃO DO CLIENTE (login telefone + senha) ====================
 

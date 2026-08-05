@@ -299,17 +299,13 @@
         </div>
     </div>
 
+      <!-- Modal Link de Confirmação -->
     <div class="checkout-overlay" id="linkModalOverlay">
-        <div class="checkout-modal" style="text-align:center;">
+        <div class="checkout-modal" style="text-align:center;position:relative;">
+            <button class="cart-close" onclick="fecharLinkModal()" style="position:absolute;top:12px;right:12px;background:transparent;border:none;font-size:24px;cursor:pointer;color:#6b7280;width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;">&times;</button>
             <h2>🔗 Confirme seu pedido</h2>
-            <p style="color:#6b7280;font-size:13px;margin-bottom:16px;">Seu pedido foi criado! Clique no link abaixo para confirmar (válido por 30 minutos):</p>
-            <div class="link-box">
-                <a id="linkConfirmacao" href="#" target="_blank" style="color:#7c3aed;font-weight:600;font-size:13px;"></a>
-            </div>
-            <div style="display:flex;gap:10px;">
-                <button class="btn-checkout" onclick="copiarLink()" style="background:#6b7280;">📋 Copiar</button>
-                <a id="btnAbrirLink" class="btn-checkout" href="#" target="_blank" style="text-decoration:none;display:flex;align-items:center;justify-content:center;">✅ Abrir Confirmação</a>
-            </div>
+            <p style="color:#6b7280;font-size:14px;margin:24px 0;line-height:1.6;">Seu pedido foi criado! Clique no link enviado no WhatsApp para confirmar (válido por 30 minutos)</p>
+            <button class="btn-checkout" onclick="fecharLinkModal()" style="background:#6b7280;">Fechar</button>
         </div>
     </div>
 
@@ -826,18 +822,14 @@
             finally { btn.disabled = false; btn.textContent = 'Confirmar via Link'; }
         }
 
-        function mostrarLinkConfirmacao(link) {
-            document.getElementById('linkConfirmacao').textContent = link;
-            document.getElementById('linkConfirmacao').href = link;
-            document.getElementById('btnAbrirLink').href = link;
+        function mostrarLinkConfirmacao() {
             document.getElementById('linkModalOverlay').classList.add('active');
         }
-
-        function copiarLink() {
-            const link = document.getElementById('linkConfirmacao').href;
-            if (navigator.clipboard) navigator.clipboard.writeText(link).then(() => mostrarToast('Link copiado!', 'success'));
-            else window.prompt('Copie o link:', link);
+         function fecharLinkModal() {
+            document.getElementById('linkModalOverlay').classList.remove('active');
         }
+
+        
 
         // ===== INICIALIZAÇÃO =====
         atualizarUIUsuario();
