@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 80;
 const JWT_SECRET = process.env.JWT_SECRET || 'salgadoscia_secret_key_2026';
 const SITE_URL = process.env.SITE_URL || 'http://localhost:3001';
 const WEBHOOK_CONFIRMACAO = process.env.WEBHOOK_CONFIRMACAO || 'https://n8n-salgadoscia-n8n.hjs9cn.easypanel.host/webhook/27084bb2-983f-45b7-8a91-f3627a1704b7';
-
+const WEBHOOK_VERIFICACAO = process.env.WEBHOOK_VERIFICACAO || 'https://n8n-salgadoscia-n8n.hjs9cn.easypanel.host/webhook/9764c692-0c00-4308-b490-6807e2816662';
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -118,7 +118,7 @@ app.post('/api/pedidos', async (req, res) => {
         if (horaEntrega && horaEntrega.length > 5) horaEntrega = horaEntrega.substring(0, 5);
 
         const statusInicial = (confirmar_whatsapp && !cliente_id) ? 'Aguardando Confirmacao' : 'Pendente';
-
+        
         const result = await pool.query(
             `INSERT INTO s_pedidos (nome_cliente, telefone, endereco_rua, endereco_numero, endereco_bairro, endereco_cep, items, valor_total, taxa_entrega, forma_pagamento, tipo_logistica, observacoes, data_entrega, hora_entrega, cliente_id, status)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
@@ -202,6 +202,24 @@ async function enviarWebhookConfirmacao(link) {
         return false;
     }
 }
+async function enviarWebhookVerificacao(numero, codigo) {
+    try {
+        const res = await fetch(WEBHOOK_VERIFICACAO, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                mensagem: `Seu código de verificação é ${codigo}`,
+                numero: numero,
+                codigo: codigo
+            })
+        });
+        console.log('Webhook de verificação enviado:', res.status);
+        return true;
+    } catch (err) {
+        console.error('Erro ao enviar webhook de verificação:', err.message);
+        return false;
+    }
+}
 // ==================== ROTAS DE AUTENTICAÇÃO ====================
 
 app.post('/api/auth/login', async (req, res) => {
@@ -282,7 +300,148 @@ app.post('/api/auth/cliente/login', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro no login' });
     }
 });
+app.post('/api/auth/cliente/enviar-codigo', async (req, res) => {
+    try {
+        const { telefone } = req.body;
+        if (!telefone) return res.status(400).json({ success: false, message: 'Telefone obrigatório' });
+        const telefoneLimpo = String(telefone).replace(/\D/g, '');  // <-- garantir limpeza
+        if (telefoneLimpo.length < 10) return res.status(400).json({ success: false, message: 'Telefone inválido' });
 
+        const codigo = String(Math.floor(1000 + Math.random() * 9000));
+        const expiraEm = new Date(Date.now() + 5 * 60 * 1000);
+
+        await pool.query('UPDATE codigos_verificacao SET usado = true WHERE telefone = $1', [telefoneLimpo]);
+        await pool.query(`INSERT INTO codigos_verificacao (telefone, codigo, expira_em)
+                        VALUES ($1, $2, NOW() + INTERVAL '10 minutes')`,
+                        [telefoneLimpo, codigo]);
+        
+
+        await enviarWebhookVerificacao(telefoneLimpo, codigo);
+        res.json({ success: true, message: 'Código enviado para seu WhatsApp!' });
+    } catch (err) {
+        console.error('Erro ao enviar código:', err);
+        res.status(500).json({ success: false, message: 'Erro ao enviar código' });
+    }
+});
+// Validar código de verificação
+app.post('/api/auth/cliente/validar-codigo', async (req, res) => {
+    try {
+        const { telefone, codigo } = req.body;
+        if (!telefone || !codigo) return res.status(400).json({ success: false, message: 'Telefone e código são obrigatórios' });
+
+        // Normalizar telefone (só dígitos) e código (string de 4 dígitos)
+        const telefoneLimpo = String(telefone).replace(/\D/g, '');
+        const codigoLimpo = String(codigo).replace(/\D/g, '');
+
+        if (telefoneLimpo.length < 10) return res.status(400).json({ success: false, message: 'Telefone inválido' });
+        if (codigoLimpo.length !== 4) return res.status(400).json({ success: false, message: 'Código deve ter 4 dígitos' });
+
+        // Buscar o código mais recente não usado e não expirado
+        const result = await pool.query(
+            `SELECT * FROM codigos_verificacao
+             WHERE telefone = $1 AND codigo = $2 AND usado = false AND expira_em > NOW()
+             ORDER BY id DESC LIMIT 1`,
+            [telefoneLimpo, codigoLimpo]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(400).json({ success: false, message: 'Código inválido ou expirado' });
+        }
+
+        await pool.query('UPDATE codigos_verificacao SET usado = true WHERE id = $1', [result.rows[0].id]);
+        res.json({ success: true, message: 'Código validado!' });
+    } catch (err) {
+        console.error('Erro ao validar código:', err);
+        res.status(500).json({ success: false, message: 'Erro ao validar código' });
+    }
+});
+
+// Recuperar senha - enviar código (telefone deve estar cadastrado)
+app.post('/api/auth/cliente/recuperar-enviar-codigo', async (req, res) => {
+    try {
+        const { telefone } = req.body;
+        if (!telefone) return res.status(400).json({ success: false, message: 'Telefone obrigatório' });
+        const telefoneLimpo = String(telefone).replace(/\D/g, '');
+        if (telefoneLimpo.length < 10) return res.status(400).json({ success: false, message: 'Telefone inválido' });
+
+        const existente = await pool.query('SELECT * FROM clientes WHERE telefone = $1', [telefoneLimpo]);
+        if (existente.rows.length === 0) {
+            return res.status(400).json({ success: false, message: 'Telefone não cadastrado. Crie uma conta primeiro.' });
+        }
+
+        const codigo = String(Math.floor(1000 + Math.random() * 9000));
+        await pool.query('UPDATE codigos_verificacao SET usado = true WHERE telefone = $1', [telefoneLimpo]);
+        await pool.query(
+            `INSERT INTO codigos_verificacao (telefone, codigo, expira_em)
+             VALUES ($1, $2, NOW() + INTERVAL '10 minutes')`,
+            [telefoneLimpo, codigo]
+        );
+
+        await enviarWebhookVerificacao(telefoneLimpo, codigo);
+        res.json({ success: true, message: 'Código enviado para seu WhatsApp!' });
+    } catch (err) {
+        console.error('Erro ao enviar código de recuperação:', err);
+        res.status(500).json({ success: false, message: 'Erro ao enviar código' });
+    }
+});
+
+// Recuperar senha - validar código (não marca como usado, apenas verifica)
+app.post('/api/auth/cliente/recuperar-validar-codigo', async (req, res) => {
+    try {
+        const { telefone, codigo } = req.body;
+        if (!telefone || !codigo) return res.status(400).json({ success: false, message: 'Telefone e código são obrigatórios' });
+        const telefoneLimpo = String(telefone).replace(/\D/g, '');
+        const codigoLimpo = String(codigo).replace(/\D/g, '');
+
+        const result = await pool.query(
+            `SELECT * FROM codigos_verificacao
+             WHERE telefone = $1 AND codigo = $2 AND usado = false AND expira_em > NOW()
+             ORDER BY id DESC LIMIT 1`,
+            [telefoneLimpo, codigoLimpo]
+        );
+        if (result.rows.length === 0) {
+            return res.status(400).json({ success: false, message: 'Código inválido ou expirado' });
+        }
+        res.json({ success: true, message: 'Código validado!' });
+    } catch (err) {
+        console.error('Erro ao validar código de recuperação:', err);
+        res.status(500).json({ success: false, message: 'Erro ao validar código' });
+    }
+});
+
+// Recuperar senha - validar código + redefinir senha
+app.post('/api/auth/cliente/recuperar-redefinir', async (req, res) => {
+    try {
+        const { telefone, codigo, nova_senha } = req.body;
+        if (!telefone || !codigo || !nova_senha) {
+            return res.status(400).json({ success: false, message: 'Telefone, código e nova senha são obrigatórios' });
+        }
+        if (nova_senha.length < 4) {
+            return res.status(400).json({ success: false, message: 'A senha deve ter no mínimo 4 dígitos' });
+        }
+        const telefoneLimpo = String(telefone).replace(/\D/g, '');
+        const codigoLimpo = String(codigo).replace(/\D/g, '');
+
+        const result = await pool.query(
+            `SELECT * FROM codigos_verificacao
+             WHERE telefone = $1 AND codigo = $2 AND usado = false AND expira_em > NOW()
+             ORDER BY id DESC LIMIT 1`,
+            [telefoneLimpo, codigoLimpo]
+        );
+        if (result.rows.length === 0) {
+            return res.status(400).json({ success: false, message: 'Código inválido ou expirado' });
+        }
+
+        const senhaHash = await bcrypt.hash(nova_senha, 10);
+        await pool.query('UPDATE clientes SET senha_hash = $1 WHERE telefone = $2', [senhaHash, telefoneLimpo]);
+        await pool.query('UPDATE codigos_verificacao SET usado = true WHERE id = $1', [result.rows[0].id]);
+
+        res.json({ success: true, message: 'Senha redefinida com sucesso! Faça login.' });
+    } catch (err) {
+        console.error('Erro ao redefinir senha:', err);
+        res.status(500).json({ success: false, message: 'Erro ao redefinir senha' });
+    }
+});
 function authClienteMiddleware(req, res, next) {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ success: false, message: 'Token não fornecido' });
@@ -314,6 +473,9 @@ app.get('/login.html', (req, res) => {
 
 app.get('/cadastro.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'cadastro.html'));
+});
+app.get('/recuperar.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'recuperar.html'));
 });
 
 // ==================== ROTAS ADMIN (PROTEGIDAS) ====================
