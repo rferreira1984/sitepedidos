@@ -13,6 +13,13 @@ const JWT_SECRET = process.env.JWT_SECRET || 'salgadoscia_secret_key_2026';
 const SITE_URL = process.env.SITE_URL || 'http://localhost:3001';
 const WEBHOOK_CONFIRMACAO = process.env.WEBHOOK_CONFIRMACAO || 'https://n8n-salgadoscia-n8n.hjs9cn.easypanel.host/webhook/27084bb2-983f-45b7-8a91-f3627a1704b7';
 const WEBHOOK_VERIFICACAO = process.env.WEBHOOK_VERIFICACAO || 'https://n8n-salgadoscia-n8n.hjs9cn.easypanel.host/webhook/9764c692-0c00-4308-b490-6807e2816662';
+
+const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyDcy5vIhEOUAeVLBZ9S8pmv8zeOz6NQ8-A';
+const LOJA_ORIGEM = '-24.965348589309297,-53.51220562301614';
+const TAXA_BASE_ENTREGA = parseFloat(process.env.TAXA_BASE_ENTREGA || '5');
+const TAXA_POR_KM = parseFloat(process.env.TAXA_POR_KM || '0');
+const FRETE_GRATIS_ACIMA = parseFloat(process.env.FRETE_GRATIS_ACIMA || '0');
+
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -147,6 +154,19 @@ app.post('/api/pedidos', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao criar pedido' });
     }
 });
+// Calcular custo de entrega (Google Distance Matrix)
+app.post('/api/entrega/calcular', async (req, res) => {
+    try {
+        const { endereco, subtotal } = req.body;
+        if (!endereco) return res.status(400).json({ success: false, message: 'Endereço obrigatório' });
+        const resultado = await calcularCustoEntrega(endereco, subtotal || 0);
+        if (resultado.erro) return res.status(400).json({ success: false, message: resultado.erro });
+        res.json({ success: true, data: resultado });
+    } catch (err) {
+        console.error('Erro ao calcular entrega:', err);
+        res.status(500).json({ success: false, message: 'Erro ao calcular entrega' });
+    }
+});
 
 // Confirmar pedido pelo link (público)
 app.get('/api/pedidos/confirmar/:token', async (req, res) => {
@@ -219,6 +239,34 @@ async function enviarWebhookVerificacao(numero, codigo) {
         console.error('Erro ao enviar webhook de verificação:', err.message);
         return false;
     }
+}
+async function calcularCustoEntrega(endereco, subtotal) {
+    if (!GOOGLE_MAPS_API_KEY) {
+        return { erro: 'API do Google Maps não configurada' };
+    }
+    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(LOJA_ORIGEM)}&destinations=${encodeURIComponent(endereco)}&key=${GOOGLE_MAPS_API_KEY}&mode=driving&language=pt-BR`;
+    const res = await fetch(url);
+    const json = await res.json();
+    if (json.status !== 'OK' || !json.rows || !json.rows[0] || !json.rows[0].elements || !json.rows[0].elements[0]) {
+        return { erro: 'Não foi possível calcular a distância' };
+    }
+    const element = json.rows[0].elements[0];
+    if (element.status !== 'OK') {
+        return { erro: 'Endereço não encontrado' };
+    }
+    const distanciaKm = element.distance.value / 1000;
+    let custo = TAXA_BASE_ENTREGA + (distanciaKm * TAXA_POR_KM);
+    // Frete grátis acima do valor configurado (se ativado)
+    if (FRETE_GRATIS_ACIMA > 0 && subtotal >= FRETE_GRATIS_ACIMA) {
+        custo = 0;
+    }
+    custo = Math.round(custo * 100) / 100;
+    return {
+        distancia_km: Math.round(distanciaKm * 100) / 100,
+        custo_entrega: custo,
+        distancia_texto: element.distance.text,
+        duracao_texto: element.duration.text
+    };
 }
 // ==================== ROTAS DE AUTENTICAÇÃO ====================
 

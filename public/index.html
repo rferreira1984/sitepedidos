@@ -97,6 +97,12 @@
         .btn-login-checkout { width: 100%; padding: 12px; background: #fff; border: 2px solid #7c3aed; border-radius: 10px; color: #7c3aed; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; margin-top: 6px; font-family: 'Inter', sans-serif; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px; box-sizing: border-box; }
         .btn-login-checkout:hover { background: #f5f3ff; }
         .btn-checkout:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-frete { width: 100%; padding: 10px; background: #f5f3ff; border: 2px solid #7c3aed; border-radius: 10px; color: #7c3aed; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif; margin-top: 8px; }
+        .btn-frete:hover { background: #ede9fe; }
+        .btn-frete:disabled { opacity: 0.5; cursor: not-allowed; }
+        .frete-result { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 10px 12px; font-size: 13px; color: #047857; margin-top: 8px; display: none; line-height: 1.5; }
+        .frete-result.show { display: block; }
+        .frete-result.error { background: #fef2f2; border-color: #fecaca; color: #dc2626; }
 
         .checkout-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 300; justify-content: center; align-items: center; padding: 16px; }
         .checkout-overlay.active { display: flex; }
@@ -247,6 +253,8 @@
                             <input type="text" id="checkoutBairro" placeholder="Bairro">
                         </div>
                     </div>
+                    <button type="button" class="btn-frete" id="btnCalcularFrete" onclick="calcularFrete()"><i class="fas fa-truck"></i> Calcular frete</button>
+                    <div class="frete-result" id="freteResult"></div>
                 </div>
                 <div id="retiradaInfo" style="display:none;" class="form-group">
                     <label>📍 Local de Retirada</label>
@@ -282,6 +290,9 @@
                 <div class="resumo-pedido" id="resumoPedido">
                     <div style="font-weight:600;margin-bottom:6px;font-size:13px;">Resumo do pedido</div>
                     <div id="resumoItems"></div>
+                    <div class="resumo-item" id="resumoFreteLinha" style="display:none;">
+                        <span>Taxa de entrega</span><span id="resumoFrete">R$ 0,00</span>
+                    </div>
                     <div class="resumo-total"><span>Total</span><span id="resumoTotal">R$ 0,00</span></div>
                 </div>
 
@@ -299,7 +310,6 @@
         </div>
     </div>
 
-      <!-- Modal Link de Confirmação -->
     <div class="checkout-overlay" id="linkModalOverlay">
         <div class="checkout-modal" style="text-align:center;position:relative;">
             <button class="cart-close" onclick="fecharLinkModal()" style="position:absolute;top:12px;right:12px;background:transparent;border:none;font-size:24px;cursor:pointer;color:#6b7280;width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;">&times;</button>
@@ -354,6 +364,7 @@
         let kitOpcaoAtual = null;
         let kitPrecoAtual = 0;
         let kitQtds = { Doces: 2, Salgados: 3, Bolo: 1, Refrigerante: 1 };
+        let custoEntrega = 0;
 
         const SABORES_BOLO = ['Brigadeiro', 'Prestígio', 'Dois Amores', 'Quatro Leites'];
         const SABORES_DOCES = ['Brigadeiro', 'Beijinho', 'Cajuzinho', 'Olho de Sogra', 'Bicho de Pé', 'Doce de Coco', 'Suspiro', 'Pé de Moleque'];
@@ -370,7 +381,6 @@
             setTimeout(() => t.classList.remove('show'), 4000);
         }
 
-        // ===== LOGIN DO CLIENTE =====
         function atualizarUIUsuario() {
             const loginBtn = document.getElementById('loginBtn');
             const userBtn = document.getElementById('userBtn');
@@ -395,7 +405,6 @@
             }
         }
 
-        // ===== CARDÁPIO =====
         async function carregarCardapio() {
             try {
                 const [catRes, prodRes] = await Promise.all([
@@ -716,13 +725,76 @@
 
         function toggleEndereco() {
             const tipo = document.getElementById('checkoutLogistica').value;
-            document.getElementById('enderecoSection').style.display = tipo === 'Retirada' ? 'none' : '';
-            document.getElementById('retiradaInfo').style.display = tipo === 'Retirada' ? '' : 'none';
+            const isEntrega = tipo === 'Entrega';
+            document.getElementById('enderecoSection').style.display = isEntrega ? '' : 'none';
+            document.getElementById('retiradaInfo').style.display = isEntrega ? 'none' : '';
+            if (!isEntrega) {
+                custoEntrega = 0;
+                document.getElementById('freteResult').classList.remove('show');
+                document.getElementById('resumoFreteLinha').style.display = 'none';
+                atualizarResumoTotal();
+            }
+        }
+
+        function getSubtotal() {
+            return carrinho.reduce((s, i) => s + i.preco * i.qtd, 0);
+        }
+
+        function getEnderecoCompleto() {
+            const rua = document.getElementById('checkoutRua').value.trim();
+            const numero = document.getElementById('checkoutNumero').value.trim();
+            const bairro = document.getElementById('checkoutBairro').value.trim();
+            return [rua, numero, bairro].filter(Boolean).join(', ');
+        }
+
+        async function calcularFrete() {
+            const endereco = getEnderecoCompleto();
+            if (!endereco) { mostrarToast('Preencha o endereço para calcular o frete', 'error'); return; }
+            const btn = document.getElementById('btnCalcularFrete');
+            const resultEl = document.getElementById('freteResult');
+            btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calculando...';
+            resultEl.classList.remove('show', 'error');
+            try {
+                const res = await fetch(API + '/entrega/calcular', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ endereco, subtotal: getSubtotal() })
+                });
+                const json = await res.json();
+                if (!json.success) throw new Error(json.message);
+                custoEntrega = json.data.custo_entrega;
+                resultEl.innerHTML = `🚚 Distância: ${json.data.distancia_texto} (${json.data.distancia_km} km) · Tempo: ${json.data.duracao_texto}<br><strong>Taxa de entrega: R$ ${custoEntrega.toFixed(2).replace('.', ',')}</strong>`;
+                resultEl.classList.add('show');
+                atualizarResumoTotal();
+            } catch (err) {
+                custoEntrega = 0;
+                resultEl.textContent = '⚠️ ' + err.message;
+                resultEl.classList.add('show', 'error');
+                atualizarResumoTotal();
+            } finally {
+                btn.disabled = false; btn.innerHTML = '<i class="fas fa-truck"></i> Calcular frete';
+            }
+        }
+
+        function atualizarResumoTotal() {
+            const subtotal = getSubtotal();
+            const total = subtotal + custoEntrega;
+            const freteLinha = document.getElementById('resumoFreteLinha');
+            if (custoEntrega > 0) {
+                freteLinha.style.display = '';
+                document.getElementById('resumoFrete').textContent = `R$ ${custoEntrega.toFixed(2).replace('.', ',')}`;
+            } else {
+                freteLinha.style.display = 'none';
+            }
+            document.getElementById('resumoTotal').textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
         }
 
         function abrirCheckout() {
             if (carrinho.length === 0) { mostrarToast('Carrinho vazio!', 'error'); return; }
             fecharCarrinho();
+            custoEntrega = 0;
+            document.getElementById('freteResult').classList.remove('show');
+            document.getElementById('resumoFreteLinha').style.display = 'none';
             let total = 0;
             const itemsHtml = carrinho.map(i => {
                 const sub = i.preco * i.qtd;
@@ -730,7 +802,7 @@
                 return `<div class="resumo-item"><span>${i.icone || '🍽️'} ${i.nome} x${i.qtd}</span><span>R$ ${sub.toFixed(2).replace('.', ',')}</span></div>`;
             }).join('');
             document.getElementById('resumoItems').innerHTML = itemsHtml;
-            document.getElementById('resumoTotal').textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
+            atualizarResumoTotal();
 
             const logado = !!clienteDados;
             document.getElementById('loggedBox').style.display = logado ? '' : 'none';
@@ -755,6 +827,7 @@
         }
 
         function montarPayloadPedido() {
+            const subtotal = getSubtotal();
             return {
                 nome_cliente: document.getElementById('checkoutNome').value.trim(),
                 telefone: document.getElementById('checkoutTelefone').value.trim(),
@@ -762,7 +835,8 @@
                 endereco_numero: document.getElementById('checkoutNumero').value,
                 endereco_bairro: document.getElementById('checkoutBairro').value,
                 items: carrinho.map(i => `${i.icone || ''} ${i.nome} x${i.qtd} = R$ ${(i.preco * i.qtd).toFixed(2)}${i.descricao ? ' (' + i.descricao + ')' : ''}`).join(' | '),
-                valor_total: carrinho.reduce((s, i) => s + i.preco * i.qtd, 0),
+                valor_total: subtotal + custoEntrega,
+                taxa_entrega: custoEntrega,
                 forma_pagamento: document.getElementById('checkoutPagamento').value,
                 tipo_logistica: document.getElementById('checkoutLogistica').value,
                 observacoes: document.getElementById('checkoutObs').value,
@@ -825,11 +899,11 @@
         function mostrarLinkConfirmacao() {
             document.getElementById('linkModalOverlay').classList.add('active');
         }
-         function fecharLinkModal() {
+
+        function fecharLinkModal() {
             document.getElementById('linkModalOverlay').classList.remove('active');
         }
 
-        // ===== INICIALIZAÇÃO =====
         atualizarUIUsuario();
         carregarCardapio();
         atualizarCarrinhoUI();
