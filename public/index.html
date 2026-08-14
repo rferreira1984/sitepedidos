@@ -252,6 +252,9 @@
                             <input type="text" id="checkoutNumero" placeholder="Número">
                             <input type="text" id="checkoutBairro" placeholder="Bairro">
                         </div>
+                        <div class="form-row" style="margin-top:6px;">
+                            <input type="text" id="checkoutCep" placeholder="CEP" maxlength="9" oninput="mascaraCep(this)">
+                        </div>
                     </div>
                     <button type="button" class="btn-frete" id="btnCalcularFrete" onclick="calcularFrete()"><i class="fas fa-truck"></i> Calcular frete</button>
                     <div class="frete-result" id="freteResult"></div>
@@ -735,16 +738,23 @@
                 atualizarResumoTotal();
             }
         }
+          function mascaraCep(input) {
+            let v = input.value.replace(/\D/g, '');
+            if (v.length > 5) v = v.substring(0, 5) + '-' + v.substring(5, 8);
+            input.value = v;
+        }
 
         function getSubtotal() {
             return carrinho.reduce((s, i) => s + i.preco * i.qtd, 0);
         }
 
-        function getEnderecoCompleto() {
+        
+         function getEnderecoCompleto() {
             const rua = document.getElementById('checkoutRua').value.trim();
             const numero = document.getElementById('checkoutNumero').value.trim();
             const bairro = document.getElementById('checkoutBairro').value.trim();
-            return [rua, numero, bairro].filter(Boolean).join(', ');
+            const cep = document.getElementById('checkoutCep').value.trim();
+            return [rua, numero, bairro, cep].filter(Boolean).join(', ');
         }
 
         async function calcularFrete() {
@@ -834,6 +844,7 @@
                 endereco_rua: document.getElementById('checkoutRua').value,
                 endereco_numero: document.getElementById('checkoutNumero').value,
                 endereco_bairro: document.getElementById('checkoutBairro').value,
+                endereco_cep: document.getElementById('checkoutCep').value,
                 items: carrinho.map(i => `${i.icone || ''} ${i.nome} x${i.qtd} = R$ ${(i.preco * i.qtd).toFixed(2)}${i.descricao ? ' (' + i.descricao + ')' : ''}`).join(' | '),
                 valor_total: subtotal + custoEntrega,
                 taxa_entrega: custoEntrega,

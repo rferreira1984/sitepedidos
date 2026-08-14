@@ -404,7 +404,7 @@
                     <div class="detail-grid">
                         <div class="detail-item"><label>Cliente</label><span>${p.nome_cliente || '-'}</span></div>
                         <div class="detail-item"><label>Telefone</label><span>${p.telefone || '-'}</span></div>
-                        <div class="detail-item"><label>Endereço</label><span>${p.endereco_rua || ''}${p.endereco_numero ? ', ' + p.endereco_numero : ''}${p.endereco_bairro ? ' - ' + p.endereco_bairro : ''}</span></div>
+                        <div class="detail-item"><label>Endereço</label><span>${p.endereco_rua || ''}${p.endereco_numero ? ', ' + p.endereco_numero : ''}${p.endereco_bairro ? ' - ' + p.endereco_bairro : ''} ${p.endereco_cep ? ' -CEP ' + p.endereco_cep : ''}</span></div>
                         <div class="detail-item"><label>Produtos</label><span>${p.items || '-'}</span></div>
                         <div class="detail-item"><label>Valor Total</label><span><strong>R$ ${parseFloat(p.valor_total||0).toFixed(2).replace('.',',')}</strong></span></div>
                         <div class="detail-item"><label>Pagamento</label><span>${p.forma_pagamento || '-'}</span></div>
