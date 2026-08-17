@@ -26,10 +26,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const pool = new Pool({
     host: process.env.DB_HOST || '76.13.171.134',
-    port: parseInt(process.env.DB_PORT || '5432'),
-    user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || 't3vjopnp0wru1pvuzcpx',
-    database: process.env.DB_NAME || 'n8n_salgadoscia',
+    port: parseInt(process.env.DB_PORT || '5433'),
+    user: process.env.DB_USER || 'infodba',
+    password: process.env.DB_PASSWORD || 'infodba',
+    database: process.env.DB_NAME || 'db_sistema',
 });
 
 async function testConnection() {
@@ -113,7 +113,7 @@ app.get('/api/produtos/:id', async (req, res) => {
 // POST /api/pedidos - Cliente cria pedido (com opção de link de confirmação)
 app.post('/api/pedidos', async (req, res) => {
     try {
-        const { nome_cliente, telefone, endereco_rua, endereco_numero, endereco_bairro, endereco_cep, items, valor_total, taxa_entrega, forma_pagamento, tipo_logistica, observacoes, data_entrega, hora_entrega, cliente_id, confirmar_whatsapp } = req.body;
+        const { nome_cliente, telefone, endereco_rua, endereco_numero, endereco_bairro, endereco_cep, items,itens, valor_total, taxa_entrega, forma_pagamento, tipo_logistica, observacoes, data_entrega, hora_entrega, cliente_id, confirmar_whatsapp } = req.body;
         if (!nome_cliente || !telefone || !items || !valor_total) {
             return res.status(400).json({ success: false, message: 'Nome, telefone, items e valor total são obrigatórios' });
         }
@@ -134,9 +134,31 @@ app.post('/api/pedidos', async (req, res) => {
 
         const pedido = result.rows[0];
 
+
+        // Gravar itens do pedido na tabela de vínculo (pedido_itens)
+        if (Array.isArray(itens) && itens.length > 0) {
+            for (const item of itens) {
+                await pool.query(
+                    `INSERT INTO pedido_itens (pedido_id, product_id, product_name, label, quantidade, preco_unitario, preco_total, descricao)
+                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+                    [
+                        pedido.id,
+                        item.product_id || null,
+                        item.nome || '',
+                        item.label || '',
+                        parseInt(item.quantidade) || 1,
+                        parseFloat(item.preco_unitario) || 0,
+                        parseFloat(item.preco_total) || 0,
+                        item.descricao || null
+                    ]
+                );
+            }
+        }
+
         // Se pediu confirmação por link: gera token e retorna o link (sem enviar WhatsApp por enquanto)
         if (confirmar_whatsapp) {
             const token = crypto.randomBytes(32).toString('hex');
+            
             const expiraEm = new Date(Date.now() + 30 * 60 * 1000); // 30 min
             await pool.query(
                 'INSERT INTO tokens_confirmacao (pedido_id, telefone, token, expira_em) VALUES ($1,$2,$3,$4)',
@@ -144,7 +166,7 @@ app.post('/api/pedidos', async (req, res) => {
             );
             const link = `${SITE_URL}/confirmar.html?token=${token}`;
             // Enviar link para o webhook (n8n)
-            await enviarWebhookConfirmacao(link);
+            await enviarWebhookConfirmacao(link, telefone, nome_cliente);
             return res.status(201).json({ success: true, data: pedido, link_confirmacao: link, message: 'Pedido criado! Confirme pelo link.' });
         }
 
@@ -205,12 +227,14 @@ app.get('/api/pedidos/confirmar/:token', async (req, res) => {
     }
 });
 
-async function enviarWebhookConfirmacao(link) {
+async function enviarWebhookConfirmacao(link, telefone, nome) {
     try {
         const res = await fetch(WEBHOOK_CONFIRMACAO, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+                telefone:telefone,
+                nome:nome,
                 mensagem: 'Clique no link para abaixo para Confirmar seu Pedido',
                 link: link
             })

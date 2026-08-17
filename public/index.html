@@ -836,7 +836,7 @@
             document.getElementById('checkoutOverlay').classList.remove('active');
         }
 
-        function montarPayloadPedido() {
+          function montarPayloadPedido() {
             const subtotal = getSubtotal();
             return {
                 nome_cliente: document.getElementById('checkoutNome').value.trim(),
@@ -846,6 +846,15 @@
                 endereco_bairro: document.getElementById('checkoutBairro').value,
                 endereco_cep: document.getElementById('checkoutCep').value,
                 items: carrinho.map(i => `${i.icone || ''} ${i.nome} x${i.qtd} = R$ ${(i.preco * i.qtd).toFixed(2)}${i.descricao ? ' (' + i.descricao + ')' : ''}`).join(' | '),
+                itens: carrinho.map(i => ({
+                    product_id: i.id || null,
+                    nome: i.nome,
+                    label: i.label || '',
+                    quantidade: i.qtd,
+                    preco_unitario: i.preco,
+                    preco_total: i.preco * i.qtd,
+                    descricao: i.descricao || i.composicao || ''
+                })),
                 valor_total: subtotal + custoEntrega,
                 taxa_entrega: custoEntrega,
                 forma_pagamento: document.getElementById('checkoutPagamento').value,
