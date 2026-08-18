@@ -44,8 +44,13 @@
         .produto-opcao:focus { border-color: #7c3aed; }
         .produto-footer { display: flex; justify-content: space-between; align-items: center; }
         .produto-preco { font-size: 18px; font-weight: 800; color: #7c3aed; }
+        .produto-imagem { width: 100%; height: 140px; object-fit: cover; border-radius: 10px; margin-bottom: 10px; background: #f3f4f6; }
+        .produto-imagem-placeholder { width: 100%; height: 140px; border-radius: 10px; margin-bottom: 10px; background: #f5f3ff; display: flex; align-items: center; justify-content: center; font-size: 40px; }
+        .kit-imagem { width: 100%; height: 180px; object-fit: cover; border-radius: 12px; margin-bottom: 14px; background: #f3f4f6; }
+        .kit-imagem-placeholder { width: 100%; height: 180px; border-radius: 12px; margin-bottom: 14px; background: #f5f3ff; display: flex; align-items: center; justify-content: center; font-size: 56px; }
         .btn-add-cart { background: #7c3aed; border: none; color: #fff; width: 36px; height: 36px; border-radius: 10px; cursor: pointer; font-size: 16px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .btn-add-cart:hover { background: #6d28d9; transform: scale(1.05); }
+        
 
         .kit-card { background: #fff; border-radius: 14px; padding: 20px; border: 1px solid #e5e7eb; transition: all 0.2s; }
         .kit-card:hover { border-color: #7c3aed; box-shadow: 0 4px 16px rgba(124,58,237,0.1); }
@@ -429,20 +434,27 @@
                 document.getElementById('produtosGrid').innerHTML = '<p style="text-align:center;padding:40px;color:#f87171;">Erro ao carregar cardápio</p>';
             }
         }
-
-        function renderizarProdutos(produtos) {
+         function renderizarProdutos(produtos) {
             const grid = document.getElementById('produtosGrid');
             if (!produtos || produtos.length === 0) {
                 grid.innerHTML = '<p style="text-align:center;padding:40px;color:#6b7280;">Nenhum produto disponível.</p>';
                 return;
             }
             grid.innerHTML = produtos.map(p => {
+                
                 if (p.category_id === 7 || p.categoria_nome === 'Kits Festa') return renderizarKitFesta(p);
                 const precos = p.prices || [];
                 const menorPreco = precos.length > 0 ? Math.min(...precos.map(pr => parseFloat(pr.price))) : 0;
+                const imagemHtml = p.imagem
+                    ? `<img class="produto-imagem" src="${p.imagem}" alt="${p.id}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">`
+                    : '';
+                
+                const placeholderHtml = `<div class="produto-imagem-placeholder" ${p.imagem ? 'style="display:none;"' : ''}>${p.icone || '🍽️'}</div>`;
                 return `
+                
                     <div class="produto-card">
-                        <div class="produto-icon">🍽️</div>
+                        ${imagemHtml}
+                        ${placeholderHtml}
                         <div class="produto-nome">${p.name}</div>
                         <div class="produto-desc">${p.description || ''}</div>
                         ${precos.length > 0 ? `<select class="produto-opcao" id="opcao-${p.id}">
@@ -455,6 +467,32 @@
                     </div>`;
             }).join('');
         }
+
+        // function renderizarProdutos(produtos) {
+        //     const grid = document.getElementById('produtosGrid');
+        //     if (!produtos || produtos.length === 0) {
+        //         grid.innerHTML = '<p style="text-align:center;padding:40px;color:#6b7280;">Nenhum produto disponível.</p>';
+        //         return;
+        //     }
+        //     grid.innerHTML = produtos.map(p => {
+        //         if (p.category_id === 7 || p.categoria_nome === 'Kits Festa') return renderizarKitFesta(p);
+        //         const precos = p.prices || [];
+        //         const menorPreco = precos.length > 0 ? Math.min(...precos.map(pr => parseFloat(pr.price))) : 0;
+        //         return `
+        //             <div class="produto-card">
+        //                 <div class="produto-icon">🍽️</div>
+        //                 <div class="produto-nome">${p.name}</div>
+        //                 <div class="produto-desc">${p.description || ''}</div>
+        //                 ${precos.length > 0 ? `<select class="produto-opcao" id="opcao-${p.id}">
+        //                     ${precos.map(pr => `<option value='${JSON.stringify({priceId: pr.id, price: pr.price, label: pr.label, priceType: pr.price_type})}'>${pr.label} — R$ ${parseFloat(pr.price).toFixed(2).replace('.', ',')}</option>`).join('')}
+        //                 </select>` : '<div style="height:36px;"></div>'}
+        //                 <div class="produto-footer">
+        //                     <div class="produto-preco">${menorPreco > 0 ? `R$ ${menorPreco.toFixed(2).replace('.', ',')}` : ''}</div>
+        //                     <button class="btn-add-cart" onclick="adicionarAoCarrinho(${p.id}, '${p.name.replace(/'/g, "\'")}')"><i class="fas fa-plus"></i></button>
+        //                 </div>
+        //             </div>`;
+        //     }).join('');
+        // }
 
         function renderizarKitFesta(p) {
             const precos = p.prices || [];
