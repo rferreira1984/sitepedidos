@@ -836,7 +836,7 @@
             document.getElementById('checkoutOverlay').classList.remove('active');
         }
 
-          function montarPayloadPedido() {
+        function montarPayloadPedido() {
             const subtotal = getSubtotal();
             return {
                 nome_cliente: document.getElementById('checkoutNome').value.trim(),
