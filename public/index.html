@@ -37,14 +37,28 @@
         .produto-icon { font-size: 36px; margin-bottom: 8px; }
         .produto-nome { font-size: 16px; font-weight: 700; color: #1a1a2e; margin-bottom: 4px; }
         .produto-desc { font-size: 12px; color: #6b7280; margin-bottom: 8px; flex: 1; }
-        .produto-opcao { width: 100%; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 12px; background: #fff; margin-bottom: 8px; cursor: pointer; outline: none; }
-        .produto-opcao:focus { border-color: #7c3aed; }
-        .produto-footer { display: flex; justify-content: space-between; align-items: center; }
-        .produto-preco { font-size: 18px; font-weight: 800; color: #7c3aed; }
         .produto-imagem { width: 100%; height: 140px; object-fit: cover; border-radius: 10px; margin-bottom: 10px; background: #f3f4f6; }
         .produto-imagem-placeholder { width: 100%; height: 140px; border-radius: 10px; margin-bottom: 10px; background: #f5f3ff; display: flex; align-items: center; justify-content: center; font-size: 40px; }
         .kit-imagem { width: 100%; height: 180px; object-fit: cover; border-radius: 12px; margin-bottom: 14px; background: #f3f4f6; }
         .kit-imagem-placeholder { width: 100%; height: 180px; border-radius: 12px; margin-bottom: 14px; background: #f5f3ff; display: flex; align-items: center; justify-content: center; font-size: 56px; }
+
+        /* ===== BOTÕES DE OPÇÃO (produtos) ===== */
+        .produto-opcoes { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+        .produto-opcao-btn { flex: 1; min-width: 80px; padding: 8px 6px; border: 2px solid #e5e7eb; border-radius: 8px; background: #fff; font-size: 11px; font-weight: 600; color: #4b5563; cursor: pointer; text-align: center; transition: all 0.2s; font-family: 'Inter', sans-serif; line-height: 1.3; }
+        .produto-opcao-btn strong { display: block; color: #7c3aed; font-size: 13px; margin-top: 2px; }
+        .produto-opcao-btn:hover { border-color: #7c3aed; color: #7c3aed; }
+        .produto-opcao-btn.selected { border-color: #7c3aed; background: #f5f3ff; color: #7c3aed; box-shadow: 0 0 0 2px rgba(124,58,237,0.15); }
+        .produto-opcao-btn.selected strong { color: #6d28d9; }
+
+        /* ===== BOTÕES DE OPÇÃO (kits) ===== */
+        .kit-opcoes { display: flex; flex-wrap: wrap; gap: 8px; }
+        .kit-opcao-btn { flex: 1; min-width: 120px; padding: 12px 8px; border: 2px solid #e5e7eb; border-radius: 8px; background: #fff; font-size: 12px; font-weight: 600; color: #4b5563; cursor: pointer; text-align: center; transition: all 0.2s; font-family: 'Inter', sans-serif; line-height: 1.3; }
+        .kit-opcao-btn strong { display: block; color: #7c3aed; font-size: 16px; margin-top: 2px; }
+        .kit-opcao-btn small { display: block; color: #9ca3af; font-size: 10px; margin-top: 2px; font-weight: 400; line-height: 1.4; }
+        .kit-opcao-btn:hover { border-color: #7c3aed; color: #7c3aed; }
+        .kit-opcao-btn.selected { border-color: #7c3aed; background: #f5f3ff; color: #7c3aed; box-shadow: 0 0 0 2px rgba(124,58,237,0.15); }
+        .kit-opcao-btn.selected strong { color: #6d28d9; }
+
         .btn-add-cart { background: #7c3aed; border: none; color: #fff; width: 36px; height: 36px; border-radius: 10px; cursor: pointer; font-size: 16px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .btn-add-cart:hover { background: #6d28d9; transform: scale(1.05); }
         .kit-card { background: #fff; border-radius: 14px; padding: 20px; border: 1px solid #e5e7eb; transition: all 0.2s; }
@@ -53,14 +67,6 @@
         .kit-header .kit-icon { font-size: 40px; }
         .kit-header .kit-title { font-size: 18px; font-weight: 700; color: #1a1a2e; }
         .kit-header .kit-subtitle { font-size: 13px; color: #6b7280; margin-top: 2px; }
-        .kit-opcoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
-        .kit-opcao { background: #f9fafb; border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; cursor: pointer; transition: all 0.2s; }
-        .kit-opcao:hover { border-color: #7c3aed; background: #f5f3ff; }
-        .kit-opcao.selected { border-color: #7c3aed; background: #f5f3ff; box-shadow: 0 0 0 3px rgba(124,58,237,0.15); }
-        .kit-opcao .ko-nome { font-weight: 700; font-size: 15px; color: #7c3aed; }
-        .kit-opcao .ko-preco { font-size: 22px; font-weight: 800; color: #1a1a2e; margin: 6px 0; }
-        .kit-opcao .ko-composicao { font-size: 12px; color: #6b7280; line-height: 1.5; }
-        .kit-opcao .ko-regras { font-size: 11px; color: #9ca3af; margin-top: 6px; font-style: italic; padding-top: 6px; border-top: 1px dashed #e5e7eb; }
         .kit-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb; }
         .kit-footer .kit-selecionado { font-size: 14px; color: #6b7280; }
         .kit-footer .btn-add-kit { background: #7c3aed; border: none; color: #fff; padding: 12px 24px; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s; display: flex; align-items: center; gap: 8px; }
@@ -157,7 +163,6 @@
             .produto-icon { font-size: 28px; }
             .produto-nome { font-size: 14px; }
             .produto-preco { font-size: 15px; }
-            .kit-opcoes { grid-template-columns: 1fr 1fr; }
             .checkout-modal .form-row { grid-template-columns: 1fr; }
             .cart-sidebar { max-width: 100%; }
         }
@@ -359,6 +364,7 @@
         let kitPrecoAtual = 0;
         let kitQtds = { Doces: 2, Salgados: 3, Bolo: 1, Refrigerante: 1 };
         let custoEntrega = 0;
+        let produtoSelecionado = {};
         const SABORES_BOLO = ['Brigadeiro', 'Prestígio', 'Dois Amores', 'Quatro Leites'];
         const SABORES_DOCES = ['Brigadeiro', 'Beijinho', 'Cajuzinho', 'Olho de Sogra', 'Bicho de Pé', 'Doce de Coco', 'Suspiro', 'Pé de Moleque'];
         const SABORES_SALGADOS = ['Coxinha', 'Bolinha de Queijo', 'Risole de Carne', 'Risole de Queijo', 'Pastelzinho', 'Esfiha', 'Empadinha', 'Kibe', 'Bolinha de Bacalhau', 'Enroladinho de Salsicha'];
@@ -423,35 +429,65 @@
             grid.innerHTML = produtos.map(p => {
                 if (p.category_id === 7 || p.categoria_nome === 'Kits Festa') return renderizarKitFesta(p);
                 const precos = p.prices || [];
-                const menorPreco = precos.length > 0 ? Math.min(...precos.map(pr => parseFloat(pr.price))) : 0;
+                // Maior preço selecionado por padrão
+                const maiorPrice = precos.length > 0 ? precos.reduce((a, b) => parseFloat(a.price) >= parseFloat(b.price) ? a : b) : null;
+                const maiorPreco = maiorPrice ? parseFloat(maiorPrice.price) : 0;
+                produtoSelecionado[p.id] = maiorPrice ? maiorPrice.id : null;
                 const imagemHtml = p.imagem
                     ? `<img class="produto-imagem" src="${p.imagem}" alt="${p.id}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">`
                     : '';
                 const placeholderHtml = `<div class="produto-imagem-placeholder" ${p.imagem ? 'style="display:none;"' : ''}>${p.icone || '🍽️'}</div>`;
+                const opcoesHtml = precos.length > 0
+                    ? `<div class="produto-opcoes">` + precos.map(pr => {
+                        const isSel = produtoSelecionado[p.id] === pr.id;
+                        return `<button type="button" class="produto-opcao-btn ${isSel ? 'selected' : ''}" id="opcao-${p.id}-${pr.id}" onclick="selecionarOpcaoProduto(${p.id}, ${pr.id})">${pr.label}<strong>R$ ${parseFloat(pr.price).toFixed(2).replace('.', ',')}</strong></button>`;
+                    }).join('') + `</div>`
+                    : '<div style="height:36px;"></div>';
                 return `
                     <div class="produto-card">
                         ${imagemHtml}
                         ${placeholderHtml}
                         <div class="produto-nome">${p.name}</div>
                         <div class="produto-desc">${p.description || ''}</div>
-                        ${precos.length > 0 ? `<select class="produto-opcao" id="opcao-${p.id}">
-                            ${precos.map(pr => `<option value='${JSON.stringify({priceId: pr.id, price: pr.price, label: pr.label, priceType: pr.price_type})}'>${pr.label} — R$ ${parseFloat(pr.price).toFixed(2).replace('.', ',')}</option>`).join('')}
-                        </select>` : '<div style="height:36px;"></div>'}
+                        ${opcoesHtml}
                         <div class="produto-footer">
-                            <div class="produto-preco">${menorPreco > 0 ? `R$ ${menorPreco.toFixed(2).replace('.', ',')}` : ''}</div>
+                            <div class="produto-preco" id="produto-preco-${p.id}">${maiorPreco > 0 ? `R$ ${maiorPreco.toFixed(2).replace('.', ',')}` : ''}</div>
                             <button class="btn-add-cart" onclick="adicionarAoCarrinho(${p.id}, '${p.name.replace(/'/g, "\'")}')"><i class="fas fa-plus"></i></button>
                         </div>
                     </div>`;
             }).join('');
         }
+        function selecionarOpcaoProduto(productId, priceId) {
+            produtoSelecionado[productId] = priceId;
+            document.querySelectorAll(`[id^="opcao-${productId}-"]`).forEach(el => el.classList.remove('selected'));
+            const btn = document.getElementById(`opcao-${productId}-${priceId}`);
+            if (btn) btn.classList.add('selected');
+            const produto = produtosData.find(pr => pr.id === productId);
+            const pr = (produto && produto.prices || []).find(p => p.id === priceId);
+            const priceEl = document.getElementById(`produto-preco-${productId}`);
+            if (pr && priceEl) priceEl.textContent = `R$ ${parseFloat(pr.price).toFixed(2).replace('.', ',')}`;
+        }
         function renderizarKitFesta(p) {
             const precos = p.prices || [];
             const precosTier = precos.filter(pr => pr.price_type === 'tier');
             if (precosTier.length === 0) return '';
+            // Maior preço selecionado por padrão
+            let maiorIdx = 0;
+            precosTier.forEach((pr, idx) => {
+                if (parseFloat(pr.price) > parseFloat(precosTier[maiorIdx].price)) maiorIdx = idx;
+            });
+            kitSelecionado[p.id] = maiorIdx;
+            const maiorPreco = parseFloat(precosTier[maiorIdx].price);
+            // Foto grande do kit (180px) com fallback para o emoji
             const imagemHtml = p.imagem
                 ? `<img class="kit-imagem" src="${p.imagem}" alt="${p.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">`
                 : '';
             const placeholderHtml = `<div class="kit-imagem-placeholder" ${p.imagem ? 'style="display:none;"' : ''}>🎉</div>`;
+            const opcoesHtml = `<div class="kit-opcoes">` + precosTier.map((pr, idx) => {
+                const isSel = kitSelecionado[p.id] === idx;
+                const comp = pr.composicao ? `<small>${pr.composicao}</small>` : '';
+                return `<button type="button" class="kit-opcao-btn ${isSel ? 'selected' : ''}" id="kitOpt-${p.id}-${idx}" onclick="selecionarKitOpcao(${p.id}, ${idx})">${pr.label}<strong>R$ ${parseFloat(pr.price).toFixed(2).replace('.', ',')}</strong>${comp}</button>`;
+            }).join('') + `</div>`;
             return `
                 <div class="kit-card" style="grid-column:1/-1;">
                     ${imagemHtml}
@@ -463,18 +499,10 @@
                             <div class="kit-subtitle">${p.description || 'Kit completo para festa'}</div>
                         </div>
                     </div>
-                    <div class="kit-opcoes" id="kitOpcoes-${p.id}">
-                        ${precosTier.map((pr, idx) => `
-                            <div class="kit-opcao" id="kitOpt-${p.id}-${idx}" onclick="selecionarKitOpcao(${p.id}, ${idx})">
-                                <div class="ko-nome">${pr.label}</div>
-                                <div class="ko-preco">R$ ${parseFloat(pr.price).toFixed(2).replace('.', ',')}</div>
-                                <div class="ko-composicao">${pr.composicao || ''}</div>
-                                <div class="ko-regras">${pr.regras || ''}</div>
-                            </div>`).join('')}
-                    </div>
+                    ${opcoesHtml}
                     <div class="kit-footer">
-                        <div class="kit-selecionado" id="kitSelecionado-${p.id}">Selecione um tamanho acima</div>
-                        <button class="btn-add-kit" id="btnAddKit-${p.id}" disabled onclick="abrirKitModal(${p.id})"><i class="fas fa-plus"></i> Personalizar Kit</button>
+                        <div class="kit-selecionado" id="kitSelecionado-${p.id}">${precosTier[maiorIdx].label} — R$ ${maiorPreco.toFixed(2).replace('.', ',')}</div>
+                        <button class="btn-add-kit" id="btnAddKit-${p.id}" onclick="abrirKitModal(${p.id})"><i class="fas fa-plus"></i> Personalizar Kit</button>
                     </div>
                 </div>`;
         }
@@ -482,7 +510,7 @@
         function selecionarKitOpcao(produtoId, idx) {
             const p = produtosData.find(pr => pr.id === produtoId);
             if (!p) return;
-            document.querySelectorAll(`#kitOpcoes-${produtoId} .kit-opcao`).forEach(el => el.classList.remove('selected'));
+            document.querySelectorAll(`[id^="kitOpt-${produtoId}-"]`).forEach(el => el.classList.remove('selected'));
             document.getElementById(`kitOpt-${produtoId}-${idx}`).classList.add('selected');
             kitSelecionado[produtoId] = idx;
             const precos = p.prices.filter(pr => pr.price_type === 'tier');
@@ -625,16 +653,18 @@
             else renderizarProdutos(produtosData.filter(p => p.categoria_nome === categoria));
         }
         function adicionarAoCarrinho(id, nome) {
-            const select = document.getElementById(`opcao-${id}`);
-            if (!select) { mostrarToast('Erro: produto sem opção', 'error'); return; }
-            const opt = JSON.parse(select.value);
-            const precoUnit = parseFloat(opt.price);
-            const existente = carrinho.find(i => i.id === id && i.priceId === opt.priceId);
+            const priceId = produtoSelecionado[id];
+            if (!priceId) { mostrarToast('Selecione uma opção do produto', 'error'); return; }
+            const produto = produtosData.find(p => p.id === id);
+            const pr = (produto && produto.prices || []).find(p => p.id === priceId);
+            if (!pr) { mostrarToast('Erro: opção não encontrada', 'error'); return; }
+            const precoUnit = parseFloat(pr.price);
+            const existente = carrinho.find(i => i.id === id && i.priceId === pr.id);
             if (existente) existente.qtd += 1;
-            else carrinho.push({ id, priceId: opt.priceId, nome, icone: '🍽️', preco: precoUnit, label: opt.label, qtd: 1, priceType: opt.priceType });
+            else carrinho.push({ id, priceId: pr.id, nome, icone: '🍽️', preco: precoUnit, label: pr.label, qtd: 1, priceType: pr.price_type });
             localStorage.setItem('carrinho', JSON.stringify(carrinho));
             atualizarCarrinhoUI();
-            mostrarToast(`${nome} (${opt.label}) adicionado!`, 'success');
+            mostrarToast(`${nome} (${pr.label}) adicionado!`, 'success');
         }
         function alterarQtd(id, priceId, delta) {
             const item = carrinho.find(i => i.id === id && i.priceId === priceId);
