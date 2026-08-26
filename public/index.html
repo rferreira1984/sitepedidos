@@ -836,6 +836,7 @@
         function montarPayloadPedido() {
             const subtotal = getSubtotal();
             return {
+                
                 nome_cliente: document.getElementById('checkoutNome').value.trim(),
                 telefone: document.getElementById('checkoutTelefone').value.trim(),
                 endereco_rua: document.getElementById('checkoutRua').value,
@@ -858,7 +859,7 @@
                 tipo_logistica: document.getElementById('checkoutLogistica').value,
                 observacoes: document.getElementById('checkoutObs').value,
                 data_entrega: document.getElementById('checkoutData').value,
-                hora_entrega: document.getElementById('checkoutHora').value
+                hora_entrega: document.getElementById('checkoutHora').value,
             };
         }
         async function finalizarPedido(e) {
