@@ -31,7 +31,13 @@
         .cat-btn { padding: 8px 16px; background: #fff; border: 1px solid #e5e7eb; border-radius: 50px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 4px; color: #4b5563; }
         .cat-btn:hover { border-color: #16a34a; color: #16a34a; }
         .cat-btn.active { background: #16a34a; color: #fff; border-color: #16a34a; }
-        .produtos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; padding-bottom: 100px; }
+
+        /* ===== SEÇÕES POR CATEGORIA ===== */
+        #produtosGrid { display: block; padding-bottom: 100px; }
+        .categoria-secao { margin-bottom: 36px; scroll-margin-top: 80px; }
+        .categoria-titulo { font-size: 20px; font-weight: 800; color: #1a2e1a; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 2px solid #16a34a; display: flex; align-items: center; gap: 8px; }
+        .categoria-secao .produtos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; padding-bottom: 0; }
+
         .produto-card { background: #fff; border-radius: 14px; padding: 16px; border: 1px solid #e5e7eb; transition: all 0.2s; display: flex; flex-direction: column; }
         .produto-card:hover { border-color: #16a34a; box-shadow: 0 4px 16px rgba(22,163,74,0.12); transform: translateY(-2px); }
         .produto-icon { font-size: 36px; margin-bottom: 8px; }
@@ -59,6 +65,16 @@
         .kit-opcao-btn.selected { border-color: #15803d; background: linear-gradient(135deg, #22c55e, #16a34a); color: #fff; transform: scale(1.03); box-shadow: 0 6px 18px rgba(22,163,74,0.45); }
         .kit-opcao-btn.selected strong { color: #fff; font-size: 18px; }
         .kit-opcao-btn.selected small { color: #dcfce7; }
+
+        /* ===== VENDA POR QUILO ===== */
+        .produto-quilo { margin-bottom: 8px; }
+        .produto-quilo .quilo-label { display: block; font-size: 11px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .quilo-input-row { display: flex; align-items: center; gap: 6px; }
+        .quilo-input { flex: 1; padding: 8px 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; font-weight: 700; outline: none; font-family: 'Inter', sans-serif; color: #1a2e1a; text-align: center; background: #fff; }
+        .quilo-input:focus { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,0.12); }
+        .quilo-sufixo { font-size: 13px; font-weight: 700; color: #4b5563; }
+        .quilo-total { font-size: 17px; font-weight: 800; color: #16a34a; margin-top: 5px; }
+        .quilo-info { font-size: 11px; color: #6b7280; margin-top: 2px; }
 
         .btn-add-cart { background: #16a34a; border: none; color: #fff; width: 36px; height: 36px; border-radius: 10px; cursor: pointer; font-size: 16px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .btn-add-cart:hover { background: #15803d; transform: scale(1.05); }
@@ -372,6 +388,25 @@
         const SABORES_REFRIGERANTE = ['Coca-Cola', 'Sprite', 'Fanta Laranja', 'Guaraná'];
         let clienteDados = null;
         try { clienteDados = JSON.parse(localStorage.getItem('clienteDados') || 'null'); } catch (e) { clienteDados = null; }
+
+        // ===== DETECÇÃO DE VENDA POR QUILO =====
+        function ehPorQuilo(p) {
+            if (!p) return false;
+            const nomeCat = (p.categoria_nome || '').toLowerCase();
+            if (nomeCat.includes('kg') || nomeCat.includes('quilo')) return true;
+            const prices = p.prices || [];
+            return prices.some(pr => {
+                const t = ((pr.unit_label || '') + ' ' + (pr.label || '')).toLowerCase();
+                return t.includes('kg') || t.includes('quilo');
+            });
+        }
+        function precoPorKg(p) {
+            const precos = (p.prices || []).filter(pr => pr.is_active !== false);
+            if (precos.length === 0) return 0;
+            return Math.max(...precos.map(pr => parseFloat(pr.price)));
+        }
+        function fmt(v) { return v.toFixed(2).replace('.', ','); }
+
         function mostrarToast(msg, tipo) {
             const t = document.getElementById('toast');
             t.textContent = msg;
@@ -427,36 +462,124 @@
                 grid.innerHTML = '<p style="text-align:center;padding:40px;color:#6b7280;">Nenhum produto disponível.</p>';
                 return;
             }
-            grid.innerHTML = produtos.map(p => {
-                if (p.category_id === 7 || p.categoria_nome === 'Kits Festa') return renderizarKitFesta(p);
-                const precos = p.prices || [];
-                // Maior preço selecionado por padrão
-                const maiorPrice = precos.length > 0 ? precos.reduce((a, b) => parseFloat(a.price) >= parseFloat(b.price) ? a : b) : null;
-                const maiorPreco = maiorPrice ? parseFloat(maiorPrice.price) : 0;
-                produtoSelecionado[p.id] = maiorPrice ? maiorPrice.id : null;
-                const imagemHtml = p.imagem
-                    ? `<img class="produto-imagem" src="${p.imagem}" alt="${p.id}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">`
-                    : '';
-                const placeholderHtml = `<div class="produto-imagem-placeholder" ${p.imagem ? 'style="display:none;"' : ''}>${p.icone || '🍽️'}</div>`;
-                const opcoesHtml = precos.length > 0
-                    ? `<div class="produto-opcoes">` + precos.map(pr => {
-                        const isSel = produtoSelecionado[p.id] === pr.id;
-                        return `<button type="button" class="produto-opcao-btn ${isSel ? 'selected' : ''}" id="opcao-${p.id}-${pr.id}" onclick="selecionarOpcaoProduto(${p.id}, ${pr.id})">${pr.label}<strong>R$ ${parseFloat(pr.price).toFixed(2).replace('.', ',')}</strong></button>`;
-                    }).join('') + `</div>`
-                    : '<div style="height:36px;"></div>';
-                return `
-                    <div class="produto-card">
-                        ${imagemHtml}
-                        ${placeholderHtml}
-                        <div class="produto-nome">${p.name}</div>
-                        <div class="produto-desc">${p.description || ''}</div>
-                        ${opcoesHtml}
-                        <div class="produto-footer">
-                            <div class="produto-preco" id="produto-preco-${p.id}">${maiorPreco > 0 ? `R$ ${maiorPreco.toFixed(2).replace('.', ',')}` : ''}</div>
-                            <button class="btn-add-cart" onclick="adicionarAoCarrinho(${p.id}, '${p.name.replace(/'/g, "\'")}')"><i class="fas fa-plus"></i></button>
-                        </div>
-                    </div>`;
-            }).join('');
+            // Agrupa produtos por categoria
+            const grupos = {};
+            produtos.forEach(p => {
+                const cat = p.categoria_nome || 'Outros';
+                if (!grupos[cat]) grupos[cat] = [];
+                grupos[cat].push(p);
+            });
+            let html = '';
+            Object.keys(grupos).forEach(cat => {
+                const slug = cat.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                const c = cat.toLowerCase();
+                const icone = c.includes('salgado') ? '🍤' : c.includes('doce') ? '🍩' : c.includes('bolo') ? '🎂' : c.includes('sobremesa') ? '🍮' : c.includes('kit') ? '🎉' : '📦';
+                html += `<section class="categoria-secao" id="secao-${slug}">`;
+                html += `<h2 class="categoria-titulo">${icone} ${cat}</h2>`;
+                html += `<div class="produtos-grid">`;
+                grupos[cat].forEach(p => {
+                    if (p.category_id === 7 || p.categoria_nome === 'Kits Festa') { html += renderizarKitFesta(p); return; }
+                    const imagemHtml = p.imagem
+                        ? `<img class="produto-imagem" src="${p.imagem}" alt="${p.id}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">`
+                        : '';
+                    const placeholderHtml = `<div class="produto-imagem-placeholder" ${p.imagem ? 'style="display:none;"' : ''}>${p.icone || '🍽️'}</div>`;
+                    // Produto por quilo
+                    if (ehPorQuilo(p)) {
+                        const precoKg = precoPorKg(p);
+                        html += `
+                            <div class="produto-card">
+                                ${imagemHtml}${placeholderHtml}
+                                <div class="produto-nome">${p.name}</div>
+                                <div class="produto-desc">${p.description || ''}</div>
+                                <div class="produto-quilo">
+                                    <label class="quilo-label">⚖️ Quantidade (kg)</label>
+                                    <div class="quilo-input-row">
+                                        <input type="number" class="quilo-input" id="quilo-${p.id}" min="0.1" step="0.1" placeholder="0,5" inputmode="decimal" oninput="atualizarPrecoQuilo(${p.id})" onkeydown="if(event.key==='Enter')adicionarPorQuilo(${p.id}, '${p.name.replace(/'/g, "\'")}')">
+                                        <span class="quilo-sufixo">kg</span>
+                                    </div>
+                                    <div class="quilo-total" id="quilo-total-${p.id}">R$ 0,00</div>
+                                    <div class="quilo-info">Preço: R$ ${fmt(precoKg)} / kg</div>
+                                </div>
+                                <div class="produto-footer">
+                                    <div class="produto-preco">R$ ${fmt(precoKg)} <span style="font-size:11px;font-weight:400;color:#6b7280;">/kg</span></div>
+                                    <button class="btn-add-cart" onclick="adicionarPorQuilo(${p.id}, '${p.name.replace(/'/g, "\'")}')" title="Adicionar por quilo"><i class="fas fa-plus"></i></button>
+                                </div>
+                            </div>`;
+                        return;
+                    }
+                    // Produto normal: botões de opção com maior preço selecionado
+                    const precos = p.prices || [];
+                    const maiorPrice = precos.length > 0 ? precos.reduce((a, b) => parseFloat(a.price) >= parseFloat(b.price) ? a : b) : null;
+                    const maiorPreco = maiorPrice ? parseFloat(maiorPrice.price) : 0;
+                    produtoSelecionado[p.id] = maiorPrice ? maiorPrice.id : null;
+                    const opcoesHtml = precos.length > 0
+                        ? `<div class="produto-opcoes">` + precos.map(pr => {
+                            const isSel = produtoSelecionado[p.id] === pr.id;
+                            return `<button type="button" class="produto-opcao-btn ${isSel ? 'selected' : ''}" id="opcao-${p.id}-${pr.id}" onclick="selecionarOpcaoProduto(${p.id}, ${pr.id})">${pr.label}<strong>R$ ${fmt(parseFloat(pr.price))}</strong></button>`;
+                        }).join('') + `</div>`
+                        : '<div style="height:36px;"></div>';
+                    html += `
+                        <div class="produto-card">
+                            ${imagemHtml}${placeholderHtml}
+                            <div class="produto-nome">${p.name}</div>
+                            <div class="produto-desc">${p.description || ''}</div>
+                            ${opcoesHtml}
+                            <div class="produto-footer">
+                                <div class="produto-preco" id="produto-preco-${p.id}">${maiorPreco > 0 ? `R$ ${fmt(maiorPreco)}` : ''}</div>
+                                <button class="btn-add-cart" onclick="adicionarAoCarrinho(${p.id}, '${p.name.replace(/'/g, "\'")}')"><i class="fas fa-plus"></i></button>
+                            </div>
+                        </div>`;
+                });
+                html += `</div></section>`;
+            });
+            grid.innerHTML = html;
+        }
+        function atualizarPrecoQuilo(id) {
+            const input = document.getElementById('quilo-' + id);
+            const el = document.getElementById('quilo-total-' + id);
+            if (!input || !el) return;
+            const p = produtosData.find(pr => pr.id === id);
+            const precoKg = precoPorKg(p);
+            const kg = parseFloat(String(input.value).replace(',', '.'));
+            const total = (isNaN(kg) || kg <= 0) ? 0 : precoKg * kg;
+            el.textContent = 'R$ ' + fmt(total);
+        }
+        function adicionarPorQuilo(id, nome) {
+            const input = document.getElementById('quilo-' + id);
+            const p = produtosData.find(pr => pr.id === id);
+            if (!p) return;
+            const precoKg = precoPorKg(p);
+            const kg = parseFloat(String(input ? input.value : '').replace(',', '.'));
+            if (isNaN(kg) || kg <= 0) { mostrarToast('Informe a quantidade em kg', 'error'); return; }
+            const total = precoKg * kg;
+            const itemKey = 'kg-' + id + '-' + Date.now();
+            carrinho.push({
+                id, itemKey, porQuilo: true,
+                nome: nome, icone: p.icone || '⚖️',
+                preco: precoKg,
+                qtd: Math.round(kg * 100) / 100,
+                label: fmt(kg) + ' kg',
+                descricao: fmt(kg) + ' kg x R$ ' + fmt(precoKg) + '/kg',
+                preco_total: total
+            });
+            localStorage.setItem('carrinho', JSON.stringify(carrinho));
+            atualizarCarrinhoUI();
+            mostrarToast(nome + ' (' + fmt(kg) + ' kg) adicionado!', 'success');
+            if (input) input.value = '';
+            const el = document.getElementById('quilo-total-' + id);
+            if (el) el.textContent = 'R$ 0,00';
+        }
+        function alterarQtdPorQuilo(itemKey, delta) {
+            const item = carrinho.find(i => i.itemKey === itemKey);
+            if (!item) return;
+            item.qtd = Math.round((item.qtd + delta) * 100) / 100;
+            if (item.qtd <= 0.05) { carrinho = carrinho.filter(i => i.itemKey !== itemKey); }
+            else {
+                item.label = fmt(item.qtd) + ' kg';
+                item.descricao = fmt(item.qtd) + ' kg x R$ ' + fmt(item.preco) + '/kg';
+            }
+            localStorage.setItem('carrinho', JSON.stringify(carrinho));
+            atualizarCarrinhoUI();
         }
         function selecionarOpcaoProduto(productId, priceId) {
             produtoSelecionado[productId] = priceId;
@@ -466,20 +589,18 @@
             const produto = produtosData.find(pr => pr.id === productId);
             const pr = (produto && produto.prices || []).find(p => p.id === priceId);
             const priceEl = document.getElementById(`produto-preco-${productId}`);
-            if (pr && priceEl) priceEl.textContent = `R$ ${parseFloat(pr.price).toFixed(2).replace('.', ',')}`;
+            if (pr && priceEl) priceEl.textContent = `R$ ${fmt(parseFloat(pr.price))}`;
         }
         function renderizarKitFesta(p) {
             const precos = p.prices || [];
             const precosTier = precos.filter(pr => pr.price_type === 'tier');
             if (precosTier.length === 0) return '';
-            // Maior preço selecionado por padrão
             let maiorIdx = 0;
             precosTier.forEach((pr, idx) => {
                 if (parseFloat(pr.price) > parseFloat(precosTier[maiorIdx].price)) maiorIdx = idx;
             });
             kitSelecionado[p.id] = maiorIdx;
             const maiorPreco = parseFloat(precosTier[maiorIdx].price);
-            // Foto grande do kit (180px) com fallback para o emoji
             const imagemHtml = p.imagem
                 ? `<img class="kit-imagem" src="${p.imagem}" alt="${p.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">`
                 : '';
@@ -487,7 +608,7 @@
             const opcoesHtml = `<div class="kit-opcoes">` + precosTier.map((pr, idx) => {
                 const isSel = kitSelecionado[p.id] === idx;
                 const comp = pr.composicao ? `<small>${pr.composicao}</small>` : '';
-                return `<button type="button" class="kit-opcao-btn ${isSel ? 'selected' : ''}" id="kitOpt-${p.id}-${idx}" onclick="selecionarKitOpcao(${p.id}, ${idx})">${pr.label}<strong>R$ ${parseFloat(pr.price).toFixed(2).replace('.', ',')}</strong>${comp}</button>`;
+                return `<button type="button" class="kit-opcao-btn ${isSel ? 'selected' : ''}" id="kitOpt-${p.id}-${idx}" onclick="selecionarKitOpcao(${p.id}, ${idx})">${pr.label}<strong>R$ ${fmt(parseFloat(pr.price))}</strong>${comp}</button>`;
             }).join('') + `</div>`;
             return `
                 <div class="kit-card" style="grid-column:1/-1;">
@@ -502,7 +623,7 @@
                     </div>
                     ${opcoesHtml}
                     <div class="kit-footer">
-                        <div class="kit-selecionado" id="kitSelecionado-${p.id}">${precosTier[maiorIdx].label} — R$ ${maiorPreco.toFixed(2).replace('.', ',')}</div>
+                        <div class="kit-selecionado" id="kitSelecionado-${p.id}">${precosTier[maiorIdx].label} — R$ ${fmt(maiorPreco)}</div>
                         <button class="btn-add-kit" id="btnAddKit-${p.id}" onclick="abrirKitModal(${p.id})"><i class="fas fa-plus"></i> Personalizar Kit</button>
                     </div>
                 </div>`;
@@ -516,7 +637,7 @@
             kitSelecionado[produtoId] = idx;
             const precos = p.prices.filter(pr => pr.price_type === 'tier');
             const opcao = precos[idx];
-            document.getElementById(`kitSelecionado-${produtoId}`).textContent = `${opcao.label} — R$ ${parseFloat(opcao.price).toFixed(2).replace('.', ',')}`;
+            document.getElementById(`kitSelecionado-${produtoId}`).textContent = `${opcao.label} — R$ ${fmt(parseFloat(opcao.price))}`;
             document.getElementById(`btnAddKit-${produtoId}`).disabled = false;
         }
         function abrirKitModal(produtoId) {
@@ -539,7 +660,7 @@
             document.getElementById('kmTitle').textContent = `🎉 ${p.name}`;
             document.getElementById('kmSubtitle').textContent = opcao.label;
             document.getElementById('kmComposicao').textContent = opcao.composicao || '';
-            document.getElementById('kmPreco').textContent = `R$ ${kitPrecoAtual.toFixed(2).replace('.', ',')}`;
+            document.getElementById('kmPreco').textContent = `R$ ${fmt(kitPrecoAtual)}`;
             montarSecaoBolo();
             montarSecaoDoces();
             montarSecaoSalgados();
@@ -650,8 +771,13 @@
         function filtrarCategoria(categoria) {
             document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
             event.target.classList.add('active');
-            if (!categoria) renderizarProdutos(produtosData);
-            else renderizarProdutos(produtosData.filter(p => p.categoria_nome === categoria));
+            if (!categoria) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+            }
+            const slug = categoria.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+            const el = document.getElementById('secao-' + slug);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
         function adicionarAoCarrinho(id, nome) {
             const priceId = produtoSelecionado[id];
@@ -698,17 +824,30 @@
             itemsEl.innerHTML = carrinho.map(item => {
                 const sub = item.preco * item.qtd;
                 total += sub;
+                if (item.porQuilo) {
+                    return `<div class="cart-item">
+                        <div class="cart-item-info">
+                            <div class="cart-item-name">${item.icone || '⚖️'} ${item.nome}</div>
+                            <div class="cart-item-label">R$ ${fmt(item.preco)} / kg</div>
+                            <div class="cart-item-detail">${item.descricao || ''}</div>
+                        </div>
+                        <div class="cart-item-qty">
+                            <button onclick="alterarQtdPorQuilo('${item.itemKey}', -0.1)">−</button><span>${fmt(item.qtd)} kg</span><button onclick="alterarQtdPorQuilo('${item.itemKey}', 0.1)">+</button>
+                        </div>
+                        <div class="cart-item-total">R$ ${fmt(sub)}</div>
+                    </div>`;
+                }
                 if (item.itemKey) {
                     return `<div class="cart-item">
                         <div class="cart-item-info">
                             <div class="cart-item-name">${item.icone || '🎉'} ${item.nome}</div>
-                            <div class="cart-item-label">R$ ${item.preco.toFixed(2).replace('.', ',')}</div>
+                            <div class="cart-item-label">R$ ${fmt(item.preco)}</div>
                             <div class="cart-item-detail">${item.descricao || item.composicao || ''}</div>
                         </div>
                         <div class="cart-item-qty">
                             <button onclick="alterarQtdKit('${item.itemKey}', -1)">−</button><span>${item.qtd}</span><button onclick="alterarQtdKit('${item.itemKey}', 1)">+</button>
                         </div>
-                        <div class="cart-item-total">R$ ${sub.toFixed(2).replace('.', ',')}</div>
+                        <div class="cart-item-total">R$ ${fmt(sub)}</div>
                     </div>`;
                 }
                 return `<div class="cart-item">
@@ -719,10 +858,10 @@
                     <div class="cart-item-qty">
                         <button onclick="alterarQtd(${item.id}, ${item.priceId}, -1)">−</button><span>${item.qtd}</span><button onclick="alterarQtd(${item.id}, ${item.priceId}, 1)">+</button>
                     </div>
-                    <div class="cart-item-total">R$ ${sub.toFixed(2).replace('.', ',')}</div>
+                    <div class="cart-item-total">R$ ${fmt(sub)}</div>
                 </div>`;
             }).join('');
-            document.getElementById('cartTotal').textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
+            document.getElementById('cartTotal').textContent = `R$ ${fmt(total)}`;
         }
         function abrirCarrinho() {
             document.getElementById('cartOverlay').classList.add('active');
@@ -775,7 +914,7 @@
                 const json = await res.json();
                 if (!json.success) throw new Error(json.message);
                 custoEntrega = json.data.custo_entrega;
-                resultEl.innerHTML = `🚚 Distância: ${json.data.distancia_texto} (${json.data.distancia_km} km) · Tempo: ${json.data.duracao_texto}<br><strong>Taxa de entrega: R$ ${custoEntrega.toFixed(2).replace('.', ',')}</strong>`;
+                resultEl.innerHTML = `🚚 Distância: ${json.data.distancia_texto} (${json.data.distancia_km} km) · Tempo: ${json.data.duracao_texto}<br><strong>Taxa de entrega: R$ ${fmt(custoEntrega)}</strong>`;
                 resultEl.classList.add('show');
                 atualizarResumoTotal();
             } catch (err) {
@@ -793,11 +932,11 @@
             const freteLinha = document.getElementById('resumoFreteLinha');
             if (custoEntrega > 0) {
                 freteLinha.style.display = '';
-                document.getElementById('resumoFrete').textContent = `R$ ${custoEntrega.toFixed(2).replace('.', ',')}`;
+                document.getElementById('resumoFrete').textContent = `R$ ${fmt(custoEntrega)}`;
             } else {
                 freteLinha.style.display = 'none';
             }
-            document.getElementById('resumoTotal').textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
+            document.getElementById('resumoTotal').textContent = `R$ ${fmt(total)}`;
         }
         function abrirCheckout() {
             if (carrinho.length === 0) { mostrarToast('Carrinho vazio!', 'error'); return; }
@@ -809,7 +948,8 @@
             const itemsHtml = carrinho.map(i => {
                 const sub = i.preco * i.qtd;
                 total += sub;
-                return `<div class="resumo-item"><span>${i.icone || '🍽️'} ${i.nome} x${i.qtd}</span><span>R$ ${sub.toFixed(2).replace('.', ',')}</span></div>`;
+                const qtdStr = i.porQuilo ? fmt(i.qtd) + ' kg' : 'x' + i.qtd;
+                return `<div class="resumo-item"><span>${i.icone || '🍽️'} ${i.nome} ${qtdStr}</span><span>R$ ${fmt(sub)}</span></div>`;
             }).join('');
             document.getElementById('resumoItems').innerHTML = itemsHtml;
             atualizarResumoTotal();
@@ -836,19 +976,21 @@
         function montarPayloadPedido() {
             const subtotal = getSubtotal();
             return {
-                
                 nome_cliente: document.getElementById('checkoutNome').value.trim(),
                 telefone: document.getElementById('checkoutTelefone').value.trim(),
                 endereco_rua: document.getElementById('checkoutRua').value,
                 endereco_numero: document.getElementById('checkoutNumero').value,
                 endereco_bairro: document.getElementById('checkoutBairro').value,
                 endereco_cep: document.getElementById('checkoutCep').value,
-                items: carrinho.map(i => `${i.icone || ''} ${i.nome} x${i.qtd} = R$ ${(i.preco * i.qtd).toFixed(2)}${i.descricao ? ' (' + i.descricao + ')' : ''}`).join(' | '),
+                items: carrinho.map(i => {
+                    const qtdStr = i.porQuilo ? fmt(i.qtd) + 'kg' : ('x' + i.qtd);
+                    return `${i.icone || ''} ${i.nome} ${qtdStr} = R$ ${(i.preco * i.qtd).toFixed(2)}${i.descricao ? ' (' + i.descricao + ')' : ''}`;
+                }).join(' | '),
                 itens: carrinho.map(i => ({
                     product_id: i.id || null,
                     nome: i.nome,
                     label: i.label || '',
-                    quantidade: i.qtd,
+                    quantidade: i.porQuilo ? parseFloat(i.qtd.toFixed(3)) : i.qtd,
                     preco_unitario: i.preco,
                     preco_total: i.preco * i.qtd,
                     descricao: i.descricao || i.composicao || ''
@@ -859,7 +1001,7 @@
                 tipo_logistica: document.getElementById('checkoutLogistica').value,
                 observacoes: document.getElementById('checkoutObs').value,
                 data_entrega: document.getElementById('checkoutData').value,
-                hora_entrega: document.getElementById('checkoutHora').value,
+                hora_entrega: document.getElementById('checkoutHora').value
             };
         }
         async function finalizarPedido(e) {
