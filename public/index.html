@@ -25,7 +25,9 @@
         .btn-header:hover { background: rgba(255,255,255,0.1); color: #fff; }
         .btn-header.user { border-color: rgba(251,191,36,0.4); color: #fbbf24; font-weight: 600; }
         .btn-header.user:hover { background: rgba(251,191,36,0.15); }
-        .categorias-nav { display: flex; gap: 8px; padding: 16px 0; overflow-x: auto; flex-wrap: nowrap; }
+
+        /* ===== MENU DE CATEGORIAS (fixo ao rolar) ===== */
+        .categorias-nav { display: flex; gap: 8px; padding: 12px 0; overflow-x: auto; flex-wrap: nowrap; position: sticky; top: 68px; z-index: 90; background: #f6faf6; }
         .categorias-nav::-webkit-scrollbar { height: 4px; }
         .categorias-nav::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
         .cat-btn { padding: 8px 16px; background: #fff; border: 1px solid #e5e7eb; border-radius: 50px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 4px; color: #4b5563; }
@@ -34,8 +36,10 @@
 
         /* ===== SEÇÕES POR CATEGORIA ===== */
         #produtosGrid { display: block; padding-bottom: 100px; }
-        .categoria-secao { margin-bottom: 36px; scroll-margin-top: 80px; }
-        .categoria-titulo { font-size: 20px; font-weight: 800; color: #1a2e1a; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 2px solid #16a34a; display: flex; align-items: center; gap: 8px; }
+        .categoria-secao { margin-bottom: 36px; scroll-margin-top: 130px; border-radius: 12px; padding: 10px; transition: background 0.3s ease, box-shadow 0.3s ease; }
+        .categoria-secao.destaque { background: #fffbeb; box-shadow: 0 0 0 2px #f59e0b inset; }
+        .categoria-titulo { font-size: 20px; font-weight: 800; color: #1a2e1a; margin-bottom: 14px; padding: 6px 12px; border-bottom: 2px solid #16a34a; display: flex; align-items: center; gap: 8px; border-radius: 8px; transition: all 0.3s ease; }
+        .categoria-secao.destaque .categoria-titulo { background: #f59e0b; color: #fff; }
         .categoria-secao .produtos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; padding-bottom: 0; }
 
         .produto-card { background: #fff; border-radius: 14px; padding: 16px; border: 1px solid #e5e7eb; transition: all 0.2s; display: flex; flex-direction: column; }
@@ -43,10 +47,10 @@
         .produto-icon { font-size: 36px; margin-bottom: 8px; }
         .produto-nome { font-size: 16px; font-weight: 700; color: #1a2e1a; margin-bottom: 4px; }
         .produto-desc { font-size: 12px; color: #6b7280; margin-bottom: 8px; flex: 1; }
-        .produto-imagem { width: 100%; aspect-ratio: 1 / 1; object-fit: contain; border-radius: 10px; margin-bottom: 10px; background: #f0fdf4; display: block; }
-        .produto-imagem-placeholder { width: 100%; aspect-ratio: 1 / 1; border-radius: 10px; margin-bottom: 10px; background: #f0fdf4; display: flex; align-items: center; justify-content: center; font-size: 40px; }
-        .kit-imagem { width: 100%; aspect-ratio: 16 / 9; object-fit: contain; border-radius: 12px; margin-bottom: 14px; background: #f0fdf4; display: block; }
-        .kit-imagem-placeholder { width: 100%; aspect-ratio: 16 / 9; border-radius: 12px; margin-bottom: 14px; background: #f0fdf4; display: flex; align-items: center; justify-content: center; font-size: 56px; }
+        .produto-imagem { width: 80%; aspect-ratio: 1 / 1; object-fit: contain; border-radius: 10px; margin: 0 auto 10px auto; background: #f0fdf4; display: block; }
+        .produto-imagem-placeholder { width: 80%; aspect-ratio: 1 / 1; border-radius: 10px; margin: 0 auto 10px auto; background: #f0fdf4; display: flex; align-items: center; justify-content: center; font-size: 40px; }
+        .kit-imagem { width: 80%; aspect-ratio: 16 / 9; object-fit: contain; border-radius: 12px; margin: 0 auto 14px auto; background: #f0fdf4; display: block; }
+        .kit-imagem-placeholder { width: 80%; aspect-ratio: 16 / 9; border-radius: 12px; margin: 0 auto 14px auto; background: #f0fdf4; display: flex; align-items: center; justify-content: center; font-size: 56px; }
 
         /* ===== BOTÕES DE OPÇÃO (produtos) ===== */
         .produto-opcoes { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
@@ -175,7 +179,7 @@
         .kit-modal .km-actions .btn-km-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
         .link-box { background: #f9fafb; border-radius: 10px; padding: 12px; margin-bottom: 16px; word-break: break-all; }
         @media (max-width: 768px) {
-            .produtos-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .categoria-secao .produtos-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
             .produto-card { padding: 12px; }
             .produto-icon { font-size: 28px; }
             .produto-nome { font-size: 14px; }
@@ -206,7 +210,7 @@
     </header>
     <main class="container">
         <nav class="categorias-nav" id="categoriasNav">
-            <button class="cat-btn active" onclick="filtrarCategoria('')">🍽️ Todos</button>
+            <button class="cat-btn active" data-slug="" onclick="filtrarCategoria('')">🍽️ Todos</button>
         </nav>
         <section class="produtos-grid" id="produtosGrid">
             <div class="loading-spinner"><i class="fas fa-spinner"></i><br><br>Carregando cardápio...</div>
@@ -446,12 +450,14 @@
                 categoriasData = catJson.data || [];
                 produtosData = prodJson.data || [];
                 const nav = document.getElementById('categoriasNav');
-                nav.innerHTML = '<button class="cat-btn active" onclick="filtrarCategoria(\'\')">🍽️ Todos</button>';
+                nav.innerHTML = '<button class="cat-btn active" data-slug="" onclick="filtrarCategoria(\'\')">🍽️ Todos</button>';
                 categoriasData.forEach(c => {
                     const icone = c.slug === 'salgados-fritos' ? '🍤' : c.slug === 'salgados-assados' ? '🥟' : c.slug === 'doces-tradicionais' ? '🍩' : c.slug === 'doces-gourmet' ? '✨' : c.slug === 'bolos-por-kg' ? '🎂' : c.slug === 'sobremesas' ? '🍮' : c.slug === 'kits-festa' ? '🎉' : '📦';
-                    nav.innerHTML += `<button class="cat-btn" onclick="filtrarCategoria('${c.name}')">${icone} ${c.name}</button>`;
+                    const slug = c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                    nav.innerHTML += `<button class="cat-btn" data-slug="${slug}" onclick="filtrarCategoria('${c.name}')">${icone} ${c.name}</button>`;
                 });
                 renderizarProdutos(produtosData);
+                iniciarScrollSpy();
             } catch (err) {
                 document.getElementById('produtosGrid').innerHTML = '<p style="text-align:center;padding:40px;color:#f87171;">Erro ao carregar cardápio</p>';
             }
@@ -533,6 +539,32 @@
                 html += `</div></section>`;
             });
             grid.innerHTML = html;
+        }
+        // ===== SCROLLSPY: destaca a seção visível e o botão da categoria =====
+        function iniciarScrollSpy() {
+            const secoes = document.querySelectorAll('.categoria-secao');
+            if (secoes.length === 0) return;
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const slug = entry.target.id.replace('secao-', '');
+                        document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+                        const btn = document.querySelector(`.cat-btn[data-slug="${slug}"]`);
+                        if (btn) btn.classList.add('active');
+                        document.querySelectorAll('.categoria-secao').forEach(s => s.classList.remove('destaque'));
+                        entry.target.classList.add('destaque');
+                    }
+                });
+            }, { rootMargin: '-90px 0px -55% 0px', threshold: 0 });
+            secoes.forEach(s => observer.observe(s));
+            // No topo, ativa "Todos"
+            window.addEventListener('scroll', function() {
+                if (window.scrollY < 120) {
+                    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+                    const todos = document.querySelector('.cat-btn[data-slug=""]');
+                    if (todos) todos.classList.add('active');
+                }
+            });
         }
         function atualizarPrecoQuilo(id) {
             const input = document.getElementById('quilo-' + id);
