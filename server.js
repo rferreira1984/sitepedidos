@@ -538,6 +538,49 @@ app.get('/api/meus-pedidos', authClienteMiddleware, async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao buscar pedidos' });
     }
 });
+// ==================== CONSULTA DE PEDIDOS PELO CLIENTE ====================
+// Lista pedidos por telefone (público - cliente verifica pelo próprio número)
+app.post('/api/pedidos/consulta', async (req, res) => {
+    try {
+        const { telefone } = req.body;
+        if (!telefone) return res.status(400).json({ success: false, message: 'Telefone obrigatório' });
+        const telefoneLimpo = String(telefone).replace(/\D/g, '');
+        if (telefoneLimpo.length < 10) return res.status(400).json({ success: false, message: 'Telefone inválido' });
+        const result = await pool.query(
+            'SELECT id, nome_cliente, telefone, items, valor_total, taxa_entrega, forma_pagamento, tipo_logistica, data_entrega, hora_entrega, status, data_criacao FROM s_pedidos WHERE telefone = $1 ORDER BY data_criacao DESC',
+            [telefoneLimpo]
+        );
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error('Erro ao consultar pedidos:', err);
+        res.status(500).json({ success: false, message: 'Erro ao consultar pedidos' });
+    }
+});
+// Detalhe de um pedido por telefone (público)
+app.post('/api/pedidos/consulta/:id', async (req, res) => {
+    try {
+        const { telefone } = req.body;
+        if (!telefone) return res.status(400).json({ success: false, message: 'Telefone obrigatório' });
+        const telefoneLimpo = String(telefone).replace(/\D/g, '');
+        const result = await pool.query('SELECT * FROM s_pedidos WHERE id = $1', [req.params.id]);
+        if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Pedido não encontrado' });
+        const pedido = result.rows[0];
+        // Verifica que o telefone informado pertence ao pedido
+        if (String(pedido.telefone).replace(/\D/g, '') !== telefoneLimpo) {
+            return res.status(403).json({ success: false, message: 'Telefone não corresponde a este pedido' });
+        }
+        const historico = await pool.query('SELECT * FROM status_historico WHERE pedido_id = $1 ORDER BY created_at DESC', [req.params.id]);
+        const itens = await pool.query('SELECT * FROM pedido_itens WHERE pedido_id = $1 ORDER BY id', [req.params.id]);
+        res.json({ success: true, data: pedido, historico: historico.rows, itens: itens.rows });
+    } catch (err) {
+        console.error('Erro ao buscar detalhe do pedido:', err);
+        res.status(500).json({ success: false, message: 'Erro ao buscar detalhe do pedido' });
+    }
+});
+// Página de consulta de pedidos do cliente
+app.get('/meus-pedidos.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'meus-pedidos.html'));
+});
 app.get('/login.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });

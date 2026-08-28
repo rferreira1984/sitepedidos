@@ -9,31 +9,31 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #7c3aed, #4c1d95); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #16a34a, #166534); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
         .card { background: #fff; border-radius: 20px; padding: 40px 36px; max-width: 420px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
         .logo { text-align: center; margin-bottom: 24px; }
         .logo .icon { font-size: 48px; }
-        .logo h1 { font-size: 24px; font-weight: 800; color: #1a1a2e; margin-top: 8px; }
+        .logo h1 { font-size: 24px; font-weight: 800; color: #1a2e1a; margin-top: 8px; }
         .logo p { font-size: 13px; color: #6b7280; margin-top: 4px; }
         .form-group { margin-bottom: 16px; }
         .form-group label { display: block; font-size: 12px; font-weight: 600; color: #4b5563; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
         .form-group input { width: 100%; padding: 13px 14px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 15px; outline: none; font-family: 'Inter', sans-serif; transition: all 0.2s; }
-        .form-group input:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,0.15); }
+        .form-group input:focus { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,0.15); }
         .form-group input:disabled { background: #f9fafb; color: #9ca3af; }
-        .btn-primary { width: 100%; padding: 14px; background: linear-gradient(135deg, #7c3aed, #6d28d9); border: none; border-radius: 12px; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif; }
-        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 25px rgba(124,58,237,0.3); }
+        .btn-primary { width: 100%; padding: 14px; background: linear-gradient(135deg, #16a34a, #15803d); border: none; border-radius: 12px; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif; }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 25px rgba(22,163,74,0.3); }
         .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         .btn-green { width: 100%; padding: 14px; background: #25D366; border: none; border-radius: 12px; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif; }
         .btn-green:hover { background: #1ebe5d; transform: translateY(-1px); }
         .btn-green:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-        .btn-outline { width: 100%; padding: 12px; background: #fff; border: 2px solid #7c3aed; border-radius: 12px; color: #7c3aed; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif; margin-top: 8px; }
-        .btn-outline:hover { background: #f5f3ff; }
+        .btn-outline { width: 100%; padding: 12px; background: #fff; border: 2px solid #16a34a; border-radius: 12px; color: #16a34a; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif; margin-top: 8px; }
+        .btn-outline:hover { background: #f0fdf4; }
         .error-msg { background: #fef2f2; color: #dc2626; font-size: 13px; padding: 10px 12px; border-radius: 8px; margin-bottom: 14px; display: none; text-align: center; }
         .error-msg.show { display: block; }
         .success-msg { background: #ecfdf5; color: #047857; font-size: 13px; padding: 10px 12px; border-radius: 8px; margin-bottom: 14px; display: none; text-align: center; }
         .success-msg.show { display: block; }
         .links { text-align: center; margin-top: 20px; font-size: 13px; color: #6b7280; }
-        .links a { color: #7c3aed; font-weight: 600; text-decoration: none; }
+        .links a { color: #16a34a; font-weight: 600; text-decoration: none; }
         .links a:hover { text-decoration: underline; }
         .back { display: block; text-align: center; margin-top: 16px; font-size: 13px; color: #9ca3af; text-decoration: none; }
         .back:hover { color: #6b7280; }
@@ -54,10 +54,8 @@
             <h1>Criar minha conta</h1>
             <p>Cadastre-se para pedir sem confirmação e acompanhar seus pedidos</p>
         </div>
-
         <div class="error-msg" id="errorMsg"></div>
         <div class="success-msg" id="successMsg"></div>
-
         <form id="cadastroForm" onsubmit="return criarConta(event)">
             <div class="form-group">
                 <label>Nome completo</label>
@@ -75,7 +73,6 @@
                 <label>Confirmar senha</label>
                 <input type="password" id="senha2" placeholder="Repita a senha" minlength="4" required>
             </div>
-
             <div class="codigo-box" id="codigoBox">
                 <label>📱 Digite o código recebido</label>
                 <div class="codigo-input">
@@ -88,38 +85,31 @@
                 <button type="button" class="btn-green" id="btnVerificar" onclick="verificarCodigo()">Verificar Código</button>
                 <div class="codigo-timer" id="codigoTimer"></div>
             </div>
-
             <button type="submit" class="btn-primary" id="btnCadastrar">Enviar Código</button>
         </form>
-
         <div class="links">
             Já tem conta? <a href="/login.html" id="linkLogin">Entrar</a>
         </div>
         <a href="/" class="back">← Voltar ao cardápio</a>
     </div>
-
     <script>
         const params = new URLSearchParams(window.location.search);
         const checkout = params.get('checkout') === '1';
         document.getElementById('linkLogin').href = '/login.html' + (checkout ? '?checkout=1' : '');
-
         let codigoEnviado = false;
         let timerInterval = null;
-
         function mostrarErro(msg) {
             const el = document.getElementById('errorMsg');
             el.textContent = msg;
             el.classList.add('show');
             document.getElementById('successMsg').classList.remove('show');
         }
-
         function mostrarSucesso(msg) {
             const el = document.getElementById('successMsg');
             el.textContent = msg;
             el.classList.add('show');
             document.getElementById('errorMsg').classList.remove('show');
         }
-
         function moverProximo(input) {
             if (input.value.length === 1) {
                 const next = input.nextElementSibling;
@@ -129,7 +119,6 @@
                 }
             }
         }
-
         function iniciarTimer(segundos) {
             clearInterval(timerInterval);
             const el = document.getElementById('codigoTimer');
@@ -139,13 +128,12 @@
                 restante--;
                 if (restante <= 0) {
                     clearInterval(timerInterval);
-                    el.innerHTML = '<a href="#" onclick="reenviarCodigo();return false;" style="color:#7c3aed;font-weight:600;">Reenviar código</a>';
+                    el.innerHTML = '<a href="#" onclick="reenviarCodigo();return false;" style="color:#16a34a;font-weight:600;">Reenviar código</a>';
                 } else {
                     el.textContent = `Reenviar código em ${restante}s`;
                 }
             }, 1000);
         }
-
         async function criarConta(e) {
             e.preventDefault();
             const nome = document.getElementById('nome').value.trim();
@@ -153,14 +141,11 @@
             const senha = document.getElementById('senha').value;
             const senha2 = document.getElementById('senha2').value;
             const btn = document.getElementById('btnCadastrar');
-
             document.getElementById('errorMsg').classList.remove('show');
             document.getElementById('successMsg').classList.remove('show');
-
             if (!nome || !telefone || !senha) { mostrarErro('Preencha todos os campos'); return; }
             if (senha !== senha2) { mostrarErro('As senhas não coincidem.'); return; }
             if (senha.length < 4) { mostrarErro('A senha deve ter no mínimo 4 dígitos'); return; }
-
             // Etapa 1: enviar código de verificação
             btn.disabled = true; btn.textContent = 'Enviando código...';
             try {
@@ -184,7 +169,6 @@
             }
             return false;
         }
-
         async function reenviarCodigo() {
             const telefone = document.getElementById('telefone').value.trim();
             if (!telefone) { mostrarErro('Informe o telefone'); return; }
@@ -202,14 +186,11 @@
                 iniciarTimer(300);
             } catch (err) { mostrarErro(err.message); }
         }
-
         async function verificarCodigo() {
             const telefone = document.getElementById('telefone').value.trim();
             const codigo = Array.from(document.querySelectorAll('.digito')).map(d => d.value).join('');
             const btn = document.getElementById('btnVerificar');
-
             if (!codigo || codigo.length < 4) { mostrarErro('Digite os 4 dígitos do código'); return; }
-
             btn.disabled = true; btn.textContent = 'Verificando...';
             try {
                 const res = await fetch('/api/auth/cliente/validar-codigo', {
@@ -219,12 +200,10 @@
                 });
                 const json = await res.json();
                 if (!json.success) throw new Error(json.message);
-
                 // Código válido → criar conta
                 const nome = document.getElementById('nome').value.trim();
                 const senha = document.getElementById('senha').value;
                 mostrarSucesso('Código validado! Criando sua conta...');
-
                 const resReg = await fetch('/api/auth/cliente/registrar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -232,7 +211,6 @@
                 });
                 const jsonReg = await resReg.json();
                 if (!jsonReg.success) throw new Error(jsonReg.message);
-
                 localStorage.setItem('clienteToken', jsonReg.token);
                 localStorage.setItem('clienteDados', JSON.stringify(jsonReg.cliente));
                 window.location.href = '/' + (checkout ? '?checkout=1' : '');

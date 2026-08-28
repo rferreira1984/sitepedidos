@@ -1,4 +1,4 @@
-    <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
@@ -9,18 +9,18 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #7c3aed, #4c1d95); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #16a34a, #166534); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
         .card { background: #fff; border-radius: 20px; padding: 40px 36px; max-width: 420px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
         .logo { text-align: center; margin-bottom: 24px; }
         .logo .icon { font-size: 48px; }
-        .logo h1 { font-size: 24px; font-weight: 800; color: #1a1a2e; margin-top: 8px; }
+        .logo h1 { font-size: 24px; font-weight: 800; color: #1a2e1a; margin-top: 8px; }
         .logo p { font-size: 13px; color: #6b7280; margin-top: 4px; }
         .form-group { margin-bottom: 16px; }
         .form-group label { display: block; font-size: 12px; font-weight: 600; color: #4b5563; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
         .form-group input { width: 100%; padding: 13px 14px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 15px; outline: none; font-family: 'Inter', sans-serif; transition: all 0.2s; }
-        .form-group input:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,0.15); }
-        .btn-primary { width: 100%; padding: 14px; background: linear-gradient(135deg, #7c3aed, #6d28d9); border: none; border-radius: 12px; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif; }
-        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 25px rgba(124,58,237,0.3); }
+        .form-group input:focus { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,0.15); }
+        .btn-primary { width: 100%; padding: 14px; background: linear-gradient(135deg, #16a34a, #15803d); border: none; border-radius: 12px; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif; }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 25px rgba(22,163,74,0.3); }
         .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         .btn-green { width: 100%; padding: 14px; background: #25D366; border: none; border-radius: 12px; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif; }
         .btn-green:hover { background: #1ebe5d; transform: translateY(-1px); }
@@ -30,7 +30,7 @@
         .success-msg { background: #ecfdf5; color: #047857; font-size: 13px; padding: 10px 12px; border-radius: 8px; margin-bottom: 14px; display: none; text-align: center; }
         .success-msg.show { display: block; }
         .links { text-align: center; margin-top: 20px; font-size: 13px; color: #6b7280; }
-        .links a { color: #7c3aed; font-weight: 600; text-decoration: none; }
+        .links a { color: #16a34a; font-weight: 600; text-decoration: none; }
         .links a:hover { text-decoration: underline; }
         .back { display: block; text-align: center; margin-top: 16px; font-size: 13px; color: #9ca3af; text-decoration: none; }
         .back:hover { color: #6b7280; }
@@ -42,7 +42,7 @@
         .codigo-input input:focus { border-color: #25D366; box-shadow: 0 0 0 3px rgba(37,211,102,0.15); }
         .codigo-hint { font-size: 12px; color: #047857; text-align: center; margin-bottom: 10px; }
         .codigo-timer { font-size: 12px; color: #6b7280; text-align: center; margin-top: 8px; }
-        .step-title { font-size: 14px; font-weight: 700; color: #7c3aed; margin-bottom: 16px; }
+        .step-title { font-size: 14px; font-weight: 700; color: #16a34a; margin-bottom: 16px; }
     </style>
 </head>
 <body>
@@ -52,10 +52,8 @@
             <h1>Recuperar senha</h1>
             <p>Enviaremos um código de verificação para seu WhatsApp</p>
         </div>
-
         <div class="error-msg" id="errorMsg"></div>
         <div class="success-msg" id="successMsg"></div>
-
         <!-- Etapa 1: telefone -->
         <div id="etapa1">
             <div class="step-title">1️⃣ Informe seu telefone</div>
@@ -67,7 +65,6 @@
                 <button type="submit" class="btn-primary" id="btnEnviar">Enviar Código</button>
             </form>
         </div>
-
         <!-- Etapa 2: código -->
         <div id="etapa2" style="display:none;">
             <div class="step-title">2️⃣ Digite o código recebido</div>
@@ -84,7 +81,6 @@
                 <div class="codigo-timer" id="codigoTimer"></div>
             </div>
         </div>
-
         <!-- Etapa 3: nova senha -->
         <div id="etapa3" style="display:none;">
             <div class="step-title">3️⃣ Crie uma nova senha</div>
@@ -100,35 +96,29 @@
                 <button type="submit" class="btn-primary" id="btnRedefinir">Redefinir Senha</button>
             </form>
         </div>
-
         <div class="links">
             Lembrou a senha? <a href="/login.html" id="linkLogin">Entrar</a>
         </div>
         <a href="/" class="back">← Voltar ao cardápio</a>
     </div>
-
     <script>
         const params = new URLSearchParams(window.location.search);
         const checkout = params.get('checkout') === '1';
         document.getElementById('linkLogin').href = '/login.html' + (checkout ? '?checkout=1' : '');
-
         let codigoValidado = false;
         let timerInterval = null;
-
         function mostrarErro(msg) {
             const el = document.getElementById('errorMsg');
             el.textContent = msg;
             el.classList.add('show');
             document.getElementById('successMsg').classList.remove('show');
         }
-
         function mostrarSucesso(msg) {
             const el = document.getElementById('successMsg');
             el.textContent = msg;
             el.classList.add('show');
             document.getElementById('errorMsg').classList.remove('show');
         }
-
         function moverProximo(input) {
             if (input.value.length === 1) {
                 const next = input.nextElementSibling;
@@ -138,7 +128,6 @@
                 }
             }
         }
-
         function iniciarTimer(segundos) {
             clearInterval(timerInterval);
             const el = document.getElementById('codigoTimer');
@@ -148,13 +137,12 @@
                 restante--;
                 if (restante <= 0) {
                     clearInterval(timerInterval);
-                    el.innerHTML = '<a href="#" onclick="reenviarCodigo();return false;" style="color:#7c3aed;font-weight:600;">Reenviar código</a>';
+                    el.innerHTML = '<a href="#" onclick="reenviarCodigo();return false;" style="color:#16a34a;font-weight:600;">Reenviar código</a>';
                 } else {
                     el.textContent = `Reenviar código em ${restante}s`;
                 }
             }, 1000);
         }
-
         async function enviarCodigo(e) {
             e.preventDefault();
             const telefone = document.getElementById('telefone').value.trim();
@@ -162,7 +150,6 @@
             document.getElementById('errorMsg').classList.remove('show');
             document.getElementById('successMsg').classList.remove('show');
             if (!telefone) { mostrarErro('Informe seu telefone'); return; }
-
             btn.disabled = true; btn.textContent = 'Enviando código...';
             try {
                 const res = await fetch('/api/auth/cliente/recuperar-enviar-codigo', {
@@ -183,7 +170,6 @@
             }
             return false;
         }
-
         async function reenviarCodigo() {
             const telefone = document.getElementById('telefone').value.trim();
             if (!telefone) { mostrarErro('Informe o telefone'); return; }
@@ -201,13 +187,11 @@
                 iniciarTimer(600);
             } catch (err) { mostrarErro(err.message); }
         }
-
         async function verificarCodigo() {
             const telefone = document.getElementById('telefone').value.trim();
             const codigo = Array.from(document.querySelectorAll('.digito')).map(d => d.value).join('');
             const btn = document.getElementById('btnVerificar');
             if (!codigo || codigo.length < 4) { mostrarErro('Digite os 4 dígitos do código'); return; }
-
             btn.disabled = true; btn.textContent = 'Verificando...';
             try {
                 const res = await fetch('/api/auth/cliente/recuperar-validar-codigo', {
@@ -228,7 +212,6 @@
             }
             return false;
         }
-
         async function redefinirSenha(e) {
             e.preventDefault();
             const telefone = document.getElementById('telefone').value.trim();
@@ -236,13 +219,10 @@
             const novaSenha = document.getElementById('novaSenha').value;
             const novaSenha2 = document.getElementById('novaSenha2').value;
             const btn = document.getElementById('btnRedefinir');
-
             document.getElementById('errorMsg').classList.remove('show');
             document.getElementById('successMsg').classList.remove('show');
-
             if (novaSenha !== novaSenha2) { mostrarErro('As senhas não coincidem.'); return; }
             if (novaSenha.length < 4) { mostrarErro('A senha deve ter no mínimo 4 dígitos'); return; }
-
             btn.disabled = true; btn.textContent = 'Redefinindo...';
             try {
                 const res = await fetch('/api/auth/cliente/recuperar-redefinir', {
