@@ -54,7 +54,24 @@ function authMiddleware(req, res, next) {
         return res.status(401).json({ success: false, message: 'Token inválido ou expirado' });
     }
 }
-
+// ==================== SABORES PARA CENTO DE SALGADOS ====================
+// Retorna os sabores disponíveis (produtos ativos das categorias de salgados)
+app.get('/api/sabores-salgados', async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT DISTINCT p.name FROM s_products p
+             JOIN s_categories c ON c.id = p.category_id
+             WHERE p.is_active = true
+               AND (c.slug IN ('salgados-fritos', 'salgados-assados')
+                    OR c.name ILIKE '%salgado%')
+             ORDER BY p.name`
+        );
+        res.json({ success: true, data: result.rows.map(r => r.name) });
+    } catch (err) {
+        console.error('Erro ao buscar sabores:', err);
+        res.status(500).json({ success: false, message: 'Erro ao buscar sabores' });
+    }
+});
 // ==================== ROTAS PÚBLICAS ====================
 
 app.get('/api/categorias', async (req, res) => {
