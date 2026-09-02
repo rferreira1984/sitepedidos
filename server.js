@@ -1,4 +1,5 @@
 require('dotenv').config();
+const fs = require('fs');   
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -21,7 +22,7 @@ const TAXA_POR_KM = parseFloat(process.env.TAXA_POR_KM || '0');
 const FRETE_GRATIS_ACIMA = parseFloat(process.env.FRETE_GRATIS_ACIMA || '0');
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 const pool = new Pool({
@@ -31,6 +32,8 @@ const pool = new Pool({
     password: process.env.DB_PASSWORD || 'infodba',
     database: process.env.DB_NAME || 'db_sistema',
 });
+
+
 
 async function testConnection() {
     try {
@@ -54,6 +57,27 @@ function authMiddleware(req, res, next) {
         return res.status(401).json({ success: false, message: 'Token inválido ou expirado' });
     }
 }
+
+// ===== PASTA DE UPLOADS (imagens de decoração) =====
+const UPLOAD_DIR = path.join(__dirname, 'public', 'uploads');
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+// ===== UPLOAD DE IMAGEM (decoração do kit) =====
+app.post('/api/upload', async (req, res) => {
+    try {
+        const { base64, filename } = req.body;
+        if (!base64) return res.status(400).json({ success: false, message: 'Imagem obrigatória' });
+        const data = base64.replace(/^data:image\/\w+;base64,/, '');
+        const ext = (filename && filename.includes('.')) ? filename.split('.').pop().toLowerCase() : 'png';
+        const safeExt = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext) ? ext : 'png';
+        const name = 'decoracao_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8) + '.' + safeExt;
+        fs.writeFileSync(path.join(UPLOAD_DIR, name), Buffer.from(data, 'base64'));
+        res.json({ success: true, url: '/uploads/' + name });
+    } catch (err) {
+        console.error('Erro ao salvar imagem:', err);
+        res.status(500).json({ success: false, message: 'Erro ao salvar imagem' });
+    }
+});
 // ==================== SABORES PARA CENTO DE SALGADOS ====================
 // Retorna os sabores disponíveis (produtos ativos das categorias de salgados)
 app.get('/api/sabores-salgados', async (req, res) => {
@@ -67,6 +91,55 @@ app.get('/api/sabores-salgados', async (req, res) => {
              ORDER BY p.name`
         );
         res.json({ success: true, data: result.rows.map(r => r.name) });
+    } catch (err) {
+        console.error('Erro ao buscar sabores:', err);
+        res.status(500).json({ success: false, message: 'Erro ao buscar sabores' });
+    }
+});
+
+// ==================== SABORES PARA KITS (bolo, doces, salgados) ====================
+// Retorna sabores de bolo (com preço por kg), doces e salgados a partir do banco
+app.get('/api/sabores', async (req, res) => {
+    try {
+        // Bolos: produtos de categorias com "bolo" no nome (exceto kits), com preço por kg
+        const bolosRes = await pool.query(
+            `SELECT p.id, p.name, c.name AS categoria_nome
+             FROM s_products p JOIN s_categories c ON c.id = p.category_id
+             WHERE p.is_active = true AND c.name ILIKE '%bolo%' AND c.name NOT ILIKE '%kit%'
+             ORDER BY p.name`
+        );
+        const bolos = [];
+        for (const b of bolosRes.rows) {
+            const prices = await pool.query(
+                'SELECT price FROM s_product_prices WHERE product_id = $1 AND is_active = true',
+                [b.id]
+            );
+            if (prices.rows.length === 0) continue;
+            const maxPrice = Math.max(...prices.rows.map(r => parseFloat(r.price)));
+            bolos.push({ name: b.name, price: maxPrice });
+        }
+        // Doces: produtos de categorias com "doce" no nome
+        const docesRes = await pool.query(
+            `SELECT DISTINCT p.name FROM s_products p
+             JOIN s_categories c ON c.id = p.category_id
+             WHERE p.is_active = true AND c.name ILIKE '%doce%'
+             ORDER BY p.name`
+        );
+        // Salgados: produtos de categorias com "salgado" no nome
+        const salgadosRes = await pool.query(
+            `SELECT DISTINCT p.name FROM s_products p
+             JOIN s_categories c ON c.id = p.category_id
+             WHERE p.is_active = true AND c.name ILIKE '%salgado%'
+             ORDER BY p.name`
+        );
+        res.json({
+            success: true,
+            data: {
+                bolos,
+                doces: docesRes.rows.map(r => r.name),
+                salgados: salgadosRes.rows.map(r => r.name)
+            }
+        });
     } catch (err) {
         console.error('Erro ao buscar sabores:', err);
         res.status(500).json({ success: false, message: 'Erro ao buscar sabores' });

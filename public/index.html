@@ -186,6 +186,14 @@
         .kit-modal .km-actions .btn-km-confirm { background: #16a34a; border: none; color: #fff; }
         .kit-modal .km-actions .btn-km-confirm:hover { background: #15803d; }
         .kit-modal .km-actions .btn-km-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
+        .kit-modal .km-section .km-select { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; outline: none; background: #fff; margin-bottom: 6px; font-family: 'Inter', sans-serif; }
+        .kit-modal .km-section .km-select:focus { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,0.12); }
+        .kit-modal .km-section .km-textarea { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; outline: none; font-family: 'Inter', sans-serif; resize: vertical; min-height: 60px; box-sizing: border-box; }
+        .kit-modal .km-section .km-textarea:focus { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,0.12); }
+        .kit-modal .km-section .km-file { width: 100%; padding: 10px; border: 1px dashed #d1d5db; border-radius: 8px; font-size: 12px; background: #f9fafb; cursor: pointer; font-family: 'Inter', sans-serif; }
+        .kit-modal .km-section .km-preview { margin-top: 8px; max-width: 100%; max-height: 120px; border-radius: 8px; display: none; }
+        .kit-modal .km-section .km-preview.show { display: block; }
+        .kit-modal .km-extra-info { font-size: 12px; color: #16a34a; font-weight: 600; margin-top: 4px; }
         .link-box { background: #f9fafb; border-radius: 10px; padding: 12px; margin-bottom: 16px; word-break: break-all; }
         @media (max-width: 768px) {
             .categoria-secao .produtos-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
@@ -383,6 +391,36 @@
                 <div class="km-info" style="font-size:11px;color:#9ca3af;margin-bottom:6px;" id="kmRefriInfo"></div>
                 <div id="kmRefriSelects"></div>
             </div>
+            <div class="km-section" id="kmBoloExtraSection">
+                <label>🎂 Bolo adicional (gramas)</label>
+                <div class="km-info" style="font-size:11px;color:#9ca3af;margin-bottom:6px;">O sabor será o mesmo do bolo principal. Informe a quantidade em gramas (múltiplos de 500g).</div>
+                <input type="number" class="km-select" id="kmBoloExtraGramas" min="0" step="500" placeholder="0" inputmode="numeric" oninput="atualizarBoloExtra()">
+                <div class="km-extra-info" id="kmBoloExtraInfo">+ R$ 0,00</div>
+            </div>
+            <div class="km-section" id="kmForminhaSection">
+                <label>🧁 Cor das forminhas dos doces</label>
+                <select class="km-select" id="kmForminhaCor" onchange="kitForminhaCor = this.value">
+                    <option value="">Selecione a cor</option>
+                    <option value="Rosa">Rosa</option>
+                    <option value="Azul">Azul</option>
+                    <option value="Vermelho">Vermelho</option>
+                    <option value="Dourado">Dourado</option>
+                    <option value="Prata">Prata</option>
+                    <option value="Verde">Verde</option>
+                    <option value="Roxo">Roxo</option>
+                    <option value="Branco">Branco</option>
+                    <option value="Coloridas">Coloridas</option>
+                </select>
+            </div>
+            <div class="km-section" id="kmObsSection">
+                <label>📝 Observações</label>
+                <textarea class="km-textarea" id="kmObs" placeholder="Alguma observação para o kit? (ex.: tema da festa, preferências)" oninput="kitObs = this.value"></textarea>
+            </div>
+            <div class="km-section" id="kmDecoracaoSection">
+                <label>🖼️ Imagem da decoração</label>
+                <input type="file" class="km-file" id="kmDecoracaoFile" accept="image/*" onchange="previewDecoracao(this)">
+                <img class="km-preview" id="kmDecoracaoPreview" alt="Prévia da decoração">
+            </div>
             <div class="km-total"><span>Total do Kit</span><span class="km-price" id="kmPreco">R$ 0,00</span></div>
             <div class="km-actions">
                 <button class="btn-km-cancel" onclick="fecharKitModal()">Cancelar</button>
@@ -401,9 +439,25 @@
         let kitQtds = { Doces: 2, Salgados: 3, Bolo: 1, Refrigerante: 1 };
         let custoEntrega = 0;
         let produtoSelecionado = {};
-        const SABORES_BOLO = ['Brigadeiro', 'Prestígio', 'Dois Amores', 'Quatro Leites'];
-        const SABORES_DOCES = ['Brigadeiro', 'Beijinho', 'Cajuzinho', 'Olho de Sogra', 'Bicho de Pé', 'Doce de Coco', 'Suspiro', 'Pé de Moleque'];
-        const SABORES_SALGADOS = ['Coxinha', 'Bolinha de Queijo', 'Risole de Carne', 'Risole de Queijo', 'Pastelzinho', 'Esfiha', 'Empadinha', 'Kibe', 'Bolinha de Bacalhau', 'Enroladinho de Salsicha'];
+        // ===== SABORES (buscados no banco, com fallback) =====
+        let SABORES_BOLO = ['Brigadeiro', 'Prestígio', 'Dois Amores', 'Quatro Leites'];
+        let SABORES_DOCES = ['Brigadeiro', 'Beijinho', 'Cajuzinho', 'Olho de Sogra', 'Bicho de Pé', 'Doce de Coco', 'Suspiro', 'Pé de Moleque'];
+        let SABORES_SALGADOS = ['Coxinha', 'Bolinha de Queijo', 'Risole de Carne', 'Risole de Queijo', 'Pastelzinho', 'Esfiha', 'Empadinha', 'Kibe', 'Bolinha de Bacalhau', 'Enroladinho de Salsicha'];
+        let PRECO_BOLO_POR_SABOR = {}; // nome do sabor -> preço por kg (do banco)
+        async function carregarSabores() {
+            try {
+                const res = await fetch(API + '/sabores');
+                const json = await res.json();
+                if (!json.success || !json.data) return;
+                if (json.data.bolos && json.data.bolos.length > 0) {
+                    SABORES_BOLO = json.data.bolos.map(b => b.name);
+                    PRECO_BOLO_POR_SABOR = {};
+                    json.data.bolos.forEach(b => { PRECO_BOLO_POR_SABOR[b.name] = parseFloat(b.price); });
+                }
+                if (json.data.doces && json.data.doces.length > 0) SABORES_DOCES = json.data.doces;
+                if (json.data.salgados && json.data.salgados.length > 0) SABORES_SALGADOS = json.data.salgados;
+            } catch (e) { /* mantém fallback */ }
+        }
         const SABORES_REFRIGERANTE = ['Coca-Cola', 'Sprite', 'Fanta Laranja', 'Guaraná'];
         // ===== SABORES DO CENTO DE SALGADOS (buscados no banco, com fallback) =====
         let SABORES_CENTO = ['Coxinha', 'Bolinha de Queijo', 'Risole de Carne', 'Risole de Queijo', 'Pastelzinho', 'Esfiha', 'Empadinha', 'Kibe', 'Bolinha de Bacalhau', 'Enroladinho de Salsicha', 'Croquete', 'Misto Quente']; // fallback se a API falhar
@@ -423,6 +477,13 @@
         let centoQtd = 25;
         let centoPreco = 0;
         let modoCento = false;
+        // ===== EXTRAS DO KIT FESTA =====
+        let kitBoloExtraGramas = 0;
+        let kitForminhaCor = '';
+        let kitObs = '';
+        let kitDecoracaoUrl = '';
+        let PRECO_BOLO_ADICIONAL = 45.00; // fallback por kg se não achar o sabor no banco
+        const CORES_FORMINHAS = ['Rosa', 'Azul', 'Vermelho', 'Dourado', 'Prata', 'Verde', 'Roxo', 'Branco', 'Coloridas'];
         let clienteDados = null;
         try { clienteDados = JSON.parse(localStorage.getItem('clienteDados') || 'null'); } catch (e) { clienteDados = null; }
 
@@ -637,6 +698,10 @@
             document.getElementById('kmBoloSection').style.display = 'none';
             document.getElementById('kmDocesSection').style.display = 'none';
             document.getElementById('kmRefriSection').style.display = 'none';
+            document.getElementById('kmBoloExtraSection').style.display = 'none';
+            document.getElementById('kmForminhaSection').style.display = 'none';
+            document.getElementById('kmObsSection').style.display = 'none';
+            document.getElementById('kmDecoracaoSection').style.display = 'none';
             document.getElementById('kmSalgadosSection').style.display = '';
             document.getElementById('kmSalgadosInfo').textContent = maxSabores === 1 ? 'Selecione 1 sabor' : `Selecione até ${maxSabores} sabores`;
             const container = document.getElementById('kmSalgadosChips');
@@ -817,6 +882,22 @@
             montarSecaoDoces();
             montarSecaoSalgados();
             montarSecaoRefri();
+            // ===== EXTRAS DO KIT =====
+            document.getElementById('kmBoloExtraSection').style.display = '';
+            document.getElementById('kmForminhaSection').style.display = '';
+            document.getElementById('kmObsSection').style.display = '';
+            document.getElementById('kmDecoracaoSection').style.display = '';
+            const boloExtraInput = document.getElementById('kmBoloExtraGramas');
+            if (boloExtraInput) boloExtraInput.value = '';
+            document.getElementById('kmBoloExtraInfo').textContent = '+ R$ 0,00';
+            document.getElementById('kmForminhaCor').value = '';
+            document.getElementById('kmObs').value = '';
+            document.getElementById('kmDecoracaoFile').value = '';
+            document.getElementById('kmDecoracaoPreview').classList.remove('show');
+            kitBoloExtraGramas = 0;
+            kitForminhaCor = '';
+            kitObs = '';
+            kitDecoracaoUrl = '';
             document.getElementById('btnKmConfirm').disabled = true;
             document.getElementById('kitModalOverlay').classList.add('active');
         }
@@ -834,7 +915,7 @@
                 </select>`;
             }
             document.getElementById('kmBoloSelects').innerHTML = html;
-            document.querySelectorAll('.km-select-bolo').forEach(s => s.addEventListener('change', verificarKitCompleto));
+            document.querySelectorAll('.km-select-bolo').forEach(s => s.addEventListener('change', function() { verificarKitCompleto(); atualizarBoloExtra(); }));
         }
         function montarSecaoDoces() {
             const qtd = kitQtds.Doces;
@@ -872,6 +953,50 @@
             document.getElementById('kmRefriSelects').innerHTML = html;
             document.querySelectorAll('.km-select-refri').forEach(s => s.addEventListener('change', verificarKitCompleto));
         }
+        // ===== BOLO ADICIONAL (gramas, sabor do bolo principal, preço do banco) =====
+        function precoBoloSelecionado() {
+            const sel = document.querySelector('.km-select-bolo');
+            if (!sel || !sel.value) return PRECO_BOLO_ADICIONAL;
+            const preco = PRECO_BOLO_POR_SABOR[sel.value];
+            return preco ? preco : PRECO_BOLO_ADICIONAL;
+        }
+        function atualizarBoloExtra() {
+            const input = document.getElementById('kmBoloExtraGramas');
+            const gramas = parseFloat(String(input ? input.value : '').replace(',', '.')) || 0;
+            kitBoloExtraGramas = gramas;
+            const precoKg = precoBoloSelecionado();
+            const extra = (gramas / 1000) * precoKg;
+            document.getElementById('kmBoloExtraInfo').textContent = '+ R$ ' + fmt(extra);
+            const total = kitPrecoAtual + extra;
+            document.getElementById('kmPreco').textContent = 'R$ ' + fmt(total);
+        }
+        // ===== UPLOAD DA IMAGEM DE DECORAÇÃO =====
+        async function previewDecoracao(input) {
+            const file = input.files && input.files[0];
+            const preview = document.getElementById('kmDecoracaoPreview');
+            if (!file) { preview.classList.remove('show'); kitDecoracaoUrl = ''; return; }
+            if (file.size > 5 * 1024 * 1024) { mostrarToast('Imagem muito grande (máx. 5MB)', 'error'); input.value = ''; return; }
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                preview.src = e.target.result;
+                preview.classList.add('show');
+                try {
+                    const res = await fetch(API + '/upload', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ base64: e.target.result, filename: file.name })
+                    });
+                    const json = await res.json();
+                    if (!json.success) throw new Error(json.message);
+                    kitDecoracaoUrl = json.url;
+                    mostrarToast('Imagem enviada!', 'success');
+                } catch (err) {
+                    kitDecoracaoUrl = '';
+                    mostrarToast('Erro ao enviar imagem: ' + err.message, 'error');
+                }
+            };
+            reader.readAsDataURL(file);
+        }
         function fecharKitModal() {
             document.getElementById('kitModalOverlay').classList.remove('active');
             kitAtual = null;
@@ -879,6 +1004,22 @@
             modoCento = false;
             centoAtual = null;
             centoPriceId = null;
+            kitBoloExtraGramas = 0;
+            kitForminhaCor = '';
+            kitObs = '';
+            kitDecoracaoUrl = '';
+            const boloExtraInput = document.getElementById('kmBoloExtraGramas');
+            if (boloExtraInput) boloExtraInput.value = '';
+            const boloInfo = document.getElementById('kmBoloExtraInfo');
+            if (boloInfo) boloInfo.textContent = '+ R$ 0,00';
+            const formSel = document.getElementById('kmForminhaCor');
+            if (formSel) formSel.value = '';
+            const obsEl = document.getElementById('kmObs');
+            if (obsEl) obsEl.value = '';
+            const fileEl = document.getElementById('kmDecoracaoFile');
+            if (fileEl) fileEl.value = '';
+            const prevEl = document.getElementById('kmDecoracaoPreview');
+            if (prevEl) prevEl.classList.remove('show');
         }
         document.addEventListener('click', function(e) {
             const chip = e.target.closest('.km-chip');
@@ -920,11 +1061,18 @@
             const refris = Array.from(document.querySelectorAll('.km-select-refri')).map(s => s.value).filter(Boolean).join(', ');
             const doces = Array.from(document.querySelectorAll('#kmDocesChips .km-chip.selected')).map(c => c.dataset.value).join(', ');
             const salgados = Array.from(document.querySelectorAll('#kmSalgadosChips .km-chip.selected')).map(c => c.dataset.value).join(', ');
-            const descricao = `${opcao.label} | Bolo: ${bolos} | Doces: ${doces} | Salgados: ${salgados} | Refrigerante: ${refris}`;
+            const precoKgBolo = precoBoloSelecionado();
+            const extra = (kitBoloExtraGramas / 1000) * precoKgBolo;
+            const precoFinal = kitPrecoAtual + extra;
+            let descricao = `${opcao.label} | Bolo: ${bolos} | Doces: ${doces} | Salgados: ${salgados} | Refrigerante: ${refris}`;
+            if (kitBoloExtraGramas > 0) descricao += ` | Bolo adicional: ${kitBoloExtraGramas}g (+R$ ${fmt(extra)})`;
+            if (kitForminhaCor) descricao += ` | Forminhas: ${kitForminhaCor}`;
+            if (kitObs) descricao += ` | Obs: ${kitObs}`;
+            if (kitDecoracaoUrl) descricao += ` | Decoração: ${kitDecoracaoUrl}`;
             const itemKey = `${kitAtual}-${kitOpcaoAtual}-${Date.now()}`;
             const existente = carrinho.find(i => i.itemKey === itemKey);
             if (existente) existente.qtd += 1;
-            else carrinho.push({ id: kitAtual, itemKey, nome: `${p.name} - ${opcao.label}`, icone: '🎉', preco: kitPrecoAtual, label: opcao.label, descricao, composicao: opcao.composicao || '', qtd: 1 });
+            else carrinho.push({ id: kitAtual, itemKey, nome: `${p.name} - ${opcao.label}`, icone: '🎉', preco: precoFinal, label: opcao.label, descricao, composicao: opcao.composicao || '', qtd: 1 });
             localStorage.setItem('carrinho', JSON.stringify(carrinho));
             atualizarCarrinhoUI();
             fecharKitModal();
@@ -1308,6 +1456,7 @@
         }
         atualizarUIUsuario();
         carregarCardapio();
+        carregarSabores();
         carregarSaboresCento();
         atualizarCarrinhoUI();
         const urlParams = new URLSearchParams(window.location.search);
