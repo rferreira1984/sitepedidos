@@ -405,6 +405,24 @@
         const SABORES_DOCES = ['Brigadeiro', 'Beijinho', 'Cajuzinho', 'Olho de Sogra', 'Bicho de Pé', 'Doce de Coco', 'Suspiro', 'Pé de Moleque'];
         const SABORES_SALGADOS = ['Coxinha', 'Bolinha de Queijo', 'Risole de Carne', 'Risole de Queijo', 'Pastelzinho', 'Esfiha', 'Empadinha', 'Kibe', 'Bolinha de Bacalhau', 'Enroladinho de Salsicha'];
         const SABORES_REFRIGERANTE = ['Coca-Cola', 'Sprite', 'Fanta Laranja', 'Guaraná'];
+        // ===== SABORES DO CENTO DE SALGADOS (buscados no banco, com fallback) =====
+        let SABORES_CENTO = ['Coxinha', 'Bolinha de Queijo', 'Risole de Carne', 'Risole de Queijo', 'Pastelzinho', 'Esfiha', 'Empadinha', 'Kibe', 'Bolinha de Bacalhau', 'Enroladinho de Salsicha', 'Croquete', 'Misto Quente']; // fallback se a API falhar
+        async function carregarSaboresCento() {
+            try {
+                const res = await fetch(API + '/sabores-salgados');
+                const json = await res.json();
+                if (json.success && json.data && json.data.length > 0) {
+                    SABORES_CENTO = json.data;
+                }
+            } catch (e) { /* mantém a lista de fallback */ }
+        }
+        // Quantos sabores o cliente pode escolher por quantidade (ajuste aqui se precisar)
+        const SABORES_POR_CENTO = { 25: 1, 50: 2, 100: 5 };
+        let centoAtual = null;
+        let centoPriceId = null;
+        let centoQtd = 25;
+        let centoPreco = 0;
+        let modoCento = false;
         let clienteDados = null;
         try { clienteDados = JSON.parse(localStorage.getItem('clienteDados') || 'null'); } catch (e) { clienteDados = null; }
 
@@ -418,6 +436,12 @@
                 const t = ((pr.unit_label || '') + ' ' + (pr.label || '')).toLowerCase();
                 return t.includes('kg') || t.includes('quilo');
             });
+        }
+        // ===== DETECÇÃO DE CENTO DE SALGADOS =====
+        function ehCento(p) {
+            if (!p) return false;
+            const nomeCat = (p.categoria_nome || '').toLowerCase();
+            return nomeCat.includes('cento') || nomeCat.includes('centena');
         }
         function precoPorKg(p) {
             const precos = (p.prices || []).filter(pr => pr.is_active !== false);
@@ -467,7 +491,7 @@
                 const nav = document.getElementById('categoriasNav');
                 nav.innerHTML = '<button class="cat-btn active" data-slug="" onclick="filtrarCategoria(\'\')">🍽️ Todos</button>';
                 categoriasData.forEach(c => {
-                    const icone = c.slug === 'salgados-fritos' ? '🍤' : c.slug === 'salgados-assados' ? '🥟' : c.slug === 'doces-tradicionais' ? '🍩' : c.slug === 'doces-gourmet' ? '✨' : c.slug === 'bolos-por-kg' ? '🎂' : c.slug === 'sobremesas' ? '🍮' : c.slug === 'kits-festa' ? '🎉' : '📦';
+                    const icone = c.slug === 'salgados-fritos' ? '🍤' : c.slug === 'salgados-assados' ? '🥟' : c.slug === 'doces-tradicionais' ? '🍩' : c.slug === 'doces-gourmet' ? '✨' : c.slug === 'bolos-por-kg' ? '🎂' : c.slug === 'sobremesas' ? '🍮' : c.slug === 'kits-festa' ? '🎉' : (c.slug === 'cento-de-salgados' || c.name.toLowerCase().includes('cento')) ? '🥟' : '📦';
                     const slug = c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
                     nav.innerHTML += `<button class="cat-btn" data-slug="${slug}" onclick="filtrarCategoria('${c.name}')">${icone} ${c.name}</button>`;
                 });
@@ -494,12 +518,13 @@
             Object.keys(grupos).forEach(cat => {
                 const slug = cat.toLowerCase().replace(/[^a-z0-9]+/g, '-');
                 const c = cat.toLowerCase();
-                const icone = c.includes('salgado') ? '🍤' : c.includes('doce') ? '🍩' : c.includes('bolo') ? '🎂' : c.includes('sobremesa') ? '🍮' : c.includes('kit') ? '🎉' : '📦';
+                const icone = c.includes('salgado') ? '🍤' : c.includes('doce') ? '🍩' : c.includes('bolo') ? '🎂' : c.includes('sobremesa') ? '🍮' : c.includes('kit') ? '🎉' : c.includes('cento') ? '🥟' : '📦';
                 html += `<section class="categoria-secao" id="secao-${slug}">`;
                 html += `<h2 class="categoria-titulo">${icone} ${cat}</h2>`;
                 html += `<div class="produtos-grid">`;
                 grupos[cat].forEach(p => {
                     if (p.category_id === 7 || p.categoria_nome === 'Kits Festa') { html += renderizarKitFesta(p); return; }
+                    if (ehCento(p)) { html += renderizarCento(p); return; }
                     const imagemHtml = p.imagem
                         ? `<img class="produto-imagem" loading="lazy" src="${p.imagem}" alt="${p.id}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">`
                         : '';
@@ -554,6 +579,85 @@
                 html += `</div></section>`;
             });
             grid.innerHTML = html;
+        }
+        // ===== CARD DO CENTO DE SALGADOS =====
+        function renderizarCento(p) {
+            const precos = p.prices || [];
+            const maiorPrice = precos.length > 0 ? precos.reduce((a, b) => parseFloat(a.price) >= parseFloat(b.price) ? a : b) : null;
+            const maiorPreco = maiorPrice ? parseFloat(maiorPrice.price) : 0;
+            produtoSelecionado[p.id] = maiorPrice ? maiorPrice.id : null;
+            const imagemHtml = p.imagem
+                ? `<img class="produto-imagem" loading="lazy" src="${p.imagem}" alt="${p.id}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">`
+                : '';
+            const placeholderHtml = `<div class="produto-imagem-placeholder" ${p.imagem ? 'style="display:none;"' : ''}>${p.icone || '🥟'}</div>`;
+            const opcoesHtml = precos.length > 0
+                ? `<div class="produto-opcoes">` + precos.map(pr => {
+                    const isSel = produtoSelecionado[p.id] === pr.id;
+                    return `<button type="button" class="produto-opcao-btn ${isSel ? 'selected' : ''}" id="opcao-${p.id}-${pr.id}" onclick="selecionarOpcaoCento(${p.id}, ${pr.id})">${pr.label}<strong>R$ ${fmt(parseFloat(pr.price))}</strong></button>`;
+                }).join('') + `</div>`
+                : '<div style="height:36px;"></div>';
+            return `
+                <div class="produto-card">
+                    ${imagemHtml}${placeholderHtml}
+                    <div class="produto-nome">${p.name}</div>
+                    <div class="produto-desc">${p.description || ''}</div>
+                    ${opcoesHtml}
+                    <div class="produto-footer">
+                        <div class="produto-preco" id="produto-preco-${p.id}">${maiorPreco > 0 ? `R$ ${fmt(maiorPreco)}` : ''}</div>
+                        <button class="btn-add-cart" onclick="abrirCentoModal(${p.id})" title="Escolher sabores"><i class="fas fa-plus"></i></button>
+                    </div>
+                </div>`;
+        }
+        function selecionarOpcaoCento(productId, priceId) {
+            produtoSelecionado[productId] = priceId;
+            document.querySelectorAll(`[id^="opcao-${productId}-"]`).forEach(el => el.classList.remove('selected'));
+            const btn = document.getElementById(`opcao-${productId}-${priceId}`);
+            if (btn) btn.classList.add('selected');
+            const produto = produtosData.find(pr => pr.id === productId);
+            const pr = (produto && produto.prices || []).find(p => p.id === priceId);
+            const priceEl = document.getElementById(`produto-preco-${productId}`);
+            if (pr && priceEl) priceEl.textContent = `R$ ${fmt(parseFloat(pr.price))}`;
+        }
+        function abrirCentoModal(produtoId) {
+            const p = produtosData.find(pr => pr.id === produtoId);
+            if (!p) return;
+            const priceId = produtoSelecionado[produtoId];
+            if (!priceId) { mostrarToast('Selecione a quantidade (25, 50 ou 100)', 'error'); return; }
+            const pr = (p.prices || []).find(x => x.id === priceId);
+            if (!pr) { mostrarToast('Opção não encontrada', 'error'); return; }
+            modoCento = true;
+            centoAtual = produtoId;
+            centoPriceId = priceId;
+            centoQtd = parseInt(pr.quantity) || parseInt(String(pr.label).replace(/\D/g, '')) || 25;
+            centoPreco = parseFloat(pr.price);
+            const maxSabores = SABORES_POR_CENTO[centoQtd] || 1;
+            document.getElementById('kmTitle').textContent = `🥟 ${p.name}`;
+            document.getElementById('kmSubtitle').textContent = `${centoQtd} salgados — escolha ${maxSabores} ${maxSabores > 1 ? 'sabores' : 'sabor'}`;
+            document.getElementById('kmComposicao').textContent = `Quantidade: ${centoQtd} salgados · Sabores: até ${maxSabores}`;
+            document.getElementById('kmBoloSection').style.display = 'none';
+            document.getElementById('kmDocesSection').style.display = 'none';
+            document.getElementById('kmRefriSection').style.display = 'none';
+            document.getElementById('kmSalgadosSection').style.display = '';
+            document.getElementById('kmSalgadosInfo').textContent = maxSabores === 1 ? 'Selecione 1 sabor' : `Selecione até ${maxSabores} sabores`;
+            const container = document.getElementById('kmSalgadosChips');
+            container.dataset.max = maxSabores;
+            container.innerHTML = SABORES_CENTO.map(s => `<span class="km-chip" data-value="${s}">${s}</span>`).join('');
+            document.getElementById('kmPreco').textContent = `R$ ${fmt(centoPreco)}`;
+            document.getElementById('btnKmConfirm').disabled = true;
+            document.getElementById('kitModalOverlay').classList.add('active');
+        }
+        function confirmarCento() {
+            if (!centoAtual || centoPriceId === null) return;
+            const p = produtosData.find(pr => pr.id === centoAtual);
+            if (!p) return;
+            const sabores = Array.from(document.querySelectorAll('#kmSalgadosChips .km-chip.selected')).map(c => c.dataset.value).join(', ');
+            const descricao = `${centoQtd} salgados | Sabores: ${sabores}`;
+            const itemKey = `cento-${centoAtual}-${centoPriceId}-${Date.now()}`;
+            carrinho.push({ id: centoAtual, itemKey, nome: `${p.name} (${centoQtd})`, icone: '🥟', preco: centoPreco, label: `${centoQtd} salgados`, descricao, qtd: 1 });
+            localStorage.setItem('carrinho', JSON.stringify(carrinho));
+            atualizarCarrinhoUI();
+            fecharKitModal();
+            mostrarToast(`🥟 ${centoQtd} salgados adicionados!`, 'success');
         }
         // ===== SCROLLSPY: destaca a seção visível e o botão da categoria =====
         function iniciarScrollSpy() {
@@ -694,6 +798,7 @@
             if (idx === undefined) { mostrarToast('Selecione um tamanho do kit', 'error'); return; }
             const precos = p.prices.filter(pr => pr.price_type === 'tier');
             const opcao = precos[idx];
+            modoCento = false;
             kitAtual = produtoId;
             kitOpcaoAtual = idx;
             kitPrecoAtual = parseFloat(opcao.price);
@@ -771,6 +876,9 @@
             document.getElementById('kitModalOverlay').classList.remove('active');
             kitAtual = null;
             kitOpcaoAtual = null;
+            modoCento = false;
+            centoAtual = null;
+            centoPriceId = null;
         }
         document.addEventListener('click', function(e) {
             const chip = e.target.closest('.km-chip');
@@ -788,6 +896,12 @@
             verificarKitCompleto();
         });
         function verificarKitCompleto() {
+            if (modoCento) {
+                const max = parseInt(document.getElementById('kmSalgadosChips').dataset.max || 1);
+                const salgados = document.querySelectorAll('#kmSalgadosChips .km-chip.selected').length;
+                document.getElementById('btnKmConfirm').disabled = salgados < max;
+                return;
+            }
             const bolos = Array.from(document.querySelectorAll('.km-select-bolo')).map(s => s.value).filter(Boolean);
             const refris = Array.from(document.querySelectorAll('.km-select-refri')).map(s => s.value).filter(Boolean);
             const doces = document.querySelectorAll('#kmDocesChips .km-chip.selected').length;
@@ -796,6 +910,7 @@
             document.getElementById('btnKmConfirm').disabled = !ok;
         }
         function confirmarKit() {
+            if (modoCento) { confirmarCento(); return; }
             if (!kitAtual || kitOpcaoAtual === null) return;
             const p = produtosData.find(pr => pr.id === kitAtual);
             if (!p) return;
@@ -1193,6 +1308,7 @@
         }
         atualizarUIUsuario();
         carregarCardapio();
+        carregarSaboresCento();
         atualizarCarrinhoUI();
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('checkout') === '1' && carrinho.length > 0) {
