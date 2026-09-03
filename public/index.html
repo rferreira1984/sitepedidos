@@ -186,7 +186,7 @@
         .kit-modal .km-actions .btn-km-confirm { background: #16a34a; border: none; color: #fff; }
         .kit-modal .km-actions .btn-km-confirm:hover { background: #15803d; }
         .kit-modal .km-actions .btn-km-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
-        .kit-modal .km-section .km-select { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; outline: none; background: #fff; margin-bottom: 6px; font-family: 'Inter', sans-serif; }
+        .kit-modal .km-section .km-select { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; outline: none; background: #fff; margin-bottom: 6px; font-family: 'Inter', sans-serif; box-sizing: border-box; }
         .kit-modal .km-section .km-select:focus { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,0.12); }
         .kit-modal .km-section .km-textarea { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; outline: none; font-family: 'Inter', sans-serif; resize: vertical; min-height: 60px; box-sizing: border-box; }
         .kit-modal .km-section .km-textarea:focus { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,0.12); }
@@ -443,32 +443,59 @@
         let SABORES_BOLO = ['Brigadeiro', 'Prestígio', 'Dois Amores', 'Quatro Leites'];
         let SABORES_DOCES = ['Brigadeiro', 'Beijinho', 'Cajuzinho', 'Olho de Sogra', 'Bicho de Pé', 'Doce de Coco', 'Suspiro', 'Pé de Moleque'];
         let SABORES_SALGADOS = ['Coxinha', 'Bolinha de Queijo', 'Risole de Carne', 'Risole de Queijo', 'Pastelzinho', 'Esfiha', 'Empadinha', 'Kibe', 'Bolinha de Bacalhau', 'Enroladinho de Salsicha'];
-        let PRECO_BOLO_POR_SABOR = {}; // nome do sabor -> preço por kg (do banco)
+        let PRECO_BOLO_POR_SABOR = {}; // sabor -> preço/kg (do banco)
+        let PRECO_BOLO_FALLBACK_KG = 45.00; // usados apenas se a API não retornar preço
         async function carregarSabores() {
             try {
                 const res = await fetch(API + '/sabores');
                 const json = await res.json();
                 if (!json.success || !json.data) return;
                 if (json.data.bolos && json.data.bolos.length > 0) {
-                    SABORES_BOLO = json.data.bolos.map(b => b.name);
+                    SABORES_BOLO = json.data.bolos.map(b => (typeof b === 'object' ? b.name : b));
                     PRECO_BOLO_POR_SABOR = {};
-                    json.data.bolos.forEach(b => { PRECO_BOLO_POR_SABOR[b.name] = parseFloat(b.price); });
+                    json.data.bolos.forEach(b => {
+                        const nome = typeof b === 'object' ? b.name : b;
+                        const preco = typeof b === 'object' ? parseFloat(b.price) : NaN;
+                        if (!isNaN(preco)) PRECO_BOLO_POR_SABOR[nome] = preco;
+                    });
                 }
-                if (json.data.doces && json.data.doces.length > 0) SABORES_DOCES = json.data.doces;
-                if (json.data.salgados && json.data.salgados.length > 0) SABORES_SALGADOS = json.data.salgados;
+                if (json.data.doces && json.data.doces.length > 0) {
+                    SABORES_DOCES = json.data.doces.map(d => (typeof d === 'object' ? d.name : d));
+                }
+                if (json.data.salgados && json.data.salgados.length > 0) {
+                    SABORES_SALGADOS = json.data.salgados.map(s => (typeof s === 'object' ? s.name : s));
+                }
             } catch (e) { /* mantém fallback */ }
         }
         const SABORES_REFRIGERANTE = ['Coca-Cola', 'Sprite', 'Fanta Laranja', 'Guaraná'];
-        // ===== SABORES DO CENTO DE SALGADOS (buscados no banco, com fallback) =====
-        let SABORES_CENTO = ['Coxinha', 'Bolinha de Queijo', 'Risole de Carne', 'Risole de Queijo', 'Pastelzinho', 'Esfiha', 'Empadinha', 'Kibe', 'Bolinha de Bacalhau', 'Enroladinho de Salsicha', 'Croquete', 'Misto Quente']; // fallback se a API falhar
+        // ===== SABORES DO CENTO (buscados no banco por tipo, com fallback) =====
+        let SABORES_CENTO_POR_TIPO = {
+            'Salgados Fritos': ['Coxinha', 'Bolinha de Queijo', 'Risole de Carne', 'Risole de Queijo', 'Pastelzinho', 'Esfiha', 'Kibe', 'Bolinha de Bacalhau', 'Enroladinho de Salsicha'],
+            'Salgados Assados': ['Empadinha', 'Esfiha de Carne', 'Esfiha de Frango', 'Pão de Queijo', 'Croissant de Presunto e Queijo', 'Folhado de Frango', 'Folhado de Palmito', 'Torta de Frango'],
+            'Doces Tradicionais': ['Brigadeiro', 'Beijinho', 'Cajuzinho', 'Olho de Sogra', 'Bicho de Pé', 'Doce de Coco', 'Suspiro', 'Pé de Moleque'],
+            'Doces Gourmet': ['Brigadeiro Gourmet', 'Beijinho Gourmet', 'Cupcake', 'Macaron', 'Trufa de Chocolate', 'Bombom de Morango', 'Cone Trufado', 'Palha Italiana']
+        };
         async function carregarSaboresCento() {
             try {
-                const res = await fetch(API + '/sabores-salgados');
+                const res = await fetch(API + '/sabores-cento');
                 const json = await res.json();
-                if (json.success && json.data && json.data.length > 0) {
-                    SABORES_CENTO = json.data;
+                if (json.success && json.data) {
+                    Object.keys(json.data).forEach(cat => {
+                        if (json.data[cat] && json.data[cat].length > 0) {
+                            SABORES_CENTO_POR_TIPO[cat] = json.data[cat];
+                        }
+                    });
                 }
             } catch (e) { /* mantém a lista de fallback */ }
+        }
+        function detectarTipoCento(nome) {
+            const n = (nome || '').toLowerCase();
+            if (n.includes('frito')) return 'Salgados Fritos';
+            if (n.includes('assado')) return 'Salgados Assados';
+            if (n.includes('gourmet')) return 'Doces Gourmet';
+            if (n.includes('tradicional')) return 'Doces Tradicionais';
+            if (n.includes('doce')) return 'Doces Tradicionais';
+            return 'Salgados Fritos';
         }
         // Quantos sabores o cliente pode escolher por quantidade (ajuste aqui se precisar)
         const SABORES_POR_CENTO = { 25: 1, 50: 2, 100: 5 };
@@ -477,12 +504,11 @@
         let centoQtd = 25;
         let centoPreco = 0;
         let modoCento = false;
-        // ===== EXTRAS DO KIT FESTA =====
+        // ===== EXTRAS DO KIT FESTA (somente bolo em gramas) =====
         let kitBoloExtraGramas = 0;
         let kitForminhaCor = '';
         let kitObs = '';
         let kitDecoracaoUrl = '';
-        let PRECO_BOLO_ADICIONAL = 45.00; // fallback por kg se não achar o sabor no banco
         const CORES_FORMINHAS = ['Rosa', 'Azul', 'Vermelho', 'Dourado', 'Prata', 'Verde', 'Roxo', 'Branco', 'Coloridas'];
         let clienteDados = null;
         try { clienteDados = JSON.parse(localStorage.getItem('clienteDados') || 'null'); } catch (e) { clienteDados = null; }
@@ -692,9 +718,11 @@
             centoQtd = parseInt(pr.quantity) || parseInt(String(pr.label).replace(/\D/g, '')) || 25;
             centoPreco = parseFloat(pr.price);
             const maxSabores = SABORES_POR_CENTO[centoQtd] || 1;
+            const tipoCento = detectarTipoCento(p.name);
+            const saboresDisponiveis = SABORES_CENTO_POR_TIPO[tipoCento] || SABORES_CENTO_POR_TIPO['Salgados Fritos'];
             document.getElementById('kmTitle').textContent = `🥟 ${p.name}`;
-            document.getElementById('kmSubtitle').textContent = `${centoQtd} salgados — escolha ${maxSabores} ${maxSabores > 1 ? 'sabores' : 'sabor'}`;
-            document.getElementById('kmComposicao').textContent = `Quantidade: ${centoQtd} salgados · Sabores: até ${maxSabores}`;
+            document.getElementById('kmSubtitle').textContent = `${centoQtd} unidades — ${tipoCento} · escolha ${maxSabores} ${maxSabores > 1 ? 'sabores' : 'sabor'}`;
+            document.getElementById('kmComposicao').textContent = `Quantidade: ${centoQtd} · Tipo: ${tipoCento} · Sabores: até ${maxSabores}`;
             document.getElementById('kmBoloSection').style.display = 'none';
             document.getElementById('kmDocesSection').style.display = 'none';
             document.getElementById('kmRefriSection').style.display = 'none';
@@ -703,10 +731,10 @@
             document.getElementById('kmObsSection').style.display = 'none';
             document.getElementById('kmDecoracaoSection').style.display = 'none';
             document.getElementById('kmSalgadosSection').style.display = '';
-            document.getElementById('kmSalgadosInfo').textContent = maxSabores === 1 ? 'Selecione 1 sabor' : `Selecione até ${maxSabores} sabores`;
+            document.getElementById('kmSalgadosInfo').textContent = maxSabores === 1 ? `Selecione 1 sabor (${tipoCento})` : `Selecione até ${maxSabores} sabores (${tipoCento})`;
             const container = document.getElementById('kmSalgadosChips');
             container.dataset.max = maxSabores;
-            container.innerHTML = SABORES_CENTO.map(s => `<span class="km-chip" data-value="${s}">${s}</span>`).join('');
+            container.innerHTML = saboresDisponiveis.map(s => `<span class="km-chip" data-value="${s}">${s}</span>`).join('');
             document.getElementById('kmPreco').textContent = `R$ ${fmt(centoPreco)}`;
             document.getElementById('btnKmConfirm').disabled = true;
             document.getElementById('kitModalOverlay').classList.add('active');
@@ -716,13 +744,13 @@
             const p = produtosData.find(pr => pr.id === centoAtual);
             if (!p) return;
             const sabores = Array.from(document.querySelectorAll('#kmSalgadosChips .km-chip.selected')).map(c => c.dataset.value).join(', ');
-            const descricao = `${centoQtd} salgados | Sabores: ${sabores}`;
+            const descricao = `${centoQtd} unidades | Sabores: ${sabores}`;
             const itemKey = `cento-${centoAtual}-${centoPriceId}-${Date.now()}`;
-            carrinho.push({ id: centoAtual, itemKey, nome: `${p.name} (${centoQtd})`, icone: '🥟', preco: centoPreco, label: `${centoQtd} salgados`, descricao, qtd: 1 });
+            carrinho.push({ id: centoAtual, itemKey, nome: `${p.name} (${centoQtd})`, icone: '🥟', preco: centoPreco, label: `${centoQtd} unidades`, descricao, qtd: 1 });
             localStorage.setItem('carrinho', JSON.stringify(carrinho));
             atualizarCarrinhoUI();
             fecharKitModal();
-            mostrarToast(`🥟 ${centoQtd} salgados adicionados!`, 'success');
+            mostrarToast(`🥟 ${centoQtd} unidades adicionadas!`, 'success');
         }
         // ===== SCROLLSPY: destaca a seção visível e o botão da categoria =====
         function iniciarScrollSpy() {
@@ -882,7 +910,7 @@
             montarSecaoDoces();
             montarSecaoSalgados();
             montarSecaoRefri();
-            // ===== EXTRAS DO KIT =====
+            // ===== EXTRAS DO KIT (somente bolo em gramas) =====
             document.getElementById('kmBoloExtraSection').style.display = '';
             document.getElementById('kmForminhaSection').style.display = '';
             document.getElementById('kmObsSection').style.display = '';
@@ -956,16 +984,14 @@
         // ===== BOLO ADICIONAL (gramas, sabor do bolo principal, preço do banco) =====
         function precoBoloSelecionado() {
             const sel = document.querySelector('.km-select-bolo');
-            if (!sel || !sel.value) return PRECO_BOLO_ADICIONAL;
-            const preco = PRECO_BOLO_POR_SABOR[sel.value];
-            return preco ? preco : PRECO_BOLO_ADICIONAL;
+            if (!sel || !sel.value) return PRECO_BOLO_FALLBACK_KG;
+            return PRECO_BOLO_POR_SABOR[sel.value] || PRECO_BOLO_FALLBACK_KG;
         }
         function atualizarBoloExtra() {
             const input = document.getElementById('kmBoloExtraGramas');
-            const gramas = parseFloat(String(input ? input.value : '').replace(',', '.')) || 0;
-            kitBoloExtraGramas = gramas;
+            kitBoloExtraGramas = parseFloat(String(input ? input.value : '').replace(',', '.')) || 0;
             const precoKg = precoBoloSelecionado();
-            const extra = (gramas / 1000) * precoKg;
+            const extra = (kitBoloExtraGramas / 1000) * precoKg;
             document.getElementById('kmBoloExtraInfo').textContent = '+ R$ ' + fmt(extra);
             const total = kitPrecoAtual + extra;
             document.getElementById('kmPreco').textContent = 'R$ ' + fmt(total);
@@ -1061,11 +1087,10 @@
             const refris = Array.from(document.querySelectorAll('.km-select-refri')).map(s => s.value).filter(Boolean).join(', ');
             const doces = Array.from(document.querySelectorAll('#kmDocesChips .km-chip.selected')).map(c => c.dataset.value).join(', ');
             const salgados = Array.from(document.querySelectorAll('#kmSalgadosChips .km-chip.selected')).map(c => c.dataset.value).join(', ');
-            const precoKgBolo = precoBoloSelecionado();
-            const extra = (kitBoloExtraGramas / 1000) * precoKgBolo;
-            const precoFinal = kitPrecoAtual + extra;
+            const extraBolo = (kitBoloExtraGramas / 1000) * precoBoloSelecionado();
+            const precoFinal = kitPrecoAtual + extraBolo;
             let descricao = `${opcao.label} | Bolo: ${bolos} | Doces: ${doces} | Salgados: ${salgados} | Refrigerante: ${refris}`;
-            if (kitBoloExtraGramas > 0) descricao += ` | Bolo adicional: ${kitBoloExtraGramas}g (+R$ ${fmt(extra)})`;
+            if (kitBoloExtraGramas > 0) descricao += ` | Bolo adicional: ${fmt(kitBoloExtraGramas)}g (+R$ ${fmt(extraBolo)})`;
             if (kitForminhaCor) descricao += ` | Forminhas: ${kitForminhaCor}`;
             if (kitObs) descricao += ` | Obs: ${kitObs}`;
             if (kitDecoracaoUrl) descricao += ` | Decoração: ${kitDecoracaoUrl}`;

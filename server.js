@@ -78,6 +78,30 @@ app.post('/api/upload', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao salvar imagem' });
     }
 });
+
+// ==================== SABORES POR TIPO DE CENTO ====================
+// Retorna os sabores agrupados por categoria (Salgados Fritos, Assados, Doces Tradicionais, Gourmet)
+app.get('/api/sabores-cento', async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT c.name AS categoria, p.name AS sabor
+             FROM s_products p
+             JOIN s_categories c ON c.id = p.category_id
+             WHERE p.is_active = true
+               AND (c.name ILIKE '%salgado%' OR c.name ILIKE '%doce%')
+             ORDER BY c.display_order, p.name`
+        );
+        const grupos = {};
+        result.rows.forEach(r => {
+            if (!grupos[r.categoria]) grupos[r.categoria] = [];
+            grupos[r.categoria].push(r.sabor);
+        });
+        res.json({ success: true, data: grupos });
+    } catch (err) {
+        console.error('Erro ao buscar sabores de cento:', err);
+        res.status(500).json({ success: false, message: 'Erro ao buscar sabores de cento' });
+    }
+});
 // ==================== SABORES PARA CENTO DE SALGADOS ====================
 // Retorna os sabores disponíveis (produtos ativos das categorias de salgados)
 app.get('/api/sabores-salgados', async (req, res) => {
@@ -96,55 +120,95 @@ app.get('/api/sabores-salgados', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao buscar sabores' });
     }
 });
-
-// ==================== SABORES PARA KITS (bolo, doces, salgados) ====================
-// Retorna sabores de bolo (com preço por kg), doces e salgados a partir do banco
+// ==================== SABORES PARA KITS (com preço/kg) ====================
 app.get('/api/sabores', async (req, res) => {
     try {
-        // Bolos: produtos de categorias com "bolo" no nome (exceto kits), com preço por kg
-        const bolosRes = await pool.query(
-            `SELECT p.id, p.name, c.name AS categoria_nome
-             FROM s_products p JOIN s_categories c ON c.id = p.category_id
-             WHERE p.is_active = true AND c.name ILIKE '%bolo%' AND c.name NOT ILIKE '%kit%'
-             ORDER BY p.name`
-        );
-        const bolos = [];
-        for (const b of bolosRes.rows) {
-            const prices = await pool.query(
-                'SELECT price FROM s_product_prices WHERE product_id = $1 AND is_active = true',
-                [b.id]
+        async function buscarProdutosComPreco(catFiltro) {
+            const cats = await pool.query(
+                'SELECT id, name FROM s_categories WHERE ' + catFiltro + ' ORDER BY display_order'
             );
-            if (prices.rows.length === 0) continue;
-            const maxPrice = Math.max(...prices.rows.map(r => parseFloat(r.price)));
-            bolos.push({ name: b.name, price: maxPrice });
-        }
-        // Doces: produtos de categorias com "doce" no nome
-        const docesRes = await pool.query(
-            `SELECT DISTINCT p.name FROM s_products p
-             JOIN s_categories c ON c.id = p.category_id
-             WHERE p.is_active = true AND c.name ILIKE '%doce%'
-             ORDER BY p.name`
-        );
-        // Salgados: produtos de categorias com "salgado" no nome
-        const salgadosRes = await pool.query(
-            `SELECT DISTINCT p.name FROM s_products p
-             JOIN s_categories c ON c.id = p.category_id
-             WHERE p.is_active = true AND c.name ILIKE '%salgado%'
-             ORDER BY p.name`
-        );
-        res.json({
-            success: true,
-            data: {
-                bolos,
-                doces: docesRes.rows.map(r => r.name),
-                salgados: salgadosRes.rows.map(r => r.name)
+            if (cats.rows.length === 0) return [];
+            const out = [];
+            for (const c of cats.rows) {
+                const prods = await pool.query(
+                    'SELECT id, name FROM s_products WHERE category_id = $1 AND is_active = true ORDER BY name',
+                    [c.id]
+                );
+                for (const p of prods.rows) {
+                    const prices = await pool.query(
+                        'SELECT price FROM s_product_prices WHERE product_id = $1 AND is_active = true',
+                        [p.id]
+                    );
+                    if (prices.rows.length === 0) continue;
+                    const maxPrice = Math.max(...prices.rows.map(r => parseFloat(r.price)));
+                    out.push({ name: p.name, price: maxPrice });
+                }
             }
-        });
+            return out;
+        }
+        // Bolos: qualquer categoria com "bolo" (exceto kits)
+        const bolos = await buscarProdutosComPreco(`name ILIKE '%bolo%' AND name NOT ILIKE '%kit%'`);
+        // Salgados do kit: prioriza "Salgados Fritos"; se não houver, usa todos os salgados
+        let salgados = await buscarProdutosComPreco(`name ILIKE '%salgado%' AND name ILIKE '%frito%'`);
+        if (salgados.length === 0) salgados = await buscarProdutosComPreco(`name ILIKE '%salgado%'`);
+        // Doces do kit: prioriza "Doces Tradicionais"; se não houver, usa doces sem "gourmet"
+        let doces = await buscarProdutosComPreco(`name ILIKE '%doce%' AND name ILIKE '%tradicional%'`);
+        if (doces.length === 0) doces = await buscarProdutosComPreco(`name ILIKE '%doce%' AND name NOT ILIKE '%gourmet%'`);
+        if (doces.length === 0) doces = await buscarProdutosComPreco(`name ILIKE '%doce%'`);
+        res.json({ success: true, data: { bolos, doces, salgados } });
     } catch (err) {
         console.error('Erro ao buscar sabores:', err);
         res.status(500).json({ success: false, message: 'Erro ao buscar sabores' });
     }
 });
+// // ==================== SABORES PARA KITS (bolo, doces, salgados) ====================
+// // Retorna sabores de bolo (com preço por kg), doces e salgados a partir do banco
+// app.get('/api/sabores', async (req, res) => {
+//     try {
+//         // Bolos: produtos de categorias com "bolo" no nome (exceto kits), com preço por kg
+//         const bolosRes = await pool.query(
+//             `SELECT p.id, p.name, c.name AS categoria_nome
+//              FROM s_products p JOIN s_categories c ON c.id = p.category_id
+//              WHERE p.is_active = true AND c.name ILIKE '%bolo%' AND c.name NOT ILIKE '%kit%'
+//              ORDER BY p.name`
+//         );
+//         const bolos = [];
+//         for (const b of bolosRes.rows) {
+//             const prices = await pool.query(
+//                 'SELECT price FROM s_product_prices WHERE product_id = $1 AND is_active = true',
+//                 [b.id]
+//             );
+//             if (prices.rows.length === 0) continue;
+//             const maxPrice = Math.max(...prices.rows.map(r => parseFloat(r.price)));
+//             bolos.push({ name: b.name, price: maxPrice });
+//         }
+//         // Doces: produtos de categorias com "doce" no nome
+//         const docesRes = await pool.query(
+//             `SELECT DISTINCT p.name FROM s_products p
+//              JOIN s_categories c ON c.id = p.category_id
+//              WHERE p.is_active = true AND c.name ILIKE '%doce%'
+//              ORDER BY p.name`
+//         );
+//         // Salgados: produtos de categorias com "salgado" no nome
+//         const salgadosRes = await pool.query(
+//             `SELECT DISTINCT p.name FROM s_products p
+//              JOIN s_categories c ON c.id = p.category_id
+//              WHERE p.is_active = true AND c.name ILIKE '%salgado%'
+//              ORDER BY p.name`
+//         );
+//         res.json({
+//             success: true,
+//             data: {
+//                 bolos,
+//                 doces: docesRes.rows.map(r => r.name),
+//                 salgados: salgadosRes.rows.map(r => r.name)
+//             }
+//         });
+//     } catch (err) {
+//         console.error('Erro ao buscar sabores:', err);
+//         res.status(500).json({ success: false, message: 'Erro ao buscar sabores' });
+//     }
+// });
 // ==================== ROTAS PÚBLICAS ====================
 
 app.get('/api/categorias', async (req, res) => {
