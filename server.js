@@ -49,6 +49,86 @@ function authMiddleware(req, res, next) {
         return res.status(401).json({ success: false, message: 'Token inválido ou expirado' });
     }
 }
+// ===== REGRAS DE HORÁRIOS (backend) =====
+const REGRAS_HORARIOS = {
+    pedidoMesmoDiaLimite: '16:00',
+    antecedenciaKitMin: 2,
+    antecedenciaItensMin: 1,
+    retirada: {
+        segSexta: { inicio: '07:00', fim: '19:00' },
+        sabado: { inicio: '07:00', fim: '19:00' },
+        domingoFeriado: { inicio: '08:30', fim: '14:30' }
+    },
+    entrega: {
+        segSexta: { inicio: '08:30', fim: '18:00' },
+        sabado: { inicio: '08:30', fim: '16:00' },
+        domingoFeriado: { inicio: '08:30', fim: '14:30' }
+    }
+};
+const FERIADOS_FIXOS = ['01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '12-25'];
+function ehFeriado(dataStr) {
+    const mmdd = String(dataStr).substring(5, 10);
+    return FERIADOS_FIXOS.includes(mmdd);
+}
+function diaSemana(dataStr) {
+    const d = new Date(String(dataStr) + 'T12:00:00');
+    return d.getDay();
+}
+function janelaHorario(tipoLogistica, dataStr) {
+    const dia = diaSemana(dataStr);
+    const feriado = ehFeriado(dataStr);
+    const regras = tipoLogistica === 'Retirada' ? REGRAS_HORARIOS.retirada : REGRAS_HORARIOS.entrega;
+    if (feriado || dia === 0) return regras.domingoFeriado;
+    if (dia === 6) return regras.sabado;
+    return regras.segSexta;
+}
+function validarRegrasPedido(dataEntrega, horaEntrega, tipoLogistica, itens) {
+    if (!dataEntrega || !horaEntrega) {
+        return { ok: false, msg: 'Data e horário são obrigatórios' };
+    }
+    const agora = new Date();
+    const hojeStr = agora.toISOString().substring(0, 10);
+    const dataPedido = new Date(dataEntrega + 'T' + horaEntrega + ':00');
+    const dia = diaSemana(dataEntrega);
+    const feriado = ehFeriado(dataEntrega);
+    if (dataPedido < agora) {
+        return { ok: false, msg: 'A data/horário escolhida já passou.' };
+    }
+    // Sábado/domingo/feriado: pedido deve ser confirmado até sexta
+    if (dia === 0 || dia === 6 || feriado) {
+        if (dataEntrega === hojeStr) {
+            return { ok: false, msg: 'Pedidos para sábado/domingo/feriado precisam ser confirmados até sexta-feira. Entre em contato para verificar disponibilidade.' };
+        }
+    }
+    // Mesmo dia: limite 16h + antecedência
+    if (dataEntrega === hojeStr) {
+        const horaAtualMin = agora.getHours() * 60 + agora.getMinutes();
+        if (horaAtualMin > 16 * 60) {
+            return { ok: false, msg: 'Pedidos para hoje devem ser feitos até às 16h00.' };
+        }
+        const temKit = Array.isArray(itens) && itens.some(i => String(i.nome || '').toLowerCase().includes('kit'));
+        const minAntecedencia = temKit ? REGRAS_HORARIOS.antecedenciaKitMin * 60 : REGRAS_HORARIOS.antecedenciaItensMin * 60;
+        const [hh, mm] = String(horaEntrega).split(':').map(Number);
+        const horaPedidoMin = hh * 60 + mm;
+        if (horaPedidoMin - horaAtualMin < minAntecedencia) {
+            const tipo = temKit ? 'Kit Festa (2h)' : 'itens (1h)';
+            return { ok: false, msg: 'Para pedidos no mesmo dia, o ' + tipo + ' exige antecedência mínima.' };
+        }
+    }
+    // Janela de retirada/entrega
+    const janela = janelaHorario(tipoLogistica, dataEntrega);
+    const [hIni, mIni] = janela.inicio.split(':').map(Number);
+    const [hFim, mFim] = janela.fim.split(':').map(Number);
+    const [hh, mm] = String(horaEntrega).split(':').map(Number);
+    const horaMin = hh * 60 + mm;
+    const iniMin = hIni * 60 + mIni;
+    const fimMin = hFim * 60 + mFim;
+    if (horaMin < iniMin || horaMin > fimMin) {
+        const tipo = tipoLogistica === 'Retirada' ? 'retirada' : 'entrega';
+        return { ok: false, msg: 'Horário de ' + tipo + ' fora da janela permitida (' + janela.inicio + ' às ' + janela.fim + ').' };
+    }
+    return { ok: true };
+}
 // ===== PASTA DE UPLOADS (imagens de decoração) =====
 const UPLOAD_DIR = path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -133,7 +213,6 @@ app.get('/api/sabores', async (req, res) => {
             }
             return out;
         }
-        // Bolos do kit: SOMENTE produtos com preço marcado bolo_kit = true
         const bolosRes = await pool.query(
             `SELECT DISTINCT p.id, p.name
              FROM s_products p
@@ -153,10 +232,8 @@ app.get('/api/sabores', async (req, res) => {
             const maxPrice = Math.max(...prices.rows.map(r => parseFloat(r.price)));
             bolos.push({ name: b.name, price: maxPrice });
         }
-        // Salgados do kit: prioriza "Salgados Fritos"
         let salgados = await buscarProdutosComPreco(`name ILIKE '%salgado%' AND name ILIKE '%frito%'`);
         if (salgados.length === 0) salgados = await buscarProdutosComPreco(`name ILIKE '%salgado%'`);
-        // Doces do kit: prioriza "Doces Tradicionais"
         let doces = await buscarProdutosComPreco(`name ILIKE '%doce%' AND name ILIKE '%tradicional%'`);
         if (doces.length === 0) doces = await buscarProdutosComPreco(`name ILIKE '%doce%' AND name NOT ILIKE '%gourmet%'`);
         if (doces.length === 0) doces = await buscarProdutosComPreco(`name ILIKE '%doce%'`);
@@ -217,7 +294,7 @@ app.get('/api/produtos/:id', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao buscar produto' });
     }
 });
-// POST /api/pedidos - Cliente cria pedido
+// POST /api/pedidos - Cliente cria pedido (com validação de horários)
 app.post('/api/pedidos', async (req, res) => {
     try {
         const { nome_cliente, telefone, endereco_rua, endereco_numero, endereco_bairro, endereco_cep, items, itens, valor_total, taxa_entrega, forma_pagamento, tipo_logistica, observacoes, data_entrega, hora_entrega, cliente_id, confirmar_whatsapp } = req.body;
@@ -229,6 +306,11 @@ app.post('/api/pedidos', async (req, res) => {
         if (dataEntrega && String(dataEntrega).includes('T')) dataEntrega = String(dataEntrega).substring(0, 10);
         if (horaEntrega && String(horaEntrega).includes('T')) horaEntrega = String(horaEntrega).substring(11, 16);
         if (horaEntrega && horaEntrega.length > 5) horaEntrega = horaEntrega.substring(0, 5);
+        // VALIDAÇÃO DAS REGRAS DE HORÁRIO
+        const validacao = validarRegrasPedido(dataEntrega, horaEntrega, tipo_logistica || 'Entrega', itens);
+        if (!validacao.ok) {
+            return res.status(400).json({ success: false, message: validacao.msg });
+        }
         const statusInicial = (confirmar_whatsapp && !cliente_id) ? 'Aguardando Confirmacao' : 'Pendente';
         const result = await pool.query(
             `INSERT INTO s_pedidos (nome_cliente, telefone, endereco_rua, endereco_numero, endereco_bairro, endereco_cep, items, valor_total, taxa_entrega, forma_pagamento, tipo_logistica, observacoes, data_entrega, hora_entrega, cliente_id, status, sistema)
