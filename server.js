@@ -434,6 +434,24 @@ async function enviarWebhookVerificacao(numero, codigo) {
         return false;
     }
 }
+async function enviarWebhookVerificacaoSMS(numero, codigo) {
+    try {
+        const res = await fetch(WEBHOOK_CONFIRMACAO, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                mensagem: `Seu código de verificação é ${codigo}`,
+                numero: numero,
+                codigo: codigo
+            })
+        });
+        console.log('Webhook de verificação enviado:', res.status);
+        return true;
+    } catch (err) {
+        console.error('Erro ao enviar webhook de verificação:', err.message);
+        return false;
+    }
+}
 async function calcularCustoEntrega(endereco, subtotal) {
     if (!GOOGLE_MAPS_API_KEY) {
         return { erro: 'API do Google Maps não configurada' };
@@ -546,8 +564,10 @@ app.post('/api/auth/cliente/enviar-codigo', async (req, res) => {
         await pool.query(`INSERT INTO codigos_verificacao (telefone, codigo, expira_em)
                         VALUES ($1, $2, NOW() + INTERVAL '10 minutes')`,
                         [telefoneLimpo, codigo]);
-        await enviarWebhookVerificacao(telefoneLimpo, codigo);
+        await enviarWebhookVerificacao(telefoneLimpo, codigo); // aqui envia whats
         res.json({ success: true, message: 'Código enviado para seu WhatsApp!' });
+        //await enviarWebhookVerificacaoSMS(telefoneLimpo, codigo)
+       // res.json({ success: true, message: 'Código enviado por SMS para '+telefoneLimpo});
     } catch (err) {
         console.error('Erro ao enviar código:', err);
         res.status(500).json({ success: false, message: 'Erro ao enviar código' });

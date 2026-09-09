@@ -579,8 +579,8 @@
         // ===== REGRAS DE HORÁRIOS =====
         const REGRAS_HORARIOS = {
             pedidoMesmoDiaLimite: '16:00',
-            antecedenciaKitMin: 2,   // horas
-            antecedenciaItensMin: 1, // horas
+            antecedenciaKitMin: 2,
+            antecedenciaItensMin: 1,
             retirada: {
                 segSexta: { inicio: '07:00', fim: '19:00' },
                 sabado: { inicio: '07:00', fim: '19:00' },
@@ -594,17 +594,14 @@
         };
         function diaSemana(dataStr) {
             const d = new Date(dataStr + 'T12:00:00');
-            return d.getDay(); // 0=domingo, 6=sabado
+            return d.getDay();
         }
         function nomeDia(dia) {
             const nomes = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
             return nomes[dia];
         }
         function ehFeriado(dataStr) {
-            // Lista de feriados nacionais fixos (ajuste conforme necessário)
-            const feriados = [
-                '01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '12-25'
-            ];
+            const feriados = ['01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '12-25'];
             const mmdd = dataStr.substring(5, 10);
             return feriados.includes(mmdd);
         }
@@ -630,19 +627,14 @@
             const dia = diaSemana(dataStr);
             const feriado = ehFeriado(dataStr);
             const nomeDiaStr = nomeDia(dia) + (feriado ? ' (feriado)' : '');
-            // 1) Data no passado
             if (dataPedido < agora) {
                 return { ok: false, msg: 'A data/horário escolhida já passou. Escolha uma data futura.' };
             }
-            // 2) Pedido para sábado/domingo/feriado: deve ser confirmado até sexta-feira
             if (dia === 0 || dia === 6 || feriado) {
-                // Se hoje é sábado/domingo/feriado e o pedido é para hoje, bloqueia (precisa conferir disponibilidade)
                 if (dataStr === hojeStr) {
                     return { ok: false, msg: 'Pedidos para ' + nomeDiaStr + ' precisam ser confirmados até sexta-feira. Entre em contato para verificar a disponibilidade.' };
                 }
-                // Se o pedido é para sábado/domingo/feriado e hoje é sexta ou antes, ok (desde que cumpridas as demais regras)
             }
-            // 3) Mesmo dia: limite 16h + antecedência
             if (dataStr === hojeStr) {
                 const horaAtualMin = agora.getHours() * 60 + agora.getMinutes();
                 const limiteMin = 16 * 60;
@@ -657,7 +649,6 @@
                     return { ok: false, msg: 'Para pedidos no mesmo dia, o ' + tipo + ' exige antecedência mínima. Escolha um horário mais tarde ou outra data.' };
                 }
             }
-            // 4) Janela de retirada/entrega
             const janela = janelaHorario(tipoLogistica, dataStr);
             const [hIni, mIni] = janela.inicio.split(':').map(Number);
             const [hFim, mFim] = janela.fim.split(':').map(Number);
@@ -675,8 +666,10 @@
             const dataStr = document.getElementById('checkoutData').value;
             const tipoLogistica = document.getElementById('checkoutLogistica').value;
             const el = document.getElementById('horarioInfoTexto');
+            const horaInput = document.getElementById('checkoutHora');
             if (!dataStr) {
                 el.textContent = 'Selecione a data para ver os horários disponíveis.';
+                if (horaInput) { horaInput.min = ''; horaInput.max = ''; }
                 return;
             }
             const dia = diaSemana(dataStr);
@@ -684,6 +677,11 @@
             const nomeDiaStr = nomeDia(dia) + (feriado ? ' (feriado)' : '');
             const janela = janelaHorario(tipoLogistica, dataStr);
             const tipo = tipoLogistica === 'Retirada' ? 'Retirada' : 'Entrega';
+            // ===== min/max dinâmicos no input time (bloqueia fora da janela) =====
+            if (horaInput) {
+                horaInput.min = janela.inicio;
+                horaInput.max = janela.fim;
+            }
             el.innerHTML = tipo + ' em <strong>' + nomeDiaStr + '</strong>: das <strong>' + janela.inicio + '</strong> às <strong>' + janela.fim + '</strong>.<br>Pedidos para o mesmo dia até 16h00. ' + (temKitFesta() ? 'Kit Festa: 2h de antecedência.' : 'Demais itens: 1h de antecedência.');
         }
         function ehPorQuilo(p) {
@@ -1630,7 +1628,6 @@
                 document.getElementById('checkoutNome').readOnly = false;
                 document.getElementById('checkoutTelefone').readOnly = false;
             }
-            // Define o mínimo da data como hoje
             const hoje = new Date();
             const hojeStr = hoje.toISOString().substring(0, 10);
             document.getElementById('checkoutData').min = hojeStr;
@@ -1682,7 +1679,6 @@
             const hora = document.getElementById('checkoutHora').value;
             if (!nome || !telefone) { mostrarToast('Nome e telefone obrigatórios', 'error'); return; }
             if (!data || !hora) { mostrarToast('Selecione data e horário', 'error'); return; }
-            // VALIDAÇÃO DAS REGRAS DE HORÁRIO
             const validacao = validarDataHoraPedido();
             if (!validacao.ok) { mostrarToast(validacao.msg, 'error'); return; }
             if (carrinho.length === 0) { mostrarToast('Carrinho vazio!', 'error'); return; }
@@ -1710,7 +1706,6 @@
             const data = document.getElementById('checkoutData').value;
             const hora = document.getElementById('checkoutHora').value;
             if (!data || !hora) { mostrarToast('Selecione data e horário', 'error'); return; }
-            // VALIDAÇÃO DAS REGRAS DE HORÁRIO
             const validacao = validarDataHoraPedido();
             if (!validacao.ok) { mostrarToast(validacao.msg, 'error'); return; }
             if (carrinho.length === 0) { mostrarToast('Carrinho vazio!', 'error'); return; }
