@@ -51,9 +51,13 @@
         .stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
         .icon-total { background: rgba(124,58,237,0.15); color: #a78bfa; }
         .icon-pending { background: rgba(251,191,36,0.15); color: #fbbf24; }
+        .icon-payment { background: rgba(245,158,11,0.15); color: #f59e0b; }
         .icon-production { background: rgba(147,51,234,0.15); color: #c084fc; }
-        .icon-progress { background: rgba(59,130,246,0.15); color: #60a5fa; }
+        .icon-ready { background: rgba(163,230,53,0.15); color: #a3e635; }
+        .icon-pickup { background: rgba(34,211,238,0.15); color: #22d3ee; }
+        .icon-out { background: rgba(59,130,246,0.15); color: #60a5fa; }
         .icon-delivered { background: rgba(52,211,153,0.15); color: #34d399; }
+        .icon-finalized { background: rgba(148,163,184,0.15); color: #94a3b8; }
         .icon-canceled { background: rgba(248,113,113,0.15); color: #f87171; }
         .stat-info .stat-label { font-size: 12px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; }
         .stat-info .stat-value { font-size: 28px; font-weight: 800; color: #fff; display: block; margin-top: 4px; }
@@ -78,10 +82,16 @@
         .orders-table tbody tr:last-child td { border-bottom: none; }
         .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
         .status-badge.pending { background: rgba(251,191,36,0.15); color: #fbbf24; }
+        .status-badge.aguardando-pagamento { background: rgba(245,158,11,0.15); color: #f59e0b; }
+        .status-badge.confirmado { background: rgba(59,130,246,0.15); color: #60a5fa; }
         .status-badge.production { background: rgba(147,51,234,0.15); color: #c084fc; }
-        .status-badge.in-progress { background: rgba(59,130,246,0.15); color: #60a5fa; }
+        .status-badge.pedido-pronto { background: rgba(163,230,53,0.15); color: #a3e635; }
+        .status-badge.aguardando-retirada { background: rgba(34,211,238,0.15); color: #22d3ee; }
+        .status-badge.saiu-entrega { background: rgba(59,130,246,0.15); color: #60a5fa; }
         .status-badge.delivered { background: rgba(52,211,153,0.15); color: #34d399; }
+        .status-badge.finalizado { background: rgba(148,163,184,0.15); color: #94a3b8; }
         .status-badge.canceled { background: rgba(248,113,113,0.15); color: #f87171; }
+        .status-badge.in-progress { background: rgba(59,130,246,0.15); color: #60a5fa; }
         .btn-action { background: transparent; border: 1px solid #3a3a5a; color: #9ca3af; width: 36px; height: 36px; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
         .btn-action:hover { border-color: #7c3aed; color: #a78bfa; }
         .pagination-bar { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; gap: 12px; flex-wrap: wrap; }
@@ -108,9 +118,14 @@
         .btn-status:hover { transform: translateY(-1px); }
         .btn-status.active { box-shadow: 0 0 0 2px #fff; }
         .btn-status-pending { background: rgba(251,191,36,0.15); color: #fbbf24; }
+        .btn-status-aguardando-pagamento { background: rgba(245,158,11,0.15); color: #f59e0b; }
+        .btn-status-confirmado { background: rgba(59,130,246,0.15); color: #60a5fa; }
         .btn-status-production { background: rgba(147,51,234,0.15); color: #c084fc; }
-        .btn-status-progress { background: rgba(59,130,246,0.15); color: #60a5fa; }
+        .btn-status-pedido-pronto { background: rgba(163,230,53,0.15); color: #a3e635; }
+        .btn-status-aguardando-retirada { background: rgba(34,211,238,0.15); color: #22d3ee; }
+        .btn-status-saiu-entrega { background: rgba(59,130,246,0.15); color: #60a5fa; }
         .btn-status-delivered { background: rgba(52,211,153,0.15); color: #34d399; }
+        .btn-status-finalizado { background: rgba(148,163,184,0.15); color: #94a3b8; }
         .btn-status-canceled { background: rgba(248,113,113,0.15); color: #f87171; }
         .observacao-input { width: 100%; padding: 12px 14px; background: #2a2a4a; border: 1px solid #3a3a5a; border-radius: 10px; color: #fff; font-size: 14px; margin: 8px 0; outline: none; resize: vertical; min-height: 60px; font-family: 'Inter', sans-serif; }
         .observacao-input:focus { border-color: #7c3aed; }
@@ -194,9 +209,13 @@
                 <section class="stats-grid" id="statsGrid">
                     <div class="stat-card"><div class="stat-icon icon-total"><i class="fas fa-shopping-cart"></i></div><div class="stat-info"><span class="stat-label">Total</span><span class="stat-value" id="statTotal">0</span></div></div>
                     <div class="stat-card"><div class="stat-icon icon-pending"><i class="fas fa-clock"></i></div><div class="stat-info"><span class="stat-label">Pendentes</span><span class="stat-value" id="statPendentes">0</span></div></div>
+                    <div class="stat-card"><div class="stat-icon icon-payment"><i class="fas fa-credit-card"></i></div><div class="stat-info"><span class="stat-label">Aguardando Pagamento</span><span class="stat-value" id="statAguardandoPagamento">0</span></div></div>
                     <div class="stat-card"><div class="stat-icon icon-production"><i class="fas fa-cogs"></i></div><div class="stat-info"><span class="stat-label">Em Produção</span><span class="stat-value" id="statProducao">0</span></div></div>
-                    <div class="stat-card"><div class="stat-icon icon-progress"><i class="fas fa-truck-fast"></i></div><div class="stat-info"><span class="stat-label">Em Andamento</span><span class="stat-value" id="statAndamento">0</span></div></div>
+                    <div class="stat-card"><div class="stat-icon icon-ready"><i class="fas fa-box-open"></i></div><div class="stat-info"><span class="stat-label">Pedido Pronto</span><span class="stat-value" id="statPedidoPronto">0</span></div></div>
+                    <div class="stat-card"><div class="stat-icon icon-pickup"><i class="fas fa-store"></i></div><div class="stat-info"><span class="stat-label">Aguardando Retirada</span><span class="stat-value" id="statAguardandoRetirada">0</span></div></div>
+                    <div class="stat-card"><div class="stat-icon icon-out"><i class="fas fa-truck"></i></div><div class="stat-info"><span class="stat-label">Saiu Para Entrega</span><span class="stat-value" id="statSaiuEntrega">0</span></div></div>
                     <div class="stat-card"><div class="stat-icon icon-delivered"><i class="fas fa-check-circle"></i></div><div class="stat-info"><span class="stat-label">Entregues</span><span class="stat-value" id="statEntregues">0</span></div></div>
+                    <div class="stat-card"><div class="stat-icon icon-finalized"><i class="fas fa-flag-checkered"></i></div><div class="stat-info"><span class="stat-label">Finalizados</span><span class="stat-value" id="statFinalizados">0</span></div></div>
                     <div class="stat-card"><div class="stat-icon icon-canceled"><i class="fas fa-times-circle"></i></div><div class="stat-info"><span class="stat-label">Cancelados</span><span class="stat-value" id="statCancelados">0</span></div></div>
                 </section>
                 <section class="filter-bar">
@@ -205,11 +224,15 @@
                         <select class="filter-select" id="statusFilter">
                             <option value="">Todos os Status</option>
                             <option value="Pendente">Pendente</option>
+                            <option value="Aguardando Pagamento">Aguardando Pagamento</option>
+                            <option value="Confirmado">Confirmado</option>
                             <option value="Em Producao">Em Produção</option>
-                            <option value="Em Andamento">Em Andamento</option>
+                            <option value="Pedido Pronto">Pedido Pronto</option>
+                            <option value="Aguardando Retirada">Aguardando Retirada</option>
+                            <option value="Saiu Para Entrega">Saiu Para Entrega</option>
                             <option value="Entregue">Entregue</option>
+                            <option value="Finalizado">Finalizado</option>
                             <option value="Cancelado">Cancelado</option>
-                            <option value="Aguardando Confirmacao">Aguardando Confirmação</option>
                         </select>
                         <button class="btn-filter" onclick="carregarPedidos(1)"><i class="fas fa-filter"></i> Buscar</button>
                         <button class="btn-filter btn-filter-secondary" onclick="limparFiltros()"><i class="fas fa-undo"></i> Limpar</button>
@@ -266,6 +289,40 @@
                 document.querySelectorAll('.admin-tab')[1].classList.add('active');
                 document.getElementById('tabProdutos').classList.add('active');
             }
+        }
+        // ===== MAPEAMENTO DE STATUS DO FLUXO =====
+        function badgeStatus(status) {
+            const map = {
+                'Pendente': 'pending',
+                'Aguardando Pagamento': 'aguardando-pagamento',
+                'Confirmado': 'confirmado',
+                'Em Producao': 'production',
+                'Pedido Pronto': 'pedido-pronto',
+                'Aguardando Retirada': 'aguardando-retirada',
+                'Saiu Para Entrega': 'saiu-entrega',
+                'Entregue': 'delivered',
+                'Finalizado': 'finalizado',
+                'Cancelado': 'canceled',
+                // Compatibilidade com pedidos antigos (não aparecem nos filtros/botões)
+                'Aguardando Confirmacao': 'pending',
+                'Em Andamento': 'in-progress'
+            };
+            return map[status] || 'finalizado';
+        }
+        function btnStatusClass(s) {
+            const map = {
+                'Pendente': 'btn-status-pending',
+                'Aguardando Pagamento': 'btn-status-aguardando-pagamento',
+                'Confirmado': 'btn-status-confirmado',
+                'Em Producao': 'btn-status-production',
+                'Pedido Pronto': 'btn-status-pedido-pronto',
+                'Aguardando Retirada': 'btn-status-aguardando-retirada',
+                'Saiu Para Entrega': 'btn-status-saiu-entrega',
+                'Entregue': 'btn-status-delivered',
+                'Finalizado': 'btn-status-finalizado',
+                'Cancelado': 'btn-status-canceled'
+            };
+            return map[s] || 'btn-status-finalizado';
         }
         async function fazerLogin(e) {
             e.preventDefault();
@@ -326,9 +383,13 @@
                 if (stats) {
                     document.getElementById('statTotal').textContent = stats.total || 0;
                     document.getElementById('statPendentes').textContent = stats.pendentes || 0;
+                    document.getElementById('statAguardandoPagamento').textContent = stats.aguardando_pagamento || 0;
                     document.getElementById('statProducao').textContent = stats.em_producao || 0;
-                    document.getElementById('statAndamento').textContent = stats.em_andamento || 0;
+                    document.getElementById('statPedidoPronto').textContent = stats.pedido_pronto || 0;
+                    document.getElementById('statAguardandoRetirada').textContent = stats.aguardando_retirada || 0;
+                    document.getElementById('statSaiuEntrega').textContent = stats.saiu_para_entrega || 0;
                     document.getElementById('statEntregues').textContent = stats.entregues || 0;
+                    document.getElementById('statFinalizados').textContent = stats.finalizados || 0;
                     document.getElementById('statCancelados').textContent = stats.cancelados || 0;
                 }
                 document.getElementById('totalBadge').textContent = pagination.total;
@@ -337,7 +398,7 @@
                     tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:40px;color:#6b7280;">Nenhum pedido encontrado.</td></tr>';
                 } else {
                     tbody.innerHTML = data.map(p => {
-                        const sc = p.status === 'Pendente' ? 'pending' : p.status === 'Aguardando Confirmacao' ? 'pending' : p.status === 'Em Producao' ? 'production' : p.status === 'Em Andamento' ? 'in-progress' : p.status === 'Entregue' ? 'delivered' : 'canceled';
+                        const sc = badgeStatus(p.status);
                         return '<tr><td><strong>#' + String(p.id).padStart(3,'0') + '</strong></td><td>' + (p.nome_cliente||'-') + '</td><td>' + (p.telefone||'-') + '</td><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (p.items||'') + '">' + (p.items||'-') + '</td><td><strong>R$ ' + parseFloat(p.valor_total||0).toFixed(2).replace('.',',') + '</strong></td><td>' + (p.forma_pagamento||'-') + '</td><td>' + (p.tipo_logistica||'-') + '</td><td>' + (p.data_criacao ? new Date(p.data_criacao).toLocaleDateString('pt-BR') : '-') + '<td>' + (p.data_entrega ? new Date(p.data_entrega).toLocaleDateString('pt-BR') +  '<td>'  + (p.hora_entrega || '') : '-') + '</td>' +'</td><td><span class="status-badge ' + sc + '">' + p.status + '</span></td><td><button class="btn-action" onclick="abrirDetalhes(' + p.id + ')" title="Ver detalhes"><i class="fas fa-eye"></i></button></td></tr>';
                     }).join('');
                 }
@@ -353,20 +414,17 @@
         async function abrirDetalhes(id) {
             document.getElementById('modalOverlay').classList.add('active');
             document.getElementById('modalBody').innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner"></i><br><br>Carregando...</div>';
-            
             try {
                 const json = await apiFetch('/pedidos/' + id);
                 const p = json.data, historico = json.historico || [], itensPedido = json.itens || [];
-                const sc = p.status === 'Pendente' ? 'pending' : p.status === 'Em Producao' ? 'production' : p.status === 'Em Andamento' ? 'in-progress' : p.status === 'Entregue' ? 'delivered' : 'canceled';
-                const statusBtns = ['Pendente','Em Producao','Em Andamento','Entregue','Cancelado'].map(s => {
-                    const cls = s === 'Pendente' ? 'btn-status-pending' : s === 'Em Producao' ? 'btn-status-production' : s === 'Em Andamento' ? 'btn-status-progress' : s === 'Entregue' ? 'btn-status-delivered' : 'btn-status-canceled';
-                    return '<button class="btn-status ' + cls + (s === p.status ? ' active' : '') + '" onclick="alterarStatus(' + p.id + ',\'' + s + '\')">' + s + '</button>';
+                const sc = badgeStatus(p.status);
+                const statusBtns = ['Pendente','Aguardando Pagamento','Confirmado','Em Producao','Pedido Pronto','Aguardando Retirada','Saiu Para Entrega','Entregue','Finalizado','Cancelado'].map(s => {
+                    return '<button class="btn-status ' + btnStatusClass(s) + (s === p.status ? ' active' : '') + '" onclick="alterarStatus(' + p.id + ',\'' + s + '\')">' + s + '</button>';
                 }).join('');
                 const historicoHtml = historico.length > 0 ? historico.map(h => {
-                    const icon = h.status_novo === 'Entregue' ? '✅' : h.status_novo === 'Cancelado' ? '❌' : h.status_novo === 'Em Producao' ? '🔧' : h.status_novo === 'Em Andamento' ? '🚚' : '⏳';
+                    const icon = h.status_novo === 'Entregue' ? '✅' : h.status_novo === 'Cancelado' ? '❌' : h.status_novo === 'Em Producao' ? '🔧' : h.status_novo === 'Saiu Para Entrega' ? '🚚' : h.status_novo === 'Pedido Pronto' ? '📦' : h.status_novo === 'Finalizado' ? '🏁' : h.status_novo === 'Aguardando Pagamento' ? '💳' : h.status_novo === 'Aguardando Retirada' ? '🏬' : h.status_novo === 'Confirmado' ? '👍' : '⏳';
                     return '<li class="historico-item"><div class="historico-icon">' + icon + '</div><div class="historico-info"><div class="h-status">' + h.status_anterior + ' → ' + h.status_novo + '</div><div class="h-detail">' + (h.usuario_nome || 'Sistema') + ' • ' + new Date(h.created_at).toLocaleString('pt-BR') + '</div>' + (h.observacao ? '<div class="h-obs">"' + h.observacao + '"</div>' : '') + '</div></li>';
                 }).join('') : '<li style="color:#6b7280;padding:10px 0;">Nenhuma alteração registrada.</li>';
-
                 // ===== NOVO LAYOUT DO MODAL =====
                 // Lista de produtos: descrição + valor unitário
                 const itensProduto = [];
@@ -443,13 +501,11 @@
                         produtosHtml = '<span>' + (p.items || '-') + '</span>';
                     }
                 }
-
                 // Valores
                 let valorProdutos = itensProduto.reduce((s, i) => s + i.total, 0);
                 const taxaEntrega = parseFloat(p.taxa_entrega || 0);
                 if (valorProdutos === 0) valorProdutos = parseFloat(p.valor_total || 0) - taxaEntrega;
                 const valorTotal = parseFloat(p.valor_total || 0);
-
                 // Endereço: entrega = cliente; retirada = loja
                 let endereco;
                 if (p.tipo_logistica === 'Retirada') {

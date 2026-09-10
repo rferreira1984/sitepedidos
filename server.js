@@ -311,7 +311,8 @@ app.post('/api/pedidos', async (req, res) => {
         if (!validacao.ok) {
             return res.status(400).json({ success: false, message: validacao.msg });
         }
-        const statusInicial = (confirmar_whatsapp && !cliente_id) ? 'Aguardando Confirmacao' : 'Pendente';
+        // TODO PEDIDO INICIA COMO PENDENTE (conforme fluxo)
+        const statusInicial = 'Pendente';
         const result = await pool.query(
             `INSERT INTO s_pedidos (nome_cliente, telefone, endereco_rua, endereco_numero, endereco_bairro, endereco_cep, items, valor_total, taxa_entrega, forma_pagamento, tipo_logistica, observacoes, data_entrega, hora_entrega, cliente_id, status, sistema)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,'1') RETURNING *`,
@@ -389,7 +390,7 @@ app.get('/api/pedidos/confirmar/:token', async (req, res) => {
         await pool.query('UPDATE s_pedidos SET status = $1 WHERE id = $2', ['Pendente', token.pedido_id]);
         await pool.query(
             'INSERT INTO status_historico (pedido_id, status_anterior, status_novo, observacao) VALUES ($1,$2,$3,$4)',
-            [token.pedido_id, 'Aguardando Confirmacao', 'Pendente', 'Confirmado pelo link']
+            [token.pedido_id, token.status || 'Pendente', 'Pendente', 'Confirmado pelo link']
         );
         res.json({ success: true, message: 'Pedido confirmado com sucesso!', pedido_id: token.pedido_id });
     } catch (err) {
@@ -761,7 +762,16 @@ app.get('/api/pedidos', authMiddleware, async (req, res) => {
         const count = await pool.query(`SELECT COUNT(*) FROM s_pedidos p ${wc}`, params);
         const total = parseInt(count.rows[0].count);
         const result = await pool.query(`SELECT p.* FROM s_pedidos p ${wc} ORDER BY p.data_criacao DESC LIMIT $${pi} OFFSET $${pi+1}`, [...params, limit, offset]);
-        const stats = await pool.query(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status='Pendente')::int AS pendentes, COUNT(*) FILTER (WHERE status='Em Producao')::int AS em_producao, COUNT(*) FILTER (WHERE status='Em Andamento')::int AS em_andamento, COUNT(*) FILTER (WHERE status='Entregue')::int AS entregues, COUNT(*) FILTER (WHERE status='Cancelado')::int AS cancelados FROM s_pedidos`);
+        const stats = await pool.query(`SELECT COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE status='Pendente')::int AS pendentes,
+            COUNT(*) FILTER (WHERE status='Aguardando Pagamento')::int AS aguardando_pagamento,
+            COUNT(*) FILTER (WHERE status='Em Producao')::int AS em_producao,
+            COUNT(*) FILTER (WHERE status='Pedido Pronto')::int AS pedido_pronto,
+            COUNT(*) FILTER (WHERE status='Aguardando Retirada')::int AS aguardando_retirada,
+            COUNT(*) FILTER (WHERE status='Saiu Para Entrega')::int AS saiu_para_entrega,
+            COUNT(*) FILTER (WHERE status='Entregue')::int AS entregues,
+            COUNT(*) FILTER (WHERE status='Finalizado')::int AS finalizados,
+            COUNT(*) FILTER (WHERE status='Cancelado')::int AS cancelados FROM s_pedidos`);
         res.json({ success: true, data: result.rows, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }, stats: stats.rows[0] });
     } catch (err) {
         res.status(500).json({ success: false, message: 'Erro ao listar pedidos' });
@@ -781,7 +791,7 @@ app.get('/api/pedidos/:id', authMiddleware, async (req, res) => {
 app.put('/api/pedidos/:id/status', authMiddleware, async (req, res) => {
     try {
         const { status, observacao } = req.body;
-        const validos = ['Aguardando Confirmacao', 'Pendente', 'Em Producao', 'Em Andamento', 'Entregue', 'Cancelado'];
+        const validos = ['Pendente', 'Aguardando Pagamento', 'Confirmado', 'Em Producao', 'Pedido Pronto', 'Aguardando Retirada', 'Saiu Para Entrega', 'Entregue', 'Finalizado', 'Cancelado'];
         if (!validos.includes(status)) return res.status(400).json({ success: false, message: 'Status inválido' });
         const atual = await pool.query('SELECT status FROM s_pedidos WHERE id = $1', [req.params.id]);
         if (atual.rows.length === 0) return res.status(404).json({ success: false, message: 'Pedido não encontrado' });
@@ -810,7 +820,18 @@ app.post('/api/pedidos/:id/mensagem', authMiddleware, async (req, res) => {
 });
 app.get('/api/stats', authMiddleware, async (req, res) => {
     try {
-        const result = await pool.query(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status='Pendente')::int AS pendentes, COUNT(*) FILTER (WHERE status='Em Producao')::int AS em_producao, COUNT(*) FILTER (WHERE status='Em Andamento')::int AS em_andamento, COUNT(*) FILTER (WHERE status='Entregue')::int AS entregues, COUNT(*) FILTER (WHERE status='Cancelado')::int AS cancelados, COALESCE(SUM(valor_total) FILTER (WHERE status!='Cancelado'),0)::numeric(10,2) AS faturamento_total, COALESCE(SUM(valor_total) FILTER (WHERE status='Entregue'),0)::numeric(10,2) AS faturamento_entregue FROM s_pedidos`);
+        const result = await pool.query(`SELECT COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE status='Pendente')::int AS pendentes,
+            COUNT(*) FILTER (WHERE status='Aguardando Pagamento')::int AS aguardando_pagamento,
+            COUNT(*) FILTER (WHERE status='Em Producao')::int AS em_producao,
+            COUNT(*) FILTER (WHERE status='Pedido Pronto')::int AS pedido_pronto,
+            COUNT(*) FILTER (WHERE status='Aguardando Retirada')::int AS aguardando_retirada,
+            COUNT(*) FILTER (WHERE status='Saiu Para Entrega')::int AS saiu_para_entrega,
+            COUNT(*) FILTER (WHERE status='Entregue')::int AS entregues,
+            COUNT(*) FILTER (WHERE status='Finalizado')::int AS finalizados,
+            COUNT(*) FILTER (WHERE status='Cancelado')::int AS cancelados,
+            COALESCE(SUM(valor_total) FILTER (WHERE status!='Cancelado'),0)::numeric(10,2) AS faturamento_total,
+            COALESCE(SUM(valor_total) FILTER (WHERE status='Entregue'),0)::numeric(10,2) AS faturamento_entregue FROM s_pedidos`);
         const hoje = await pool.query(`SELECT COUNT(*)::int AS pedidos_hoje, COALESCE(SUM(valor_total),0)::numeric(10,2) AS faturamento_hoje FROM s_pedidos WHERE DATE(data_criacao)=CURRENT_DATE`);
         res.json({ success: true, stats: result.rows[0], hoje: hoje.rows[0] });
     } catch (err) {
