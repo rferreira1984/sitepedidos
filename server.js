@@ -782,7 +782,15 @@ app.get('/api/pedidos/:id', authMiddleware, async (req, res) => {
         const result = await pool.query('SELECT * FROM s_pedidos WHERE id = $1', [req.params.id]);
         if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Pedido não encontrado' });
         const historico = await pool.query('SELECT sh.*, u.nome AS usuario_nome FROM status_historico sh LEFT JOIN usuarios u ON u.id = sh.usuario_id WHERE sh.pedido_id = $1 ORDER BY sh.created_at DESC', [req.params.id]);
-        const itens = await pool.query('SELECT * FROM pedido_itens WHERE pedido_id = $1 ORDER BY id', [req.params.id]);
+        // Itens com categoria (para separar doces/salgados na impressão)
+        const itens = await pool.query(
+            `SELECT pi.*, c.name AS categoria
+             FROM pedido_itens pi
+             LEFT JOIN s_products p ON p.id = pi.product_id
+             LEFT JOIN s_categories c ON c.id = p.category_id
+             WHERE pi.pedido_id = $1 ORDER BY pi.id`,
+            [req.params.id]
+        );
         res.json({ success: true, data: result.rows[0], historico: historico.rows, itens: itens.rows });
     } catch (err) {
         res.status(500).json({ success: false, message: 'Erro ao buscar pedido' });

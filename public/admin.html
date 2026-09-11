@@ -127,6 +127,16 @@
         .btn-status-delivered { background: rgba(52,211,153,0.15); color: #34d399; }
         .btn-status-finalizado { background: rgba(148,163,184,0.15); color: #94a3b8; }
         .btn-status-canceled { background: rgba(248,113,113,0.15); color: #f87171; }
+        .print-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+        .print-actions-sec { margin-top: 4px; align-items: center; }
+        .print-sec-label { font-size: 12px; color: #9ca3af; margin-right: 4px; }
+        .btn-print { padding: 10px 16px; border: none; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-print:hover { transform: translateY(-1px); }
+        .btn-print-cozinha { background: rgba(251,146,60,0.15); color: #fb923c; }
+        .btn-print-entrega { background: rgba(59,130,246,0.15); color: #60a5fa; }
+        .btn-print-geral { background: rgba(124,58,237,0.15); color: #a78bfa; }
+        .btn-print-doces { background: rgba(236,72,153,0.15); color: #f472b6; }
+        .btn-print-salgados { background: rgba(251,146,60,0.15); color: #fb923c; }
         .observacao-input { width: 100%; padding: 12px 14px; background: #2a2a4a; border: 1px solid #3a3a5a; border-radius: 10px; color: #fff; font-size: 14px; margin: 8px 0; outline: none; resize: vertical; min-height: 60px; font-family: 'Inter', sans-serif; }
         .observacao-input:focus { border-color: #7c3aed; }
         .historico-list { list-style: none; }
@@ -273,6 +283,8 @@
         let token = localStorage.getItem('token');
         let currentPage = 1, totalPages = 1;
         let usuarioLogado = null;
+        let pedidoAtual = null;
+        let pedidoAtualItens = [];
         function mostrarToast(msg, tipo) {
             const t = document.getElementById('toast');
             t.textContent = msg;
@@ -303,7 +315,7 @@
                 'Entregue': 'delivered',
                 'Finalizado': 'finalizado',
                 'Cancelado': 'canceled',
-                // Compatibilidade com pedidos antigos (não aparecem nos filtros/botões)
+                // Compatibilidade com pedidos antigos
                 'Aguardando Confirmacao': 'pending',
                 'Em Andamento': 'in-progress'
             };
@@ -323,6 +335,133 @@
                 'Cancelado': 'btn-status-canceled'
             };
             return map[s] || 'btn-status-finalizado';
+        }
+        // ===== IMPRESSÃO 80MM =====
+        function esc(s) {
+            return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+        function classificarItem(item) {
+            const nome = ((item.descricao || item.product_name || '') + ' ' + (item.label || '')).toLowerCase();
+            const doces = ['doce','brigadeiro','beijinho','cajuzinho','olho de sogra','bolo','torta','pudim','mousse','brownie','palha','paçoca','pacoca','ninho','chocolate','morango','cocada','quindim','camafeu','trufa','cupcake','cookie','alfajor','banoffe','pavê','pave','gelatina','bombom','sonho','churros','casadinho','doce de leite','leite ninho','surpresa de uva'];
+            const salgados = ['salgado','coxinha','risole','rissole','kibe','empada','esfiha','enrolado','pastel','bolinha de queijo','croquete','torta salgada','pão de queijo','pao de queijo','sanduíche','sanduiche','quibe','folhado','canapé','canape','cestinha','trouxinha','chips','batata','frita','assado','cento','mini'];
+            if (doces.some(d => nome.includes(d))) return 'doce';
+            if (salgados.some(s => nome.includes(s))) return 'salgado';
+            const cat = (item.categoria || '').toLowerCase();
+            if (cat.includes('doce')) return 'doce';
+            if (cat.includes('salgado')) return 'salgado';
+            return 'outro';
+        }
+        function linhasItensAgrupados(itens, grupos) {
+            const agrupados = { doce: [], salgado: [], outro: [] };
+            itens.forEach(i => agrupados[classificarItem(i)].push(i));
+            const rotulos = { doce: 'DOCES', salgado: 'SALGADOS', outro: 'OUTROS' };
+            let html = '';
+            grupos.forEach(g => {
+                if (!agrupados[g] || agrupados[g].length === 0) return;
+                html += '<div class="area-title">' + rotulos[g] + '</div>';
+                agrupados[g].forEach(i => {
+                    const qtd = parseInt(i.quantidade) || 1;
+                    const desc = i.descricao || i.product_name || 'Item';
+                    const label = i.label ? ' (' + i.label + ')' : '';
+                    html += '<div class="linha-item"><span>' + esc(desc + label) + '</span><span class="qtd">' + qtd + 'x</span></div>';
+                });
+            });
+            return html;
+        }
+        function imprimirPedido(tipo) {
+            const p = pedidoAtual;
+            if (!p) { mostrarToast('Abra um pedido primeiro', 'error'); return; }
+            const itens = pedidoAtualItens || [];
+            const agora = new Date().toLocaleString('pt-BR');
+            const numPedido = '#' + String(p.id).padStart(3, '0');
+            const dataEntrega = p.data_entrega ? new Date(p.data_entrega).toLocaleDateString('pt-BR') : '-';
+            const horaEntrega = p.hora_entrega || '-';
+            const logistica = p.tipo_logistica || '-';
+            const pagamento = p.forma_pagamento || '-';
+            const taxaEntrega = parseFloat(p.taxa_entrega || 0);
+            const valorTotal = parseFloat(p.valor_total || 0);
+            const valorProdutos = Math.max(0, valorTotal - taxaEntrega);
+            const endereco = p.tipo_logistica === 'Retirada'
+                ? 'Salgados & Cia — Rua Espinelo, 123 - Esmeralda'
+                : [p.endereco_rua || '', p.endereco_numero ? ', ' + p.endereco_numero : '', p.endereco_bairro ? ' - ' + p.endereco_bairro : '', p.endereco_cep ? ' - CEP: ' + p.endereco_cep : ''].join('') || '-';
+            let corpo = '';
+            if (tipo === 'cozinha') {
+                corpo = '<div class="area-title">COZINHA</div>' + linhasItensAgrupados(itens, ['doce','salgado','outro']);
+            } else if (tipo === 'doces') {
+                corpo = '<div class="area-title">COZINHA - DOCES</div>' + linhasItensAgrupados(itens, ['doce']);
+            } else if (tipo === 'salgados') {
+                corpo = '<div class="area-title">COZINHA - SALGADOS</div>' + linhasItensAgrupados(itens, ['salgado','outro']);
+            } else if (tipo === 'entrega') {
+                corpo = '<table class="info">'
+                    + '<tr><td><b>Cliente:</b></td><td class="r">' + esc(p.nome_cliente || '-') + '</td></tr>'
+                    + '<tr><td><b>Telefone:</b></td><td class="r">' + esc(p.telefone || '-') + '</td></tr>'
+                    + '<tr><td><b>Endereço:</b></td><td class="r">' + esc(endereco) + '</td></tr>'
+                    + '<tr><td><b>Pagamento:</b></td><td class="r">' + esc(pagamento) + '</td></tr>'
+                    + '</table>'
+                    + '<div class="divider"></div>'
+                    + '<div class="area-title">ITENS</div>'
+                    + linhasItensAgrupados(itens, ['doce','salgado','outro'])
+                    + '<div class="divider"></div>'
+                    + '<table class="info">'
+                    + '<tr><td>Valor Produtos:</td><td class="r">R$ ' + valorProdutos.toFixed(2).replace('.', ',') + '</td></tr>'
+                    + '<tr><td>Taxa Entrega:</td><td class="r">R$ ' + taxaEntrega.toFixed(2).replace('.', ',') + '</td></tr>'
+                    + '<tr><td><b>TOTAL:</b></td><td class="r"><b>R$ ' + valorTotal.toFixed(2).replace('.', ',') + '</b></td></tr>'
+                    + '</table>';
+            } else { // geral
+                corpo = '<table class="info">'
+                    + '<tr><td><b>Cliente:</b></td><td class="r">' + esc(p.nome_cliente || '-') + '</td></tr>'
+                    + '<tr><td><b>Telefone:</b></td><td class="r">' + esc(p.telefone || '-') + '</td></tr>'
+                    + '<tr><td><b>Logística:</b></td><td class="r">' + esc(logistica) + '</td></tr>'
+                    + '<tr><td><b>Endereço:</b></td><td class="r">' + esc(endereco) + '</td></tr>'
+                    + '<tr><td><b>Pagamento:</b></td><td class="r">' + esc(pagamento) + '</td></tr>'
+                    + '</table>'
+                    + '<div class="divider"></div>'
+                    + linhasItensAgrupados(itens, ['doce','salgado','outro'])
+                    + '<div class="divider"></div>'
+                    + '<table class="info">'
+                    + '<tr><td>Valor Produtos:</td><td class="r">R$ ' + valorProdutos.toFixed(2).replace('.', ',') + '</td></tr>'
+                    + '<tr><td>Taxa Entrega:</td><td class="r">R$ ' + taxaEntrega.toFixed(2).replace('.', ',') + '</td></tr>'
+                    + '<tr><td><b>TOTAL:</b></td><td class="r"><b>R$ ' + valorTotal.toFixed(2).replace('.', ',') + '</b></td></tr>'
+                    + '</table>';
+            }
+            const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Pedido ' + numPedido + '</title>'
+                + '<style>'
+                + '@page { size: 80mm auto; margin: 0; }'
+                + '* { margin:0; padding:0; box-sizing:border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }'
+                + 'body { width: 80mm; font-family: "Courier New", monospace; font-size: 11px; color:#000; padding: 4mm 4mm 6mm; }'
+                + '.header { text-align:center; margin-bottom: 3mm; }'
+                + '.header h1 { font-size: 15px; letter-spacing: 1px; }'
+                + '.header .sub { font-size: 10px; }'
+                + '.num-pedido { text-align:center; font-size: 22px; font-weight: bold; margin: 2mm 0; }'
+                + '.info { width:100%; font-size: 11px; }'
+                + '.info td { padding: 1px 0; vertical-align: top; }'
+                + '.info .r { text-align: right; }'
+                + '.divider { border-top: 1px dashed #000; margin: 3mm 0; }'
+                + '.area-title { text-align:center; font-weight: bold; background:#eee; padding: 2px 0; margin: 2mm 0 1mm; font-size: 12px; }'
+                + '.linha-item { display:flex; justify-content:space-between; font-size: 11px; padding: 1px 0; }'
+                + '.linha-item .qtd { font-weight: bold; white-space: nowrap; }'
+                + '.obs { margin-top: 2mm; font-size: 10px; }'
+                + '.footer { text-align:center; font-size: 9px; margin-top: 4mm; border-top: 1px dashed #000; padding-top: 2mm; }'
+                + '@media print { body { width: 80mm; } }'
+                + '</style></head><body>'
+                + '<div class="header"><h1>SALGADOS & CIA</h1><div class="sub">' + esc(logistica) + ' • ' + dataEntrega + ' ' + horaEntrega + '</div></div>'
+                + '<div class="num-pedido">' + numPedido + '</div>'
+                + '<table class="info">'
+                + '<tr><td>Pedido:</td><td class="r">' + agora + '</td></tr>'
+                + '<tr><td>Entrega/Retirada:</td><td class="r">' + dataEntrega + ' às ' + horaEntrega + '</td></tr>'
+                + '</table>'
+                + '<div class="divider"></div>'
+                + corpo
+                + (p.observacoes ? '<div class="obs"><b>Obs:</b> ' + esc(p.observacoes) + '</div>' : '')
+                + '<div class="footer">Impresso em ' + agora + '</div>'
+                + '</body></html>';
+            const w = window.open('', '_blank', 'width=420,height=600');
+            if (!w) { mostrarToast('Permita pop-ups para imprimir', 'error'); return; }
+            w.document.open();
+            w.document.write(html);
+            w.document.close();
+            w.focus();
+            setTimeout(function() { w.print(); }, 400);
         }
         async function fazerLogin(e) {
             e.preventDefault();
@@ -417,6 +556,8 @@
             try {
                 const json = await apiFetch('/pedidos/' + id);
                 const p = json.data, historico = json.historico || [], itensPedido = json.itens || [];
+                pedidoAtual = p;
+                pedidoAtualItens = itensPedido;
                 const sc = badgeStatus(p.status);
                 const statusBtns = ['Pendente','Aguardando Pagamento','Confirmado','Em Producao','Pedido Pronto','Aguardando Retirada','Saiu Para Entrega','Entregue','Finalizado','Cancelado'].map(s => {
                     return '<button class="btn-status ' + btnStatusClass(s) + (s === p.status ? ' active' : '') + '" onclick="alterarStatus(' + p.id + ',\'' + s + '\')">' + s + '</button>';
@@ -536,6 +677,17 @@
                     <div class="section-title">Alterar Status</div>
                     <div class="status-actions">${statusBtns}</div>
                     <textarea class="observacao-input" id="obsInput" placeholder="Observação..." rows="2"></textarea>
+                    <div class="section-title">🖨️ Imprimir Pedido</div>
+                    <div class="print-actions">
+                        <button class="btn-print btn-print-cozinha" onclick="imprimirPedido('cozinha')"><i class="fas fa-utensils"></i> Cozinha</button>
+                        <button class="btn-print btn-print-entrega" onclick="imprimirPedido('entrega')"><i class="fas fa-truck"></i> Entrega</button>
+                        <button class="btn-print btn-print-geral" onclick="imprimirPedido('geral')"><i class="fas fa-print"></i> Geral</button>
+                    </div>
+                    <div class="print-actions print-actions-sec">
+                        <span class="print-sec-label">Por área:</span>
+                        <button class="btn-print btn-print-doces" onclick="imprimirPedido('doces')"><i class="fas fa-cake-candles"></i> Doces</button>
+                        <button class="btn-print btn-print-salgados" onclick="imprimirPedido('salgados')"><i class="fas fa-drumstick-bite"></i> Salgados</button>
+                    </div>
                     <div class="section-title">Histórico de Status</div>
                     <ul class="historico-list">${historicoHtml}</ul>
                     <div class="section-title whatsapp-area">Enviar WhatsApp</div>
