@@ -497,34 +497,67 @@
         let kitQtds = { Doces: 2, Salgados: 3, Bolo: 1, Refrigerante: 1 };
         let custoEntrega = 0;
         let produtoSelecionado = {};
+        // ===== SABORES (buscados no banco, com fallback) =====
         let SABORES_BOLO = ['Brigadeiro', 'Prestígio', 'Dois Amores', 'Quatro Leites'];
         let SABORES_DOCES = ['Brigadeiro', 'Beijinho', 'Cajuzinho', 'Olho de Sogra', 'Bicho de Pé', 'Doce de Coco', 'Suspiro', 'Pé de Moleque'];
         let SABORES_SALGADOS = ['Coxinha', 'Bolinha de Queijo', 'Risole de Carne', 'Risole de Queijo', 'Pastelzinho', 'Esfiha', 'Empadinha', 'Kibe', 'Bolinha de Bacalhau', 'Enroladinho de Salsicha'];
+        let SABORES_REFRIGERANTE = ['Coca-Cola', 'Sprite', 'Fanta Laranja', 'Guaraná'];
         let PRECO_BOLO_POR_SABOR = {};
         let PRECO_BOLO_FALLBACK_KG = 45.00;
+        // ===== MAPAS DE ID DOS SABORES (para registrar a composição no banco) =====
+        let IDS_BOLO = {};
+        let IDS_DOCES = {};
+        let IDS_SALGADOS = {};
+        let IDS_REFRIGERANTE = {};
+        let IDS_CENTO_POR_TIPO = {};
+        let kitRegras = {};
+        function normalizarListaSabor(arr) {
+            const nomes = [];
+            const ids = {};
+            (Array.isArray(arr) ? arr : []).forEach(item => {
+                const nome = (item && typeof item === 'object') ? item.name : item;
+                if (!nome) return;
+                nomes.push(nome);
+                if (item && typeof item === 'object' && item.id != null) {
+                    const id = parseInt(item.id);
+                    if (!isNaN(id)) ids[nome] = id;
+                }
+            });
+            return { nomes, ids };
+        }
         async function carregarSabores() {
             try {
                 const res = await fetch(API + '/sabores');
                 const json = await res.json();
                 if (!json.success || !json.data) return;
                 if (json.data.bolos && json.data.bolos.length > 0) {
-                    SABORES_BOLO = json.data.bolos.map(b => (typeof b === 'object' ? b.name : b));
+                    const b = normalizarListaSabor(json.data.bolos);
+                    SABORES_BOLO = b.nomes;
+                    IDS_BOLO = b.ids;
                     PRECO_BOLO_POR_SABOR = {};
-                    json.data.bolos.forEach(b => {
-                        const nome = typeof b === 'object' ? b.name : b;
-                        const preco = typeof b === 'object' ? parseFloat(b.price) : NaN;
-                        if (!isNaN(preco)) PRECO_BOLO_POR_SABOR[nome] = preco;
+                    json.data.bolos.forEach(item => {
+                        const nome = (item && typeof item === 'object') ? item.name : item;
+                        const preco = (item && typeof item === 'object') ? parseFloat(item.price) : NaN;
+                        if (nome && !isNaN(preco)) PRECO_BOLO_POR_SABOR[nome] = preco;
                     });
                 }
                 if (json.data.doces && json.data.doces.length > 0) {
-                    SABORES_DOCES = json.data.doces.map(d => (typeof d === 'object' ? d.name : d));
+                    const d = normalizarListaSabor(json.data.doces);
+                    SABORES_DOCES = d.nomes;
+                    IDS_DOCES = d.ids;
                 }
                 if (json.data.salgados && json.data.salgados.length > 0) {
-                    SABORES_SALGADOS = json.data.salgados.map(s => (typeof s === 'object' ? s.name : s));
+                    const s = normalizarListaSabor(json.data.salgados);
+                    SABORES_SALGADOS = s.nomes;
+                    IDS_SALGADOS = s.ids;
+                }
+                if (json.data.refrigerantes && json.data.refrigerantes.length > 0) {
+                    const r = normalizarListaSabor(json.data.refrigerantes);
+                    SABORES_REFRIGERANTE = r.nomes;
+                    IDS_REFRIGERANTE = r.ids;
                 }
             } catch (e) { /* mantém fallback */ }
         }
-        const SABORES_REFRIGERANTE = ['Coca-Cola', 'Sprite', 'Fanta Laranja', 'Guaraná'];
         let SABORES_CENTO_POR_TIPO = {
             'Salgados Fritos': ['Coxinha', 'Bolinha de Queijo', 'Risole de Carne', 'Risole de Queijo', 'Pastelzinho', 'Esfiha', 'Kibe', 'Bolinha de Bacalhau', 'Enroladinho de Salsicha'],
             'Salgados Assados': ['Empadinha', 'Esfiha de Carne', 'Esfiha de Frango', 'Pão de Queijo', 'Croissant de Presunto e Queijo', 'Folhado de Frango', 'Folhado de Palmito', 'Torta de Frango'],
@@ -535,13 +568,14 @@
             try {
                 const res = await fetch(API + '/sabores-cento');
                 const json = await res.json();
-                if (json.success && json.data) {
-                    Object.keys(json.data).forEach(cat => {
-                        if (json.data[cat] && json.data[cat].length > 0) {
-                            SABORES_CENTO_POR_TIPO[cat] = json.data[cat];
-                        }
-                    });
-                }
+                if (!json.success || !json.data) return;
+                Object.keys(json.data).forEach(cat => {
+                    const lista = json.data[cat];
+                    if (!Array.isArray(lista) || lista.length === 0) return;
+                    const norm = normalizarListaSabor(lista);
+                    SABORES_CENTO_POR_TIPO[cat] = norm.nomes;
+                    IDS_CENTO_POR_TIPO[cat] = norm.ids;
+                });
             } catch (e) { /* mantém fallback */ }
         }
         function detectarTipoCento(nome) {
@@ -677,7 +711,6 @@
             const nomeDiaStr = nomeDia(dia) + (feriado ? ' (feriado)' : '');
             const janela = janelaHorario(tipoLogistica, dataStr);
             const tipo = tipoLogistica === 'Retirada' ? 'Retirada' : 'Entrega';
-            // ===== min/max dinâmicos no input time (bloqueia fora da janela) =====
             if (horaInput) {
                 horaInput.min = janela.inicio;
                 horaInput.max = janela.fim;
@@ -959,7 +992,7 @@
             const sabores = Array.from(document.querySelectorAll('#kmSalgadosChips .km-chip.selected')).map(c => c.dataset.value).join(', ');
             const descricao = `${centoQtd} unidades | Sabores: ${sabores}`;
             const itemKey = `cento-${centoAtual}-${centoPriceId}-${Date.now()}`;
-            carrinho.push({ id: centoAtual, itemKey, nome: `${p.name} (${centoQtd})`, icone: '🥟', preco: centoPreco, label: `${centoQtd} unidades`, descricao, qtd: 1 });
+            carrinho.push({ id: centoAtual, itemKey, nome: `${p.name} (${centoQtd})`, icone: '🥟', preco: centoPreco, label: `${centoQtd} unidades`, descricao, qtd: 1, composicao_itens: montarComposicaoCento() });
             localStorage.setItem('carrinho', JSON.stringify(carrinho));
             atualizarCarrinhoUI();
             fecharKitModal();
@@ -1213,6 +1246,7 @@
             kitOpcaoAtual = idx;
             kitPrecoAtual = parseFloat(opcao.price);
             const rq = opcao.regras_quantidades || {};
+            kitRegras = rq;
             kitQtds = {
                 Doces: parseInt(rq.Doces) || 2,
                 Salgados: parseInt(rq.Salgados) || 3,
@@ -1410,6 +1444,66 @@
             const ok = bolos.length >= qtdSaboresBolo && refris.length >= kitQtds.Refrigerante && doces >= kitQtds.Doces && salgados >= kitQtds.Salgados;
             document.getElementById('btnKmConfirm').disabled = !ok;
         }
+        // ===== COMPOSIÇÃO: monta a lista de itens escolhidos (id + quantidade, sem preço) =====
+        function qtdTotalGrupoKit(grupo) {
+            const bruto = (kitRegras && kitRegras[grupo + 'Total'] !== undefined) ? kitRegras[grupo + 'Total'] : null;
+            const v = parseFloat(String(bruto == null ? '' : bruto).replace(',', '.'));
+            return (isNaN(v) || v <= 0) ? 0 : v;
+        }
+        function distribuirQuantidade(nomes, total) {
+            const lista = Array.isArray(nomes) ? nomes.filter(Boolean) : [];
+            if (lista.length === 0) return [];
+            if (!total || total <= 0) return lista.map(nome => ({ nome, quantidade: 1 }));
+            const base = Math.floor(total / lista.length);
+            let resto = total - (base * lista.length);
+            return lista.map(nome => {
+                let q = base;
+                if (resto > 0) { q += 1; resto -= 1; }
+                if (q <= 0) q = 1;
+                return { nome, quantidade: q };
+            });
+        }
+        function montarComposicaoKit() {
+            const composicao = [];
+            const bolos = Array.from(document.querySelectorAll('.km-select-bolo')).map(s => s.value).filter(Boolean);
+            bolos.forEach(nome => {
+                composicao.push({ grupo: 'Bolo', product_id: IDS_BOLO[nome] || null, nome, quantidade: 1 });
+            });
+            if (kitBoloExtraGramas > 0 && bolos.length > 0) {
+                composicao.push({
+                    grupo: 'Bolo',
+                    product_id: IDS_BOLO[bolos[0]] || null,
+                    nome: bolos[0],
+                    quantidade: Math.round((kitBoloExtraGramas / 1000) * 1000) / 1000,
+                    observacao: 'Bolo adicional (mesmo sabor) - ' + fmt(kitBoloExtraGramas) + 'g'
+                });
+            }
+            const doces = Array.from(document.querySelectorAll('#kmDocesChips .km-chip.selected')).map(c => c.dataset.value).filter(Boolean);
+            distribuirQuantidade(doces, qtdTotalGrupoKit('Doces')).forEach(d => {
+                composicao.push({ grupo: 'Doces', product_id: IDS_DOCES[d.nome] || null, nome: d.nome, quantidade: d.quantidade });
+            });
+            const salgados = Array.from(document.querySelectorAll('#kmSalgadosChips .km-chip.selected')).map(c => c.dataset.value).filter(Boolean);
+            distribuirQuantidade(salgados, qtdTotalGrupoKit('Salgados')).forEach(s => {
+                composicao.push({ grupo: 'Salgados', product_id: IDS_SALGADOS[s.nome] || null, nome: s.nome, quantidade: s.quantidade });
+            });
+            const refris = Array.from(document.querySelectorAll('.km-select-refri')).map(s => s.value).filter(Boolean);
+            distribuirQuantidade(refris, qtdTotalGrupoKit('Refrigerante')).forEach(r => {
+                composicao.push({ grupo: 'Refrigerante', product_id: IDS_REFRIGERANTE[r.nome] || null, nome: r.nome, quantidade: r.quantidade });
+            });
+            return composicao;
+        }
+        function montarComposicaoCento() {
+            const sabores = Array.from(document.querySelectorAll('#kmSalgadosChips .km-chip.selected')).map(c => c.dataset.value).filter(Boolean);
+            const produto = produtosData.find(p => p.id === centoAtual) || {};
+            const tipo = detectarTipoCento(produto.name || '');
+            const mapa = IDS_CENTO_POR_TIPO[tipo] || {};
+            return distribuirQuantidade(sabores, centoQtd).map(s => ({
+                grupo: tipo,
+                product_id: mapa[s.nome] || IDS_SALGADOS[s.nome] || IDS_DOCES[s.nome] || null,
+                nome: s.nome,
+                quantidade: s.quantidade
+            }));
+        }
         function confirmarKit() {
             if (modoCento) { confirmarCento(); return; }
             if (!kitAtual || kitOpcaoAtual === null) return;
@@ -1432,7 +1526,7 @@
             const itemKey = `${kitAtual}-${kitOpcaoAtual}-${Date.now()}`;
             const existente = carrinho.find(i => i.itemKey === itemKey);
             if (existente) existente.qtd += 1;
-            else carrinho.push({ id: kitAtual, itemKey, nome: `${p.name} - ${opcao.label}`, icone: '🎉', preco: precoFinal, label: opcao.label, descricao, composicao: opcao.composicao || '', qtd: 1 });
+            else carrinho.push({ id: kitAtual, itemKey, nome: `${p.name} - ${opcao.label}`, icone: '🎉', preco: precoFinal, label: opcao.label, descricao, composicao: opcao.composicao || '', qtd: 1, composicao_itens: montarComposicaoKit() });
             localStorage.setItem('carrinho', JSON.stringify(carrinho));
             atualizarCarrinhoUI();
             fecharKitModal();
@@ -1659,7 +1753,8 @@
                     quantidade: i.porQuilo ? parseFloat(i.qtd.toFixed(3)) : i.qtd,
                     preco_unitario: i.preco,
                     preco_total: i.preco * i.qtd,
-                    descricao: i.descricao || i.composicao || ''
+                    descricao: i.descricao || i.composicao || '',
+                    composicao_itens: Array.isArray(i.composicao_itens) ? i.composicao_itens : []
                 })),
                 valor_total: subtotal + custoEntrega,
                 taxa_entrega: custoEntrega,

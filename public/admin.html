@@ -137,6 +137,12 @@
         .btn-print-geral { background: rgba(124,58,237,0.15); color: #a78bfa; }
         .btn-print-doces { background: rgba(236,72,153,0.15); color: #f472b6; }
         .btn-print-salgados { background: rgba(251,146,60,0.15); color: #fb923c; }
+        .btn-print-area { background: rgba(148,163,184,0.15); color: #94a3b8; }
+        .btn-print:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+        .composicao-box { background: #16162a; border-radius: 8px; padding: 8px 12px; margin-top: 4px; }
+        .composicao-box .comp-title { font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .composicao-box .comp-item { font-size: 12px; color: #cbd5e1; padding: 1px 0; }
+        .composicao-box .comp-item .comp-meta { color: #6b7280; font-size: 11px; }
         .observacao-input { width: 100%; padding: 12px 14px; background: #2a2a4a; border: 1px solid #3a3a5a; border-radius: 10px; color: #fff; font-size: 14px; margin: 8px 0; outline: none; resize: vertical; min-height: 60px; font-family: 'Inter', sans-serif; }
         .observacao-input:focus { border-color: #7c3aed; }
         .historico-list { list-style: none; }
@@ -285,6 +291,8 @@
         let usuarioLogado = null;
         let pedidoAtual = null;
         let pedidoAtualItens = [];
+        // ===== ÁREAS DE PRODUÇÃO (local_producao em s_categories) =====
+        const AREAS_PRODUCAO = ['SALGADOS-1', 'SALGADOS-2', 'DOCES - 1', 'DOCES - 2', 'BOLOS-1', 'BOLOS-2', 'SOBREMESAS'];
         function mostrarToast(msg, tipo) {
             const t = document.getElementById('toast');
             t.textContent = msg;
@@ -340,6 +348,11 @@
         function esc(s) {
             return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         }
+        function fmtQtd(q) {
+            const v = parseFloat(q);
+            if (isNaN(v)) return '1';
+            return Number.isInteger(v) ? String(v) : v.toFixed(2).replace('.', ',');
+        }
         function classificarItem(item) {
             const nome = ((item.descricao || item.product_name || '') + ' ' + (item.label || '')).toLowerCase();
             const doces = ['doce','brigadeiro','beijinho','cajuzinho','olho de sogra','bolo','torta','pudim','mousse','brownie','palha','paçoca','pacoca','ninho','chocolate','morango','cocada','quindim','camafeu','trufa','cupcake','cookie','alfajor','banoffe','pavê','pave','gelatina','bombom','sonho','churros','casadinho','doce de leite','leite ninho','surpresa de uva'];
@@ -367,6 +380,35 @@
                 });
             });
             return html;
+        }
+        // ===== ÁREAS DE PRODUÇÃO: normalização, presença e itens por área =====
+        function normArea(s) {
+            return String(s || '').trim().toUpperCase().replace(/\s+/g, '');
+        }
+        function areasPresentes() {
+            const areas = new Set();
+            (pedidoAtualItens || []).forEach(item => {
+                if (item.local_producao) areas.add(normArea(item.local_producao));
+                (item.composicao || []).forEach(comp => {
+                    if (comp.local_producao) areas.add(normArea(comp.local_producao));
+                });
+            });
+            return areas;
+        }
+        function itensPorArea(area) {
+            const resultado = [];
+            const alvo = normArea(area);
+            (pedidoAtualItens || []).forEach(item => {
+                if (normArea(item.local_producao) === alvo) {
+                    resultado.push({ nome: item.product_name || item.descricao || 'Item', qtd: item.quantidade, origem: null });
+                }
+                (item.composicao || []).forEach(comp => {
+                    if (normArea(comp.local_producao) === alvo) {
+                        resultado.push({ nome: comp.product_name || 'Item', qtd: comp.quantidade, origem: item.product_name || item.descricao });
+                    }
+                });
+            });
+            return resultado;
         }
         function imprimirPedido(tipo) {
             const p = pedidoAtual;
@@ -407,7 +449,7 @@
                     + '<tr><td>Taxa Entrega:</td><td class="r">R$ ' + taxaEntrega.toFixed(2).replace('.', ',') + '</td></tr>'
                     + '<tr><td><b>TOTAL:</b></td><td class="r"><b>R$ ' + valorTotal.toFixed(2).replace('.', ',') + '</b></td></tr>'
                     + '</table>';
-            } else { // geral
+            } else if (tipo === 'geral') {
                 corpo = '<table class="info">'
                     + '<tr><td><b>Cliente:</b></td><td class="r">' + esc(p.nome_cliente || '-') + '</td></tr>'
                     + '<tr><td><b>Telefone:</b></td><td class="r">' + esc(p.telefone || '-') + '</td></tr>'
@@ -423,6 +465,18 @@
                     + '<tr><td>Taxa Entrega:</td><td class="r">R$ ' + taxaEntrega.toFixed(2).replace('.', ',') + '</td></tr>'
                     + '<tr><td><b>TOTAL:</b></td><td class="r"><b>R$ ' + valorTotal.toFixed(2).replace('.', ',') + '</b></td></tr>'
                     + '</table>';
+            } else {
+                // Área de produção (local_producao)
+                const lista = itensPorArea(tipo);
+                corpo = '<div class="area-title">' + esc(tipo) + '</div>';
+                if (lista.length === 0) {
+                    corpo += '<div class="linha-item"><span>Nenhum item para esta área</span></div>';
+                } else {
+                    lista.forEach(l => {
+                        const origem = l.origem ? '<div style="font-size:9px;color:#555;">(' + esc(l.origem) + ')</div>' : '';
+                        corpo += '<div class="linha-item"><span>' + esc(l.nome) + origem + '</span><span class="qtd">' + fmtQtd(l.qtd) + 'x</span></div>';
+                    });
+                }
             }
             const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Pedido ' + numPedido + '</title>'
                 + '<style>'
@@ -603,6 +657,22 @@
                             + '<td style="padding:8px 10px;text-align:right;color:#a78bfa;">R$ ' + unit.toFixed(2).replace('.', ',') + '</td>'
                             + '<td style="padding:8px 10px;text-align:right;color:#a78bfa;font-weight:600;">R$ ' + totalItem.toFixed(2).replace('.', ',') + '</td>'
                             + '</tr>';
+                        // ===== COMPOSIÇÃO DO ITEM (kits e centos) =====
+                        if (i.composicao && i.composicao.length > 0) {
+                            produtosHtml += '<tr style="border-bottom:1px solid #2a2a4a;background:#16162a;">'
+                                + '<td colspan="4" style="padding:6px 10px 10px 24px;">'
+                                + '<div class="composicao-box">'
+                                + '<div class="comp-title">Composição do item</div>';
+                            i.composicao.forEach(function(c) {
+                                const cQtd = fmtQtd(c.quantidade);
+                                const cNome = c.product_name || 'Item';
+                                const cId = c.product_id ? ' <span class="comp-meta">(id ' + c.product_id + ')</span>' : '';
+                                const cGrupo = c.grupo ? ' <span class="comp-meta">[' + c.grupo + ']</span>' : '';
+                                const cArea = c.local_producao ? ' <span class="comp-meta">→ ' + c.local_producao + '</span>' : '';
+                                produtosHtml += '<div class="comp-item">• ' + cNome + cId + cGrupo + cArea + ' — <strong>' + cQtd + 'x</strong></div>';
+                            });
+                            produtosHtml += '</div></td></tr>';
+                        }
                     });
                     produtosHtml += '</tbody></table>';
                 } else {
@@ -655,6 +725,12 @@
                     endereco = [p.endereco_rua || '', p.endereco_numero ? ', ' + p.endereco_numero : '', p.endereco_bairro ? ' - ' + p.endereco_bairro : '', p.endereco_cep ? ' - CEP: ' + p.endereco_cep : ''].join('');
                     if (!endereco.trim()) endereco = '-';
                 }
+                // ===== BOTÕES DE IMPRESSÃO POR ÁREA (habilitados conforme produtos no pedido) =====
+                const areas = areasPresentes();
+                const areaBtns = AREAS_PRODUCAO.map(a => {
+                    const presente = areas.has(normArea(a));
+                    return '<button class="btn-print btn-print-area" ' + (presente ? '' : 'disabled') + ' onclick="imprimirPedido(\'' + a.replace(/'/g, "\'") + '\')">' + a + '</button>';
+                }).join('');
                 document.getElementById('modalTitle').textContent = 'Pedido #' + String(id).padStart(3,'0')+' - '+p.tipo_logistica;
                 document.getElementById('modalBody').innerHTML = `
                     <div class="detail-grid">
@@ -684,9 +760,8 @@
                         <button class="btn-print btn-print-geral" onclick="imprimirPedido('geral')"><i class="fas fa-print"></i> Geral</button>
                     </div>
                     <div class="print-actions print-actions-sec">
-                        <span class="print-sec-label">Por área:</span>
-                        <button class="btn-print btn-print-doces" onclick="imprimirPedido('doces')"><i class="fas fa-cake-candles"></i> Doces</button>
-                        <button class="btn-print btn-print-salgados" onclick="imprimirPedido('salgados')"><i class="fas fa-drumstick-bite"></i> Salgados</button>
+                        <span class="print-sec-label">Por área de produção:</span>
+                        ${areaBtns}
                     </div>
                     <div class="section-title">Histórico de Status</div>
                     <ul class="historico-list">${historicoHtml}</ul>
