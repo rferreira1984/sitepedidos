@@ -142,7 +142,7 @@
         .composicao-box { background: #16162a; border-radius: 8px; padding: 8px 12px; margin-top: 4px; }
         .composicao-box .comp-title { font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
         .composicao-box .comp-item { font-size: 12px; color: #cbd5e1; padding: 1px 0; }
-        .composicao-box .comp-item .comp-meta { color: #6b7280; font-size: 11px; }
+        .composicao-box .comp-item .comp-meta { color: #6b7280; font-size: 9px; }
         .observacao-input { width: 100%; padding: 12px 14px; background: #2a2a4a; border: 1px solid #3a3a5a; border-radius: 10px; color: #fff; font-size: 14px; margin: 8px 0; outline: none; resize: vertical; min-height: 60px; font-family: 'Inter', sans-serif; }
         .observacao-input:focus { border-color: #7c3aed; }
         .historico-list { list-style: none; }
@@ -640,6 +640,7 @@
                     // Usa a tabela pedido_itens
                     produtosHtml = '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
                         + '<thead><tr style="background:#2a2a4a;">'
+                        + '<th style="padding:8px 10px;text-align:left;color:#9ca3af;font-size:11px;text-transform:uppercase;">Código</th>'
                         + '<th style="padding:8px 10px;text-align:left;color:#9ca3af;font-size:11px;text-transform:uppercase;">Descrição</th>'
                         + '<th style="padding:8px 10px;text-align:center;color:#9ca3af;font-size:11px;text-transform:uppercase;">Quant</th>'
                         + '<th style="padding:8px 10px;text-align:right;color:#9ca3af;font-size:11px;text-transform:uppercase;">Valor Un</th>'
@@ -649,29 +650,45 @@
                         const qtd = parseInt(i.quantidade) || 1;
                         const unit = parseFloat(i.preco_unitario || 0);
                         const totalItem = parseFloat(i.preco_total || (unit * qtd));
-                        const desc = i.descricao || i.product_name || 'Item';
+                        const desc = i.product_name || i.descricao || 'Item';
                         const label = i.label ? ' (' + i.label + ')' : '';
+                        const codigo = (i.product_id !== null && i.product_id !== undefined) ? i.product_id : '-';
                         produtosHtml += '<tr style="border-bottom:1px solid #2a2a4a;">'
-                            + '<td style="padding:8px 10px;color:#e2e8f0;">' + desc + label + '</td>'
+                            + '<td style="padding:8px 10px;color:#9ca3af;">' + codigo + '</td>'
+                            + '<td style="padding:8px 10px;color:#e2e8f0;">' + desc + '</td>'
                             + '<td style="padding:8px 10px;text-align:center;color:#e2e8f0;">' + qtd + '</td>'
                             + '<td style="padding:8px 10px;text-align:right;color:#a78bfa;">R$ ' + unit.toFixed(2).replace('.', ',') + '</td>'
                             + '<td style="padding:8px 10px;text-align:right;color:#a78bfa;font-weight:600;">R$ ' + totalItem.toFixed(2).replace('.', ',') + '</td>'
                             + '</tr>';
-                        // ===== COMPOSIÇÃO DO ITEM (kits e centos) =====
+                        // ===== COMPOSIÇÃO DO ITEM (kits e centos) — bloco embutido =====
                         if (i.composicao && i.composicao.length > 0) {
                             produtosHtml += '<tr style="border-bottom:1px solid #2a2a4a;background:#16162a;">'
-                                + '<td colspan="4" style="padding:6px 10px 10px 24px;">'
+                                + '<td colspan="5" style="padding:6px 10px 10px 24px;">'
                                 + '<div class="composicao-box">'
-                                + '<div class="comp-title">Composição do item</div>';
+                                + '<div class="comp-title">Composição do item</div>'
+                                + '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:4px;">'
+                                + '<thead><tr>'
+                                + '<th style="padding:4px 6px;text-align:left;color:#9ca3af;font-size:10px;text-transform:uppercase;">Código</th>'
+                                + '<th style="padding:4px 6px;text-align:left;color:#9ca3af;font-size:10px;text-transform:uppercase;">Descrição</th>'
+                                + '<th style="padding:4px 6px;text-align:center;color:#9ca3af;font-size:10px;text-transform:uppercase;">Quant</th>'
+                                + '<th style="padding:4px 6px;text-align:right;color:#9ca3af;font-size:10px;text-transform:uppercase;">Valor Un</th>'
+                                + '<th style="padding:4px 6px;text-align:right;color:#9ca3af;font-size:10px;text-transform:uppercase;">Valor Total</th>'
+                                + '</tr></thead><tbody>';
                             i.composicao.forEach(function(c) {
                                 const cQtd = fmtQtd(c.quantidade);
                                 const cNome = c.product_name || 'Item';
-                                const cId = c.product_id ? ' <span class="comp-meta">(id ' + c.product_id + ')</span>' : '';
-                                const cGrupo = c.grupo ? ' <span class="comp-meta">[' + c.grupo + ']</span>' : '';
+                                const cCodigo = (c.product_id !== null && c.product_id !== undefined) ? c.product_id : '-';
+                                const cGrupo = c.grupo ? ' <span class="comp-meta">' + c.grupo + '</span>' : '';
                                 const cArea = c.local_producao ? ' <span class="comp-meta">→ ' + c.local_producao + '</span>' : '';
-                                produtosHtml += '<div class="comp-item">• ' + cNome + cId + cGrupo + cArea + ' — <strong>' + cQtd + 'x</strong></div>';
+                                produtosHtml += '<tr style="border-bottom:1px solid #1e1e36;">'
+                                    + '<td style="padding:3px 6px;color:#9ca3af;">' + cCodigo + '</td>'
+                                    + '<td style="padding:3px 6px;color:#cbd5e1;">' + cNome + '-'+cGrupo + '</td>'
+                                    + '<td style="padding:3px 6px;text-align:center;color:#cbd5e1;"><strong>' + cQtd + '</strong></td>'
+                                    + '<td style="padding:3px 6px;text-align:right;color:#6b7280;">-</td>'
+                                    + '<td style="padding:3px 6px;text-align:right;color:#6b7280;">-</td>'
+                                    + '</tr>';
                             });
-                            produtosHtml += '</div></td></tr>';
+                            produtosHtml += '</tbody></table></div></td></tr>';
                         }
                     });
                     produtosHtml += '</tbody></table>';
