@@ -7,7 +7,6 @@ const crypto = require('crypto');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-
 const app = express();
 const PORT = process.env.PORT || 80;
 const JWT_SECRET = process.env.JWT_SECRET || 'salgadoscia_secret_key_2026';
@@ -19,11 +18,9 @@ const LOJA_ORIGEM = '-24.965348589309297,-53.51220562301614';
 const TAXA_BASE_ENTREGA = parseFloat(process.env.TAXA_BASE_ENTREGA || '5');
 const TAXA_POR_KM = parseFloat(process.env.TAXA_POR_KM || '0');
 const FRETE_GRATIS_ACIMA = parseFloat(process.env.FRETE_GRATIS_ACIMA || '0');
-
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
-
 const pool = new Pool({
     host: process.env.DB_HOST || '76.13.171.134',
     port: parseInt(process.env.DB_PORT || '5433'),
@@ -31,7 +28,6 @@ const pool = new Pool({
     password: process.env.DB_PASSWORD || 'infodba',
     database: process.env.DB_NAME || 'db_sistema',
 });
-
 async function testConnection() {
     try {
         const res = await pool.query('SELECT NOW()');
@@ -42,7 +38,6 @@ async function testConnection() {
         return false;
     }
 }
-
 function authMiddleware(req, res, next) {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ success: false, message: 'Token não fornecido' });
@@ -54,7 +49,6 @@ function authMiddleware(req, res, next) {
         return res.status(401).json({ success: false, message: 'Token inválido ou expirado' });
     }
 }
-
 // ===== REGRAS DE HORÁRIOS (backend) =====
 const REGRAS_HORARIOS = {
     pedidoMesmoDiaLimite: '16:00',
@@ -72,7 +66,6 @@ const REGRAS_HORARIOS = {
     }
 };
 const FERIADOS_FIXOS = ['01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '12-25'];
-
 function ehFeriado(dataStr) {
     const mmdd = String(dataStr).substring(5, 10);
     return FERIADOS_FIXOS.includes(mmdd);
@@ -136,11 +129,9 @@ function validarRegrasPedido(dataEntrega, horaEntrega, tipoLogistica, itens) {
     }
     return { ok: true };
 }
-
 // ===== PASTA DE UPLOADS (imagens de decoração) =====
 const UPLOAD_DIR = path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-
 // ===== UPLOAD DE IMAGEM (decoração do kit) =====
 app.post('/api/upload', async (req, res) => {
     try {
@@ -157,7 +148,6 @@ app.post('/api/upload', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao salvar imagem' });
     }
 });
-
 // ==================== SABORES POR TIPO DE CENTO (com id) ====================
 app.get('/api/sabores-cento', async (req, res) => {
     try {
@@ -181,7 +171,6 @@ app.get('/api/sabores-cento', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao buscar sabores de cento' });
     }
 });
-
 // ==================== SABORES PARA CENTO DE SALGADOS ====================
 app.get('/api/sabores-salgados', async (req, res) => {
     try {
@@ -199,7 +188,6 @@ app.get('/api/sabores-salgados', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao buscar sabores' });
     }
 });
-
 // ==================== SABORES PARA KITS (com id, preço/kg e bolo_kit) ====================
 app.get('/api/sabores', async (req, res) => {
     try {
@@ -259,7 +247,6 @@ app.get('/api/sabores', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao buscar sabores' });
     }
 });
-
 // ==================== ROTAS PÚBLICAS ====================
 app.get('/api/categorias', async (req, res) => {
     try {
@@ -270,7 +257,6 @@ app.get('/api/categorias', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao buscar categorias' });
     }
 });
-
 app.get('/api/produtos', async (req, res) => {
     try {
         const { categoria } = req.query;
@@ -296,7 +282,6 @@ app.get('/api/produtos', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao buscar produtos' });
     }
 });
-
 app.get('/api/produtos/:id', async (req, res) => {
     try {
         const product = await pool.query(
@@ -313,7 +298,6 @@ app.get('/api/produtos/:id', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao buscar produto' });
     }
 });
-
 // POST /api/pedidos - Cliente cria pedido (com validação de horários)
 app.post('/api/pedidos', async (req, res) => {
     try {
@@ -344,15 +328,19 @@ app.post('/api/pedidos', async (req, res) => {
                 // Quantidade: aceita decimal (venda por quilo) em vez de forçar inteiro
                 const qtdBruta = parseFloat(item.quantidade);
                 const quantidade = (isNaN(qtdBruta) || qtdBruta <= 0) ? 1 : qtdBruta;
+                // NOVO: quantidade em quilos (ex.: bolo por kg de 2,5 kg => quantidade = 1, quantidade_kg = 2.5)
+                const kgBruto = parseFloat(item.quantidade_kg);
+                const quantidadeKg = (isNaN(kgBruto) || kgBruto <= 0) ? null : kgBruto;
                 const itemRes = await pool.query(
-                    `INSERT INTO pedido_itens (pedido_id, product_id, product_name, label, quantidade, preco_unitario, preco_total, descricao)
-                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+                    `INSERT INTO pedido_itens (pedido_id, product_id, product_name, label, quantidade, quantidade_kg, preco_unitario, preco_total, descricao)
+                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
                     [
                         pedido.id,
                         item.product_id || null,
                         item.nome || '',
                         item.label || '',
                         quantidade,
+                        quantidadeKg,
                         parseFloat(item.preco_unitario) || 0,
                         parseFloat(item.preco_total) || 0,
                         item.descricao || null
@@ -404,7 +392,6 @@ app.post('/api/pedidos', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao criar pedido' });
     }
 });
-
 // Calcular custo de entrega
 app.post('/api/entrega/calcular', async (req, res) => {
     try {
@@ -418,7 +405,6 @@ app.post('/api/entrega/calcular', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao calcular entrega' });
     }
 });
-
 // Confirmar pedido pelo link
 app.get('/api/pedidos/confirmar/:token', async (req, res) => {
     try {
@@ -450,7 +436,6 @@ app.get('/api/pedidos/confirmar/:token', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao confirmar pedido' });
     }
 });
-
 async function enviarWebhookConfirmacao(link, telefone, nome) {
     try {
         const res = await fetch(WEBHOOK_CONFIRMACAO, {
@@ -470,7 +455,6 @@ async function enviarWebhookConfirmacao(link, telefone, nome) {
         return false;
     }
 }
-
 async function enviarWebhookVerificacao(numero, codigo) {
     try {
         const res = await fetch(WEBHOOK_VERIFICACAO, {
@@ -489,7 +473,6 @@ async function enviarWebhookVerificacao(numero, codigo) {
         return false;
     }
 }
-
 async function enviarWebhookVerificacaoSMS(numero, codigo) {
     try {
         const res = await fetch(WEBHOOK_CONFIRMACAO, {
@@ -508,7 +491,6 @@ async function enviarWebhookVerificacaoSMS(numero, codigo) {
         return false;
     }
 }
-
 async function calcularCustoEntrega(endereco, subtotal) {
     if (!GOOGLE_MAPS_API_KEY) {
         return { erro: 'API do Google Maps não configurada' };
@@ -536,7 +518,6 @@ async function calcularCustoEntrega(endereco, subtotal) {
         duracao_texto: element.duration.text
     };
 }
-
 // ==================== ROTAS DE AUTENTICAÇÃO ====================
 app.post('/api/auth/login', async (req, res) => {
     try {
@@ -553,7 +534,6 @@ app.post('/api/auth/login', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro interno do servidor' });
     }
 });
-
 app.get('/api/auth/me', authMiddleware, async (req, res) => {
     try {
         const result = await pool.query('SELECT id, nome, email, created_at FROM usuarios WHERE id = $1', [req.usuario.id]);
@@ -563,7 +543,6 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro interno' });
     }
 });
-
 // ==================== AUTENTICAÇÃO DO CLIENTE ====================
 app.post('/api/auth/cliente/registrar', async (req, res) => {
     try {
@@ -591,7 +570,6 @@ app.post('/api/auth/cliente/registrar', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao registrar' });
     }
 });
-
 app.post('/api/auth/cliente/login', async (req, res) => {
     try {
         const { telefone, senha } = req.body;
@@ -614,7 +592,6 @@ app.post('/api/auth/cliente/login', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro no login' });
     }
 });
-
 app.post('/api/auth/cliente/enviar-codigo', async (req, res) => {
     try {
         const { telefone } = req.body;
@@ -635,7 +612,6 @@ app.post('/api/auth/cliente/enviar-codigo', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao enviar código' });
     }
 });
-
 app.post('/api/auth/cliente/validar-codigo', async (req, res) => {
     try {
         const { telefone, codigo } = req.body;
@@ -660,7 +636,6 @@ app.post('/api/auth/cliente/validar-codigo', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao validar código' });
     }
 });
-
 app.post('/api/auth/cliente/recuperar-enviar-codigo', async (req, res) => {
     try {
         const { telefone } = req.body;
@@ -685,7 +660,6 @@ app.post('/api/auth/cliente/recuperar-enviar-codigo', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao enviar código' });
     }
 });
-
 app.post('/api/auth/cliente/recuperar-validar-codigo', async (req, res) => {
     try {
         const { telefone, codigo } = req.body;
@@ -707,7 +681,6 @@ app.post('/api/auth/cliente/recuperar-validar-codigo', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao validar código' });
     }
 });
-
 app.post('/api/auth/cliente/recuperar-redefinir', async (req, res) => {
     try {
         const { telefone, codigo, nova_senha } = req.body;
@@ -737,7 +710,6 @@ app.post('/api/auth/cliente/recuperar-redefinir', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao redefinir senha' });
     }
 });
-
 function authClienteMiddleware(req, res, next) {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ success: false, message: 'Token não fornecido' });
@@ -751,7 +723,6 @@ function authClienteMiddleware(req, res, next) {
         return res.status(401).json({ success: false, message: 'Token inválido ou expirado' });
     }
 }
-
 app.get('/api/meus-pedidos', authClienteMiddleware, async (req, res) => {
     try {
         const result = await pool.query(
@@ -763,7 +734,6 @@ app.get('/api/meus-pedidos', authClienteMiddleware, async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao buscar pedidos' });
     }
 });
-
 // ==================== CONSULTA DE PEDIDOS PELO CLIENTE ====================
 app.post('/api/pedidos/consulta', async (req, res) => {
     try {
@@ -781,7 +751,6 @@ app.post('/api/pedidos/consulta', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao consultar pedidos' });
     }
 });
-
 app.post('/api/pedidos/consulta/:id', async (req, res) => {
     try {
         const { telefone } = req.body;
@@ -810,7 +779,6 @@ app.post('/api/pedidos/consulta/:id', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao buscar detalhe do pedido' });
     }
 });
-
 app.get('/meus-pedidos.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'meus-pedidos.html'));
 });
@@ -823,7 +791,6 @@ app.get('/cadastro.html', (req, res) => {
 app.get('/recuperar.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'recuperar.html'));
 });
-
 // ==================== ROTAS ADMIN (PROTEGIDAS) ====================
 app.get('/api/pedidos', authMiddleware, async (req, res) => {
     try {
@@ -857,7 +824,6 @@ app.get('/api/pedidos', authMiddleware, async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao listar pedidos' });
     }
 });
-
 app.get('/api/pedidos/:id', authMiddleware, async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM s_pedidos WHERE id = $1', [req.params.id]);
@@ -891,7 +857,6 @@ app.get('/api/pedidos/:id', authMiddleware, async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao buscar pedido' });
     }
 });
-
 app.put('/api/pedidos/:id/status', authMiddleware, async (req, res) => {
     try {
         const { status, observacao } = req.body;
@@ -908,7 +873,6 @@ app.put('/api/pedidos/:id/status', authMiddleware, async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao atualizar status' });
     }
 });
-
 app.post('/api/pedidos/:id/mensagem', authMiddleware, async (req, res) => {
     try {
         const { mensagem } = req.body;
@@ -923,7 +887,6 @@ app.post('/api/pedidos/:id/mensagem', authMiddleware, async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao registrar mensagem' });
     }
 });
-
 app.get('/api/stats', authMiddleware, async (req, res) => {
     try {
         const result = await pool.query(`SELECT COUNT(*)::int AS total,
@@ -944,7 +907,6 @@ app.get('/api/stats', authMiddleware, async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao buscar stats' });
     }
 });
-
 // CRUD Produtos (admin)
 app.post('/api/produtos', authMiddleware, async (req, res) => {
     try {
@@ -955,7 +917,6 @@ app.post('/api/produtos', authMiddleware, async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao criar produto' });
     }
 });
-
 app.put('/api/produtos/:id', authMiddleware, async (req, res) => {
     try {
         const { name, description, category_id, is_active, display_order } = req.body;
@@ -966,7 +927,6 @@ app.put('/api/produtos/:id', authMiddleware, async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao atualizar produto' });
     }
 });
-
 app.delete('/api/produtos/:id', authMiddleware, async (req, res) => {
     try {
         await pool.query('DELETE FROM s_product_prices WHERE product_id = $1', [req.params.id]);
@@ -976,7 +936,6 @@ app.delete('/api/produtos/:id', authMiddleware, async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao remover produto' });
     }
 });
-
 // CRUD Preços (admin) — inclui bolo_kit
 app.post('/api/precos', authMiddleware, async (req, res) => {
     try {
@@ -993,7 +952,6 @@ app.post('/api/precos', authMiddleware, async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao criar preço' });
     }
 });
-
 app.put('/api/precos/:id', authMiddleware, async (req, res) => {
     try {
         const { price_type, quantity, unit_label, label, price, is_active, opcoes, composicao, regras, regras_quantidades, bolo_kit } = req.body;
@@ -1010,7 +968,6 @@ app.put('/api/precos/:id', authMiddleware, async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao atualizar preço' });
     }
 });
-
 app.delete('/api/precos/:id', authMiddleware, async (req, res) => {
     try {
         await pool.query('DELETE FROM s_product_prices WHERE id = $1', [req.params.id]);
@@ -1019,7 +976,6 @@ app.delete('/api/precos/:id', authMiddleware, async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao remover preço' });
     }
 });
-
 // ==================== PÁGINAS ====================
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -1033,7 +989,6 @@ app.get('/confirmar.html', (req, res) => {
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
-
 // ==================== INICIAR ====================
 async function start() {
     const connected = await testConnection();

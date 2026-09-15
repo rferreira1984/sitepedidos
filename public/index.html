@@ -511,6 +511,11 @@
         let IDS_REFRIGERANTE = {};
         let IDS_CENTO_POR_TIPO = {};
         let kitRegras = {};
+
+        function extrairKgDeLabel(label) {
+    const m = String(label || '').match(/([\d]+(?:[.,]\d+)?)\s*kg/i);
+    return m ? parseFloat(m[1].replace(',', '.')) : null;
+     }
         function normalizarListaSabor(arr) {
             const nomes = [];
             const ids = {};
