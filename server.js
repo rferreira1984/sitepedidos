@@ -324,28 +324,53 @@ app.post('/api/pedidos', async (req, res) => {
         );
         const pedido = result.rows[0];
         if (Array.isArray(itens) && itens.length > 0) {
-            for (const item of itens) {
-                // Quantidade: aceita decimal (venda por quilo) em vez de forçar inteiro
-                const qtdBruta = parseFloat(item.quantidade);
-                const quantidade = (isNaN(qtdBruta) || qtdBruta <= 0) ? 1 : qtdBruta;
-                // NOVO: quantidade em quilos (ex.: bolo por kg de 2,5 kg => quantidade = 1, quantidade_kg = 2.5)
-                const kgBruto = parseFloat(item.quantidade_kg);
-                const quantidadeKg = (isNaN(kgBruto) || kgBruto <= 0) ? null : kgBruto;
-                const itemRes = await pool.query(
-                    `INSERT INTO pedido_itens (pedido_id, product_id, product_name, label, quantidade, quantidade_kg, preco_unitario, preco_total, descricao)
-                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
-                    [
-                        pedido.id,
-                        item.product_id || null,
-                        item.nome || '',
-                        item.label || '',
-                        quantidade,
-                        quantidadeKg,
-                        parseFloat(item.preco_unitario) || 0,
-                        parseFloat(item.preco_total) || 0,
-                        item.descricao || null
-                    ]
-                );
+            // for (const item of itens) {
+            //     // Quantidade: aceita decimal (venda por quilo) em vez de forçar inteiro
+            //     const qtdBruta = parseFloat(item.quantidade);
+            //     const quantidade = (isNaN(qtdBruta) || qtdBruta <= 0) ? 1 : qtdBruta;
+            //     // NOVO: quantidade em quilos (ex.: bolo por kg de 2,5 kg => quantidade = 1, quantidade_kg = 2.5)
+            //     const kgBruto = parseFloat(item.quantidade_kg);
+            //     const quantidadeKg = (isNaN(kgBruto) || kgBruto <= 0) ? null : kgBruto;
+            //     const itemRes = await pool.query(
+            //         `INSERT INTO pedido_itens (pedido_id, product_id, product_name, label, quantidade, quantidade_kg, preco_unitario, preco_total, descricao)
+            //          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+            //         [
+            //             pedido.id,
+            //             item.product_id || null,
+            //             item.nome || '',
+            //             item.label || '',
+            //             quantidade,
+            //             quantidadeKg,
+            //             parseFloat(item.preco_unitario) || 0,
+            //             parseFloat(item.preco_total) || 0,
+            //             item.descricao || null
+            //         ]
+            //     );
+            // }
+         for (const item of itens) {
+        // Quantidade do ITEM (unidades). Na venda por quilo: quantidade = 1
+        // e o peso vai para a coluna quantidade_kg.
+        const qtdBruta = parseFloat(item.quantidade);
+        const quantidade = (item.porQuilo) ? 1 : ((isNaN(qtdBruta) || qtdBruta <= 0) ? 1 : qtdBruta);
+        const kgBruto = parseFloat(item.quantidade_kg);
+        const quantidade_kg = (item.porQuilo || item.quantidade_kg != null) && !isNaN(kgBruto) && kgBruto > 0
+            ? kgBruto
+            : null;
+        const itemRes = await pool.query(
+            `INSERT INTO pedido_itens (pedido_id, product_id, product_name, label, quantidade, quantidade_kg, preco_unitario, preco_total, descricao)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+            [
+                pedido.id,
+                item.product_id || null,
+                item.nome || '',
+                item.label || '',
+                quantidade,
+                quantidade_kg,
+                parseFloat(item.preco_unitario) || 0,
+                parseFloat(item.preco_total) || 0,
+                item.descricao || null
+            ]
+        );
                 const pedidoItemId = itemRes.rows[0].id;
                 // ===== COMPOSIÇÃO (kits e centos): grava cada item escolhido com id e quantidade =====
                 const composicao = Array.isArray(item.composicao_itens) ? item.composicao_itens : [];
@@ -374,7 +399,7 @@ app.post('/api/pedidos', async (req, res) => {
                     }
                 }
             }
-        }
+        
         if (confirmar_whatsapp) {
             const token = crypto.randomBytes(32).toString('hex');
             const expiraEm = new Date(Date.now() + 30 * 60 * 1000);
@@ -387,6 +412,7 @@ app.post('/api/pedidos', async (req, res) => {
             return res.status(201).json({ success: true, data: pedido, link_confirmacao: link, message: 'Pedido criado! Confirme pelo link.' });
         }
         res.status(201).json({ success: true, data: pedido, message: 'Pedido criado com sucesso!' });
+    }
     } catch (err) {
         console.error('Erro ao criar pedido:', err);
         res.status(500).json({ success: false, message: 'Erro ao criar pedido' });

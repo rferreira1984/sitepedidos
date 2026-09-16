@@ -489,6 +489,10 @@
     <script>
         const API = '/api';
         let carrinho = JSON.parse(localStorage.getItem('carrinho') || '[]');
+        carrinho = carrinho.map(i => {
+    if (i.porQuilo && !i.quantidade_kg) { i.quantidade_kg = i.qtd; i.qtd = 1; }
+    return i;
+});
         let produtosData = [];
         let categoriasData = [];
         let kitAtual = null;
@@ -1047,14 +1051,15 @@
             const total = precoKg * kg;
             const itemKey = 'kg-' + id + '-' + Date.now();
             carrinho.push({
-                id, itemKey, porQuilo: true,
-                nome: nome, icone: p.icone || '⚖️',
-                preco: precoKg,
-                qtd: Math.round(kg * 100) / 100,
-                label: fmt(kg) + ' kg',
-                descricao: fmt(kg) + ' kg x R$ ' + fmt(precoKg) + '/kg',
-                preco_total: total
-            });
+        id, itemKey, porQuilo: true,
+        nome: nome, icone: p.icone || '⚖️',
+        preco: precoKg,
+        qtd: 1,                              // quantidade de itens = 1 (um bolo)
+        quantidade_kg: Math.round(kg * 100) / 100,  // peso pedido em kg (ex.: 2.5)
+        label: fmt(kg) + ' kg',
+        descricao: '1 item • ' + fmt(kg) + ' kg x R$ ' + fmt(precoKg) + '/kg',
+        preco_total: total
+    });
             localStorage.setItem('carrinho', JSON.stringify(carrinho));
             atualizarCarrinhoUI();
             mostrarToast(nome + ' (' + fmt(kg) + ' kg) adicionado!', 'success');
@@ -1154,32 +1159,36 @@
             if (quiloGramas < 1000 && quiloCor) descricao += ' | Cor: ' + quiloCor;
             if (quiloGramas >= 1000 && quiloDecoracaoUrl) descricao += ' | Decoração: ' + quiloDecoracaoUrl;
             if (quiloObs) descricao += ' | Obs: ' + quiloObs;
-            carrinho.push({
-                id: quiloAtual, itemKey, porQuilo: true,
-                nome: quiloNome, icone: p.icone || '🎂',
-                preco: quiloPrecoKg,
-                qtd: Math.round(quiloGramas / 1000 * 100) / 100,
-                label: fmt(quiloGramas / 1000) + ' kg',
-                descricao: descricao,
-                preco_total: total
-            });
+             carrinho.push({
+        id: quiloAtual, itemKey, porQuilo: true,
+        nome: quiloNome, icone: p.icone || '🎂',
+        preco: quiloPrecoKg,
+        qtd: 1,                              // quantidade de itens = 1
+        quantidade_kg: Math.round((quiloGramas / 1000) * 100) / 100,  // peso em kg
+        label: fmt(quiloGramas / 1000) + ' kg',
+        descricao: descricao,
+        preco_total: total
+    });
             localStorage.setItem('carrinho', JSON.stringify(carrinho));
             atualizarCarrinhoUI();
             fecharQuiloModal();
             mostrarToast(quiloNome + ' (' + fmt(quiloGramas / 1000) + ' kg) adicionado!', 'success');
         }
         function alterarQtdPorQuilo(itemKey, delta) {
-            const item = carrinho.find(i => i.itemKey === itemKey);
-            if (!item) return;
-            item.qtd = Math.round((item.qtd + delta) * 100) / 100;
-            if (item.qtd <= 0.05) { carrinho = carrinho.filter(i => i.itemKey !== itemKey); }
-            else {
-                item.label = fmt(item.qtd) + ' kg';
-                item.descricao = fmt(item.qtd) + ' kg x R$ ' + fmt(item.preco) + '/kg';
-            }
-            localStorage.setItem('carrinho', JSON.stringify(carrinho));
-            atualizarCarrinhoUI();
-        }
+    const item = carrinho.find(i => i.itemKey === itemKey);
+    if (!item) return;
+    // Ajusta o PESO (kg). quantidade de itens permanece 1.
+    item.quantidade_kg = Math.round((item.quantidade_kg + delta) * 100) / 100;
+    if (item.quantidade_kg <= 0.05) {
+        carrinho = carrinho.filter(i => i.itemKey !== itemKey);
+    } else {
+        item.label = fmt(item.quantidade_kg) + ' kg';
+        item.descricao = '1 item • ' + fmt(item.quantidade_kg) + ' kg x R$ ' + fmt(item.preco) + '/kg';
+        item.preco_total = item.preco * item.quantidade_kg;
+    }
+    localStorage.setItem('carrinho', JSON.stringify(carrinho));
+    atualizarCarrinhoUI();
+}
         function selecionarOpcaoProduto(productId, priceId) {
             produtoSelecionado[productId] = priceId;
             document.querySelectorAll(`[id^="opcao-${productId}-"]`).forEach(el => el.classList.remove('selected'));
@@ -1579,22 +1588,22 @@
             }
             footerEl.style.display = 'block';
             let total = 0;
-            itemsEl.innerHTML = carrinho.map(item => {
-                const sub = item.preco * item.qtd;
-                total += sub;
+           itemsEl.innerHTML = carrinho.map(item => {
+        const sub = item.porQuilo ? item.preco * (item.quantidade_kg || item.qtd) : item.preco * item.qtd;
+        total += sub;
                 if (item.porQuilo) {
-                    return `<div class="cart-item">
-                        <div class="cart-item-info">
-                            <div class="cart-item-name">${item.icone || '⚖️'} ${item.nome}</div>
-                            <div class="cart-item-label">R$ ${fmt(item.preco)} / kg</div>
-                            <div class="cart-item-detail">${item.descricao || ''}</div>
-                        </div>
-                        <div class="cart-item-qty">
-                            <button onclick="alterarQtdPorQuilo('${item.itemKey}', -0.1)">−</button><span>${fmt(item.qtd)} kg</span><button onclick="alterarQtdPorQuilo('${item.itemKey}', 0.1)">+</button>
-                        </div>
-                        <div class="cart-item-total">R$ ${fmt(sub)}</div>
-                    </div>`;
-                }
+            return `<div class="cart-item">
+                <div class="cart-item-info">
+                    <div class="cart-item-name">${item.icone || '⚖️'} ${item.nome}</div>
+                    <div class="cart-item-label">R$ ${fmt(item.preco)} / kg</div>
+                    <div class="cart-item-detail">1 item • ${fmt(item.quantidade_kg || item.qtd)} kg</div>
+                </div>
+                <div class="cart-item-qty">
+                    <button onclick="alterarQtdPorQuilo('${item.itemKey}', -0.1)">−</button><span>${fmt(item.quantidade_kg || item.qtd)} kg</span><button onclick="alterarQtdPorQuilo('${item.itemKey}', 0.1)">+</button>
+                </div>
+                <div class="cart-item-total">R$ ${fmt(sub)}</div>
+            </div>`;
+        }
                 if (item.itemKey) {
                     return `<div class="cart-item">
                         <div class="cart-item-info">
@@ -1648,8 +1657,8 @@
             input.value = v;
         }
         function getSubtotal() {
-            return carrinho.reduce((s, i) => s + i.preco * i.qtd, 0);
-        }
+    return carrinho.reduce((s, i) => s + (i.porQuilo ? i.preco * (i.quantidade_kg || i.qtd) : i.preco * i.qtd), 0);
+}
         function getEnderecoCompleto() {
             const rua = document.getElementById('checkoutRua').value.trim();
             const numero = document.getElementById('checkoutNumero').value.trim();
@@ -1705,11 +1714,11 @@
             document.getElementById('resumoFreteLinha').style.display = 'none';
             let total = 0;
             const itemsHtml = carrinho.map(i => {
-                const sub = i.preco * i.qtd;
-                total += sub;
-                const qtdStr = i.porQuilo ? fmt(i.qtd) + ' kg' : 'x' + i.qtd;
-                return `<div class="resumo-item"><span>${i.icone || '🍽️'} ${i.nome} ${qtdStr}</span><span>R$ ${fmt(sub)}</span></div>`;
-            }).join('');
+        const sub = i.porQuilo ? i.preco * (i.quantidade_kg || i.qtd) : i.preco * i.qtd;
+        total += sub;
+        const qtdStr = i.porQuilo ? ('1 item • ' + fmt(i.quantidade_kg || i.qtd) + ' kg') : ('x' + i.qtd);
+        return `<div class="resumo-item"><span>${i.icone || '🍽️'} ${i.nome} ${qtdStr}</span><span>R$ ${fmt(sub)}</span></div>`;
+    }).join('');
             document.getElementById('resumoItems').innerHTML = itemsHtml;
             atualizarResumoTotal();
             const logado = !!clienteDados;
@@ -1738,38 +1747,41 @@
         function fecharCheckout() {
             document.getElementById('checkoutOverlay').classList.remove('active');
         }
-        function montarPayloadPedido() {
-            const subtotal = getSubtotal();
-            return {
-                nome_cliente: document.getElementById('checkoutNome').value.trim(),
-                telefone: document.getElementById('checkoutTelefone').value.trim(),
-                endereco_rua: document.getElementById('checkoutRua').value,
-                endereco_numero: document.getElementById('checkoutNumero').value,
-                endereco_bairro: document.getElementById('checkoutBairro').value,
-                endereco_cep: document.getElementById('checkoutCep').value,
-                items: carrinho.map(i => {
-                    const qtdStr = i.porQuilo ? fmt(i.qtd) + 'kg' : ('x' + i.qtd);
-                    return `${i.icone || ''} ${i.nome} ${qtdStr} = R$ ${(i.preco * i.qtd).toFixed(2)}${i.descricao ? ' (' + i.descricao + ')' : ''}`;
-                }).join(' | '),
-                itens: carrinho.map(i => ({
-                    product_id: i.id || null,
-                    nome: i.nome,
-                    label: i.label || '',
-                    quantidade: i.porQuilo ? parseFloat(i.qtd.toFixed(3)) : i.qtd,
-                    preco_unitario: i.preco,
-                    preco_total: i.preco * i.qtd,
-                    descricao: i.descricao || i.composicao || '',
-                    composicao_itens: Array.isArray(i.composicao_itens) ? i.composicao_itens : []
-                })),
-                valor_total: subtotal + custoEntrega,
-                taxa_entrega: custoEntrega,
-                forma_pagamento: document.getElementById('checkoutPagamento').value,
-                tipo_logistica: document.getElementById('checkoutLogistica').value,
-                observacoes: document.getElementById('checkoutObs').value,
-                data_entrega: document.getElementById('checkoutData').value,
-                hora_entrega: document.getElementById('checkoutHora').value
-            };
-        }
+       function montarPayloadPedido() {
+    const subtotal = getSubtotal();
+    return {
+        nome_cliente: document.getElementById('checkoutNome').value.trim(),
+        telefone: document.getElementById('checkoutTelefone').value.trim(),
+        endereco_rua: document.getElementById('checkoutRua').value,
+        endereco_numero: document.getElementById('checkoutNumero').value,
+        endereco_bairro: document.getElementById('checkoutBairro').value,
+        endereco_cep: document.getElementById('checkoutCep').value,
+        items: carrinho.map(i => {
+            const qtdStr = i.porQuilo ? ('1 item • ' + fmt(i.quantidade_kg || i.qtd) + 'kg') : ('x' + i.qtd);
+            const sub = i.porQuilo ? i.preco * (i.quantidade_kg || i.qtd) : i.preco * i.qtd;
+            return `${i.icone || ''} ${i.nome} ${qtdStr} = R$ ${sub.toFixed(2)}${i.descricao ? ' (' + i.descricao + ')' : ''}`;
+        }).join(' | '),
+        itens: carrinho.map(i => ({
+            product_id: i.id || null,
+            nome: i.nome,
+            label: i.label || '',
+            quantidade: i.porQuilo ? 1 : (i.qtd || 1),       // bolos por kg: SEMPRE 1
+            quantidade_kg: i.porQuilo ? (i.quantidade_kg || null) : null, // peso em kg
+            porQuilo: !!i.porQuilo,
+            preco_unitario: i.preco,
+            preco_total: i.porQuilo ? i.preco * (i.quantidade_kg || i.qtd) : i.preco * i.qtd,
+            descricao: i.descricao || i.composicao || '',
+            composicao_itens: i.composicao_itens || []
+        })),
+        valor_total: subtotal + custoEntrega,
+        taxa_entrega: custoEntrega,
+        forma_pagamento: document.getElementById('checkoutPagamento').value,
+        tipo_logistica: document.getElementById('checkoutLogistica').value,
+        observacoes: document.getElementById('checkoutObs').value,
+        data_entrega: document.getElementById('checkoutData').value,
+        hora_entrega: document.getElementById('checkoutHora').value
+    };
+}
         async function finalizarPedido(e) {
             e.preventDefault();
             if (!clienteDados) { mostrarToast('Faça login para confirmar sem link, ou use o botão de código abaixo', 'error'); return; }
