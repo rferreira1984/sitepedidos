@@ -271,7 +271,7 @@ app.get('/api/produtos', async (req, res) => {
         const result = [];
         for (const p of products.rows) {
             const prices = await pool.query(
-                'SELECT id, price_type, quantity, unit_label, label, price, is_active, opcoes, composicao, regras, regras_quantidades, bolo_kit FROM s_product_prices WHERE product_id = $1 AND is_active = true ORDER BY price_type, quantity',
+                'SELECT id, price_type, quantity, unit_label, label, price, is_active, opcoes, composicao, regras, regras_quantidades, bolo_kit, total_doces, total_salgados FROM s_product_prices WHERE product_id = $1 AND is_active = true ORDER BY price_type, quantity',
                 [p.id]
             );
             result.push({ ...p, prices: prices.rows });

@@ -1320,26 +1320,6 @@
             verificarKitCompleto();
             atualizarBoloExtra();
         }
-        function montarSecaoDoces() {
-            const qtd = kitQtds.Doces;
-            const section = document.getElementById('kmDocesSection');
-            if (qtd <= 0) { section.style.display = 'none'; return; }
-            section.style.display = '';
-            document.getElementById('kmDocesInfo').textContent = qtd === 1 ? 'Selecione 1 sabor de doce' : `Selecione até ${qtd} sabores de doces`;
-            const container = document.getElementById('kmDocesChips');
-            container.dataset.max = qtd;
-            container.innerHTML = SABORES_DOCES.map(s => `<span class="km-chip" data-value="${s}">${s}</span>`).join('');
-        }
-        function montarSecaoSalgados() {
-            const qtd = kitQtds.Salgados;
-            const section = document.getElementById('kmSalgadosSection');
-            if (qtd <= 0) { section.style.display = 'none'; return; }
-            section.style.display = '';
-            document.getElementById('kmSalgadosInfo').textContent = qtd === 1 ? 'Selecione 1 sabor de salgado' : `Selecione até ${qtd} sabores de salgados`;
-            const container = document.getElementById('kmSalgadosChips');
-            container.dataset.max = qtd;
-            container.innerHTML = SABORES_SALGADOS.map(s => `<span class="km-chip" data-value="${s}">${s}</span>`).join('');
-        }
         function montarSecaoRefri() {
             const qtd = kitQtds.Refrigerante;
             const section = document.getElementById('kmRefriSection');
@@ -1443,22 +1423,7 @@
             }
             verificarKitCompleto();
         });
-        function verificarKitCompleto() {
-            if (modoCento) {
-                const max = parseInt(document.getElementById('kmSalgadosChips').dataset.max || 1);
-                const salgados = document.querySelectorAll('#kmSalgadosChips .km-chip.selected').length;
-                document.getElementById('btnKmConfirm').disabled = salgados < max;
-                return;
-            }
-            const qtdSaboresBolo = parseInt(document.getElementById('kmBoloSabores').value) || 1;
-            const bolos = Array.from(document.querySelectorAll('.km-select-bolo')).map(s => s.value).filter(Boolean);
-            const refris = Array.from(document.querySelectorAll('.km-select-refri')).map(s => s.value).filter(Boolean);
-            const doces = document.querySelectorAll('#kmDocesChips .km-chip.selected').length;
-            const salgados = document.querySelectorAll('#kmSalgadosChips .km-chip.selected').length;
-            const ok = bolos.length >= qtdSaboresBolo && refris.length >= kitQtds.Refrigerante && doces >= kitQtds.Doces && salgados >= kitQtds.Salgados;
-            document.getElementById('btnKmConfirm').disabled = !ok;
-        }
-        // ===== COMPOSIÇÃO: monta a lista de itens escolhidos (id + quantidade, sem preço) =====
+        
         function qtdTotalGrupoKit(grupo) {
             const bruto = (kitRegras && kitRegras[grupo + 'Total'] !== undefined) ? kitRegras[grupo + 'Total'] : null;
             const v = parseFloat(String(bruto == null ? '' : bruto).replace(',', '.'));
@@ -1476,35 +1441,6 @@
                 if (q <= 0) q = 1;
                 return { nome, quantidade: q };
             });
-        }
-        function montarComposicaoKit() {
-            const composicao = [];
-            const bolos = Array.from(document.querySelectorAll('.km-select-bolo')).map(s => s.value).filter(Boolean);
-            bolos.forEach(nome => {
-                composicao.push({ grupo: 'Bolo', product_id: IDS_BOLO[nome] || null, nome, quantidade: 1 });
-            });
-            if (kitBoloExtraGramas > 0 && bolos.length > 0) {
-                composicao.push({
-                    grupo: 'Bolo',
-                    product_id: IDS_BOLO[bolos[0]] || null,
-                    nome: bolos[0],
-                    quantidade: Math.round((kitBoloExtraGramas / 1000) * 1000) / 1000,
-                    observacao: 'Bolo adicional (mesmo sabor) - ' + fmt(kitBoloExtraGramas) + 'g'
-                });
-            }
-            const doces = Array.from(document.querySelectorAll('#kmDocesChips .km-chip.selected')).map(c => c.dataset.value).filter(Boolean);
-            distribuirQuantidade(doces, qtdTotalGrupoKit('Doces')).forEach(d => {
-                composicao.push({ grupo: 'Doces', product_id: IDS_DOCES[d.nome] || null, nome: d.nome, quantidade: d.quantidade });
-            });
-            const salgados = Array.from(document.querySelectorAll('#kmSalgadosChips .km-chip.selected')).map(c => c.dataset.value).filter(Boolean);
-            distribuirQuantidade(salgados, qtdTotalGrupoKit('Salgados')).forEach(s => {
-                composicao.push({ grupo: 'Salgados', product_id: IDS_SALGADOS[s.nome] || null, nome: s.nome, quantidade: s.quantidade });
-            });
-            const refris = Array.from(document.querySelectorAll('.km-select-refri')).map(s => s.value).filter(Boolean);
-            distribuirQuantidade(refris, qtdTotalGrupoKit('Refrigerante')).forEach(r => {
-                composicao.push({ grupo: 'Refrigerante', product_id: IDS_REFRIGERANTE[r.nome] || null, nome: r.nome, quantidade: r.quantidade });
-            });
-            return composicao;
         }
         function montarComposicaoCento() {
             const sabores = Array.from(document.querySelectorAll('#kmSalgadosChips .km-chip.selected')).map(c => c.dataset.value).filter(Boolean);
@@ -1599,7 +1535,7 @@
                     <div class="cart-item-detail">1 item • ${fmt(item.quantidade_kg || item.qtd)} kg</div>
                 </div>
                 <div class="cart-item-qty">
-                    <button onclick="alterarQtdPorQuilo('${item.itemKey}', -0.1)">−</button><span>${fmt(item.quantidade_kg || item.qtd)} kg</span><button onclick="alterarQtdPorQuilo('${item.itemKey}', 0.1)">+</button>
+                    <button onclick="alterarQtdPorQuilo('${item.itemKey}', -0.5)">−</button><span>${fmt(item.quantidade_kg || item.qtd)} kg</span><button onclick="alterarQtdPorQuilo('${item.itemKey}', 0.5)">+</button>
                 </div>
                 <div class="cart-item-total">R$ ${fmt(sub)}</div>
             </div>`;
@@ -1935,6 +1871,182 @@
         if (urlParams.get('checkout') === '1' && carrinho.length > 0) {
             setTimeout(() => abrirCheckout(), 600);
         }
+        /* ============================================================
+   KIT FESTA — DIVISÃO DE DOCES & SALGADOS
+   Sobra vai para o 1º sabor selecionado. Mínimo 1 sabor por grupo.
+   Quantidade de cada subitem segue para pedido_item_composicao.quantidade.
+   ============================================================ */
+
+// 1) Divide o total entre n sabores; a sobra fica no PRIMEIRO selecionado
+function distribuirQtdKit(total, n) {
+    n = Math.max(1, parseInt(n) || 1);
+    total = parseInt(total) || 0;
+    if (total <= 0) { var a = []; for (var i = 0; i < n; i++) a.push(1); return a; }
+    var base = Math.floor(total / n);
+    var resto = total - base * n;
+    var out = [];
+    for (var i = 0; i < n; i++) { out.push(base + (resto > 0 ? 1 : 0)); if (resto > 0) resto--; }
+    ///alert(out)
+    return out; // ex.: 50 doces / 3 sabores -> [17, 17, 16]
+}
+
+// 2) Descobre o total de doces/salgados do kit com segurança
+//    (regras_quantidades > texto da composição > 0)
+// function lerTotalComposicaoTxt(grupo) {
+//     try {
+//         if (typeof kitAtual === 'undefined' || kitAtual == null) return 0;
+//         var p = (typeof produtosData !== 'undefined' && produtosData || []).find(function(x) { return x.id === kitAtual; });
+//         if (!p) return 0;
+//         var tier = (p.prices || []).filter(function(x) { return x.price_type === 'tier'; });
+//         var idx = (typeof kitOpcaoAtual !== 'undefined' && kitOpcaoAtual != null) ? kitOpcaoAtual : 0;
+//         var op = tier[idx] || tier[0];
+//         if (!op) return 0;
+//         var rq = op.regras_quantidades || {};
+//         if (typeof rq === 'string') { try { rq = JSON.parse(rq); } catch (e2) { rq = {}; } }
+//         var chave = grupo === 'Doces' ? 'DocesTotal' : 'SalgadosTotal';
+//         var v = parseInt(rq[chave]);
+//         if (v > 0) return v;
+//         var txt = String(op.composicao || '') + ' ' + String(op.label || '');
+//         var pal = grupo === 'Doces' ? 'doce' : 'salgado';
+//         var m = txt.match(new RegExp('(\d+)\s*' + pal + '[s]?', 'i'));
+//         if (!m) m = txt.match(new RegExp(pal + '[s]?[^\d]*?(\d+)', 'i'));
+//         return m ? parseInt(m[1]) : 0;
+//     } catch (e) { return 0; }
+// }
+function lerTotalComposicaoTxt(grupo) {
+    try {
+        if (typeof kitAtual === 'undefined' || kitAtual == null) return 0;
+        var p = (typeof produtosData !== 'undefined' && produtosData || []).find(function(x) { return x.id === kitAtual; });
+        if (!p) return 0;
+        var tier = (p.prices || []).filter(function(x) { return x.price_type === 'tier'; });
+        var idx = (typeof kitOpcaoAtual !== 'undefined' && kitOpcaoAtual != null) ? kitOpcaoAtual : 0;
+        var op = tier[idx] || tier[0];
+        if (!op) return 0;
+
+        // 1) Colunas do banco: total_doces / total_salgados (com variantes de nome)
+        var chaveColuna = grupo === 'Doces'
+            ? ['total_doces', 'totalDoces', 'TotalDoces']
+            : ['total_salgados', 'totalSalgados', 'TotalSalgados'];
+        for (var c = 0; c < chaveColuna.length; c++) {
+            var vc = parseInt(op[chaveColuna[c]]);
+            if (vc > 0) return vc;
+        }
+
+        // 2) regras_quantidades (fallback)
+        var rq = op.regras_quantidades || {};
+        if (typeof rq === 'string') { try { rq = JSON.parse(rq); } catch (e2) { rq = {}; } }
+        var chaves = grupo === 'Doces'
+            ? ['DocesTotal', 'DOCES Total', 'TotalDoces', 'doces_total', 'Doces']
+            : ['SalgadosTotal', 'SALGADOS Total', 'TotalSalgados', 'salgados_total', 'Salgados'];
+        for (var c2 = 0; c2 < chaves.length; c2++) {
+            var v2 = parseInt(rq[chaves[c2]]);
+            if (v2 > 0) return v2;
+        }
+
+        // 3) Texto da composição + label (último recurso)
+        var txt = String(op.composicao || '') + ' ' + String(op.label || '');
+        var pal = grupo === 'Doces' ? 'doce' : 'salgado';
+        var m = txt.match(new RegExp('(\d+)\s*' + pal + '[s]?', 'i'));
+        if (!m) m = txt.match(new RegExp(pal + '[s]?[^\d]*?(\d+)', 'i'));
+        if (m) return parseInt(m[1]);
+
+        return 0;
+    } catch (e) {
+        return 0;
+    }
+}
+// 3) Mostra a divisão calculada no modal (ex.: "2 sabores × 25 / 25 un — 50 doces")
+function atualizarDivisaoModalKit() {
+    try {
+        var docesSel = document.querySelectorAll('#kmDocesChips .km-chip.selected');
+        var salgadosSel = document.querySelectorAll('#kmSalgadosChips .km-chip.selected');
+        var totD = lerTotalComposicaoTxt('Doces');
+        var totS = lerTotalComposicaoTxt('Salgados');
+        var elD = document.getElementById('kmDocesInfo');
+        var elS = document.getElementById('kmSalgadosInfo');
+        if (elD && totD > 0 && docesSel.length > 0) {
+            var qsD = distribuirQtdKit(totD, docesSel.length);
+            elD.textContent = (docesSel.length > 1 ? docesSel.length + ' sabores × ' : '1 sabor · ') + qsD.join(' / ') + ' un — ' + totD + ' doces (sobra no 1º sabor)';
+        }
+        if (elS && totS > 0 && salgadosSel.length > 0) {
+            var qsS = distribuirQtdKit(totS, salgadosSel.length);
+            elS.textContent = (salgadosSel.length > 1 ? salgadosSel.length + ' sabores × ' : '1 sabor · ') + qsS.join(' / ') + ' un — ' + totS + ' salgados (sobra no 1º sabor)';
+        }
+    } catch (e) { /* melhor esforço */ }
+}
+function montarComposicaoKit() {
+    var comps = [];
+    var bolos = Array.from(document.querySelectorAll('.km-select-bolo')).map(function(s) { return s.value; }).filter(Boolean);
+    bolos.forEach(function(nome) {
+        comps.push({ grupo: 'Bolo', product_id: ((typeof IDS_BOLO !== 'undefined') ? (IDS_BOLO[nome] || null) : null), nome: 'Bolo ' + nome, quantidade: 1, observacao: null });
+    });
+    var doces = Array.from(document.querySelectorAll('#kmDocesChips .km-chip.selected')).map(function(c) { return c.dataset.value; });
+   
+    var totDoces = lerTotalComposicaoTxt('Doces');
+    var qsDoces = distribuirQtdKit(totDoces, doces.length);
+    
+    doces.forEach(function(nome, i) {
+        comps.push({ grupo: 'Doces', product_id: ((typeof IDS_DOCES !== 'undefined') ? (IDS_DOCES[nome] || null) : null), nome: nome, quantidade: qsDoces[i], observacao: null });
+    });
+    var salgados = Array.from(document.querySelectorAll('#kmSalgadosChips .km-chip.selected')).map(function(c) { return c.dataset.value; });
+    var totSalgados = lerTotalComposicaoTxt('Salgados');
+    var qsSalgados = distribuirQtdKit(totSalgados, salgados.length);
+    salgados.forEach(function(nome, i) {
+        comps.push({ grupo: 'Salgados', product_id: ((typeof IDS_SALGADOS !== 'undefined') ? (IDS_SALGADOS[nome] || null) : null), nome: nome, quantidade: qsSalgados[i], observacao: null });
+    });
+    var refris = Array.from(document.querySelectorAll('.km-select-refri')).map(function(s) { return s.value; }).filter(Boolean);
+    refris.forEach(function(nome) {
+        comps.push({ grupo: 'Refrigerante', product_id: ((typeof IDS_REFRIGERANTE !== 'undefined') ? (IDS_REFRIGERANTE[nome] || null) : null), nome: nome, quantidade: 1, observacao: null });
+    });
+    if (typeof kitBoloExtraGramas !== 'undefined' && kitBoloExtraGramas > 0) {
+        comps.push({ grupo: 'Bolo', product_id: null, nome: 'Bolo adicional', quantidade: kitBoloExtraGramas / 1000, observacao: kitBoloExtraGramas + 'g' });
+    }
+    return comps;
+}
+
+// 5) OVERRIDE: mínimo 1 sabor por grupo (não obriga selecionar todos)
+function montarSecaoDoces() {
+    var qtd = (typeof kitQtds !== 'undefined' && kitQtds) ? (parseInt(kitQtds.Doces) || 0) : 0;
+    var section = document.getElementById('kmDocesSection');
+    if (qtd <= 0) { if (section) section.style.display = 'none'; return; }
+    if (section) section.style.display = '';
+    document.getElementById('kmDocesInfo').textContent = qtd === 1 ? 'Selecione 1 sabor de doce' : 'Escolha de 1 a ' + qtd + ' sabores de doces (1 já é suficiente)';
+    var container = document.getElementById('kmDocesChips');
+    if (container) { container.dataset.max = qtd; container.innerHTML = SABORES_DOCES.map(function(s) { return '<span class="km-chip" data-value="' + s + '">' + s + '</span>'; }).join(''); }
+}
+function montarSecaoSalgados() {
+    var qtd = (typeof kitQtds !== 'undefined' && kitQtds) ? (parseInt(kitQtds.Salgados) || 0) : 0;
+    var section = document.getElementById('kmSalgadosSection');
+    if (qtd <= 0) { if (section) section.style.display = 'none'; return; }
+    if (section) section.style.display = '';
+    document.getElementById('kmSalgadosInfo').textContent = qtd === 1 ? 'Selecione 1 sabor de salgado' : 'Escolha de 1 a ' + qtd + ' sabores de salgados (1 já é suficiente)';
+    var container = document.getElementById('kmSalgadosChips');
+    if (container) { container.dataset.max = qtd; container.innerHTML = SABORES_SALGADOS.map(function(s) { return '<span class="km-chip" data-value="' + s + '">' + s + '</span>'; }).join(''); }
+}
+
+// 6) OVERRIDE: validação com mínimo 1 + atualiza texto da divisão a cada clique
+function verificarKitCompleto() {
+    try {
+        if (typeof modoCento !== 'undefined' && modoCento) {
+            var maxC = parseInt(document.getElementById('kmSalgadosChips').dataset.max || 1);
+            var selC = document.querySelectorAll('#kmSalgadosChips .km-chip.selected').length;
+            document.getElementById('btnKmConfirm').disabled = selC < maxC;
+            return;
+        }
+        var qtdSaboresBolo = parseInt((document.getElementById('kmBoloSabores') || {}).value) || 1;
+        var bolos = Array.from(document.querySelectorAll('.km-select-bolo')).map(function(s) { return s.value; }).filter(Boolean);
+        var refris = Array.from(document.querySelectorAll('.km-select-refri')).map(function(s) { return s.value; }).filter(Boolean);
+        var doces = document.querySelectorAll('#kmDocesChips .km-chip.selected').length;
+        var salgados = document.querySelectorAll('#kmSalgadosChips .km-chip.selected').length;
+        var qtdRefri = (typeof kitQtds !== 'undefined' && kitQtds) ? (parseInt(kitQtds.Refrigerante) || 0) : 0;
+        var ok = bolos.length >= qtdSaboresBolo && refris.length >= qtdRefri && doces >= 1 && salgados >= 1;
+        document.getElementById('btnKmConfirm').disabled = !ok;
+        atualizarDivisaoModalKit();
+    } catch (e) {
+        var btn = document.getElementById('btnKmConfirm');
+        if (btn) btn.disabled = false;
+    }
+}
     </script>
 </body>
 </html>
