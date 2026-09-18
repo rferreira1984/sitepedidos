@@ -15,8 +15,8 @@ const WEBHOOK_CONFIRMACAO = process.env.WEBHOOK_CONFIRMACAO || 'https://n8n-salg
 const WEBHOOK_VERIFICACAO = process.env.WEBHOOK_VERIFICACAO || 'https://n8n-salgadoscia-n8n.hjs9cn.easypanel.host/webhook/9764c692-0c00-4308-b490-6807e2816662';
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyDcy5vIhEOUAeVLBZ9S8pmv8zeOz6NQ8-A';
 const LOJA_ORIGEM = '-24.965348589309297,-53.51220562301614';
-const TAXA_BASE_ENTREGA = parseFloat(process.env.TAXA_BASE_ENTREGA || '5');
-const TAXA_POR_KM = parseFloat(process.env.TAXA_POR_KM || '0');
+const TAXA_BASE_ENTREGA = parseFloat(process.env.TAXA_BASE_ENTREGA || '0');
+const TAXA_POR_KM = parseFloat(process.env.TAXA_POR_KM || '3');
 const FRETE_GRATIS_ACIMA = parseFloat(process.env.FRETE_GRATIS_ACIMA || '0');
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));

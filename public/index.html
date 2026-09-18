@@ -855,7 +855,7 @@
                 html += `<h2 class="categoria-titulo">${icone} ${cat}</h2>`;
                 html += `<div class="produtos-grid">`;
                 grupos[cat].forEach(p => {
-                    if (p.category_id === 7 || p.categoria_nome === 'Kits Festa') { html += renderizarKitFesta(p); return; }
+                    if (p.category_id === 7 || p.categoria_nome === 'Kits Festa' || /festa\s*na\s*caixa/i.test(p.categoria_nome || '')) { html += renderizarKitFesta(p); return; }
                     if (ehCento(p)) { html += renderizarCento(p); return; }
                     const imagemHtml = p.imagem
                         ? `<img class="produto-imagem" loading="lazy" src="${p.imagem}" alt="${p.id}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">`
