@@ -1300,6 +1300,8 @@
             const section = document.getElementById('kmBoloSection');
             if (qtd <= 0) { section.style.display = 'none'; return; }
             section.style.display = '';
+           
+            
             document.getElementById('kmBoloInfo').textContent = 'Escolha 1 ou 2 sabores (metade/metade)';
             const sel = document.getElementById('kmBoloSabores');
             if (sel) sel.value = '1';
@@ -2047,6 +2049,47 @@ function verificarKitCompleto() {
         if (btn) btn.disabled = false;
     }
 }
+function ehFestaNaCaixa() {
+    try {
+        if (typeof kitAtual === 'undefined' || kitAtual == null) return false;
+        var p = (typeof produtosData !== 'undefined' ? produtosData : []).find(function(x) { return x.id === kitAtual; });
+        if (!p) return false;
+        return /festa\s*na\s*caixa/i.test(p.categoria_nome || '');
+    } catch (e) { return false; }
+}
+
+(function () {
+    if (typeof abrirKitModal !== 'function') return;
+    var origAbrirKitModal = abrirKitModal;
+    window.abrirKitModal = function (produtoId) {
+        origAbrirKitModal(produtoId);
+        try {
+            var selSabores = document.getElementById('kmBoloSabores');
+            var extra = document.getElementById('kmBoloExtraSection');
+            if (ehFestaNaCaixa()) {
+                 document.getElementById('kmBoloInfo').textContent = 'Escolha 1 sabor de bolo';
+                // 1) Esconde a seção "Bolo adicional (gramas)"
+                if (extra) extra.style.display = 'none';
+                // 2) Força 1 sabor de bolo e esconde o seletor "1 ou 2 sabores"
+                if (selSabores) { selSabores.value = '1'; selSabores.style.display = 'none'; }
+                // 3) Zera o bolo extra para não entrar na composição
+                if (typeof kitBoloExtraGramas !== 'undefined') kitBoloExtraGramas = 0;
+                var inputExtra = document.getElementById('kmBoloExtraGramas');
+                if (inputExtra) inputExtra.value = '';
+                // 4) Re-monta os selects de bolo com apenas 1 sabor
+                if (typeof montarSelectsBolo === 'function') montarSelectsBolo();
+                // 5) Atualiza o preço (sem bolo extra) e revalida o kit
+                if (typeof atualizarBoloExtra === 'function') atualizarBoloExtra();
+                if (typeof verificarKitCompleto === 'function') verificarKitCompleto();
+
+            } else {
+                // Kit Festa normal: restaura as opções
+                if (extra) extra.style.display = '';
+                if (selSabores) selSabores.style.display = '';
+            }
+        } catch (e) { /* melhor esforço */ }
+    };
+})();
     </script>
 </body>
 </html>
