@@ -15,6 +15,8 @@
         .header-cliente .container { display: flex; justify-content: space-between; align-items: center; }
         .header-cliente h1 { font-size: 20px; font-weight: 800; color: #fff; }
         .header-cliente h1 span { font-weight: 300; }
+        .header-logo { display: flex; align-items: center; gap: 12px; }
+        .header-logo img { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; background: #fff; padding: 2px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); flex-shrink: 0; }
         .btn-back { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 8px 14px; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 600; text-decoration: none; }
         .btn-back:hover { background: rgba(255,255,255,0.25); }
         .card { background: #fff; border-radius: 14px; padding: 20px; border: 1px solid #e5e7eb; margin-bottom: 16px; }
@@ -72,9 +74,13 @@
 </head>
 <body>
     <header class="header-cliente">
-        <div class="container">
-            <h1>Meus <span>Pedidos</span></h1>
-            <a href="/" class="btn-back"><i class="fas fa-arrow-left"></i> Voltar</a>
+      <div class="container">
+            <div class="header-logo">
+            <img src="https://site-picsur.hjs9cn.easypanel.host/i/cc6c98ff-c1d0-4b97-b0ff-962955affa69.jpg" alt="Logo Salgados & Cia">
+            <div>
+            <h1>Salgados <span>&amp; Cia</span></h1>
+         <div class="subtitle">Faça seu pedido online 📱</div>
+         </div>
         </div>
     </header>
     <main class="container">
