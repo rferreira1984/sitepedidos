@@ -178,7 +178,13 @@
             .admin-header .header-content { flex-wrap: wrap; gap: 12px; }
             .admin-tabs { overflow-x: auto; }
         }
+.pedido-imagens { margin-top: 20px; padding-top: 16px; border-top: 1px solid #e5e7eb; }
+.pedido-imagens h3 { font-size: 15px; margin: 0 0 10px 0; color: #e5e7eb; }
+.pedido-imagens-grid { display: flex; flex-wrap: wrap; gap: 12px; }
+.pedido-imagens-grid a { display: block; width: 120px; height: 120px; border-radius: 8px; overflow: hidden; border: 1px solid #e5e7eb; }
+.pedido-imagens-grid img { width: 100%; height: 100%; object-fit: cover; display: block; }
     </style>
+ 
 </head>
 <link rel="icon" type="image/jpg" href="https://site-picsur.hjs9cn.easypanel.host/i/cc6c98ff-c1d0-4b97-b0ff-962955affa69.jpg">
 <body>
@@ -627,6 +633,17 @@
                     const icon = h.status_novo === 'Entregue' ? '✅' : h.status_novo === 'Cancelado' ? '❌' : h.status_novo === 'Em Producao' ? '🔧' : h.status_novo === 'Saiu Para Entrega' ? '🚚' : h.status_novo === 'Pedido Pronto' ? '📦' : h.status_novo === 'Finalizado' ? '🏁' : h.status_novo === 'Aguardando Pagamento' ? '💳' : h.status_novo === 'Aguardando Retirada' ? '🏬' : h.status_novo === 'Confirmado' ? '👍' : '⏳';
                     return '<li class="historico-item"><div class="historico-icon">' + icon + '</div><div class="historico-info"><div class="h-status">' + h.status_anterior + ' → ' + h.status_novo + '</div><div class="h-detail">' + (h.usuario_nome || 'Sistema') + ' • ' + new Date(h.created_at).toLocaleString('pt-BR') + '</div>' + (h.observacao ? '<div class="h-obs">"' + h.observacao + '"</div>' : '') + '</div></li>';
                 }).join('') : '<li style="color:#6b7280;padding:10px 0;">Nenhuma alteração registrada.</li>';
+
+                const imagensPedido = json.imagens || [];
+let imagensHtml = '';
+if (imagensPedido.length > 0) {
+    imagensHtml = '<div class="pedido-imagens"><h3>🖼️ Imagens do pedido</h3><div class="pedido-imagens-grid">';
+    imagensPedido.forEach(function(img) {
+        if (!img || !img.url) return;
+        imagensHtml += '<a href="' + img.url + '" target="_blank" title="' + (img.observacao || img.tipo || 'Imagem') + '"><img src="' + img.url + '" alt="' + (img.observacao || 'Imagem') + '" loading="lazy"></a>';
+    });
+    imagensHtml += '</div></div>';
+}
                 // ===== NOVO LAYOUT DO MODAL =====
                 // Lista de produtos: descrição + valor unitário
                 const itensProduto = [];
@@ -776,6 +793,7 @@
                         <div class="detail-item"><label>Pagamento</label><span>${p.forma_pagamento || '-'}</span></div>
                         <div class="detail-item"><label>Status Atual</label><span><span class="status-badge ${sc}">${p.status}</span></span></div>
                         ${p.observacoes ? '<div class="detail-item full"><label>Observações</label><span>' + p.observacoes + '</span></div>' : ''}
+                         <ul class="historico-list">${imagensHtml}</ul>
                     </div>
                     <div class="section-title">Alterar Status</div>
                     <div class="status-actions">${statusBtns}</div>
@@ -792,6 +810,7 @@
                     </div>
                     <div class="section-title">Histórico de Status</div>
                     <ul class="historico-list">${historicoHtml}</ul>
+                   
                     <div class="section-title whatsapp-area">Enviar WhatsApp</div>
                     <textarea id="whatsappMsg" rows="3">Olá ${p.nome_cliente || ''}! Seu pedido #${String(p.id).padStart(3,'0')} está ${p.status.toLowerCase()}. Qualquer dúvida, estamos à disposição! 🎉</textarea>
                     <button class="btn-whatsapp" onclick="enviarWhatsApp(${p.id}, '${p.telefone || ''}')"><i class="fab fa-whatsapp"></i> Enviar WhatsApp</button>
@@ -833,6 +852,7 @@
                 carregarPedidos(1);
             }
         })();
+
     </script>
 </body>
 </html>

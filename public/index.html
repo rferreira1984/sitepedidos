@@ -870,25 +870,16 @@
                     if (ehPorQuilo(p)) {
                         const precoKg = precoPorKg(p);
                         if (ehBoloCaseiro(p)) {
-                            html += `
-                                <div class="produto-card">
-                                    ${imagemHtml}${placeholderHtml}
-                                    <div class="produto-nome">${p.name}</div>
-                                    <div class="produto-desc">${p.description || ''}</div>
-                                    <div class="produto-quilo">
-                                        <label class="quilo-label">⚖️ Quantidade (500g em 500g)</label>
-                                        <div class="quilo-input-row">
-                                            <input type="number" class="quilo-input" id="quilo-${p.id}" min="0.5" step="0.5" placeholder="0,5" inputmode="decimal" oninput="atualizarPrecoQuilo(${p.id})" onkeydown="if(event.key==='Enter')adicionarPorQuilo(${p.id}, '${p.name.replace(/'/g, "\'")}')">
-                                            <span class="quilo-sufixo">kg</span>
-                                        </div>
-                                        <div class="quilo-total" id="quilo-total-${p.id}">R$ 0,00</div>
-                                        <div class="quilo-info">Preço: R$ ${fmt(precoKg)} / kg</div>
-                                    </div>
-                                    <div class="produto-footer">
-                                        <div class="produto-preco">R$ ${fmt(precoKg)} <span style="font-size:11px;font-weight:400;color:#6b7280;">/kg</span></div>
-                                        <button class="btn-add-cart" onclick="adicionarPorQuilo(${p.id}, '${p.name.replace(/'/g, "\'")}')" title="Adicionar bolo"><i class="fas fa-plus"></i></button>
-                                    </div>
-                                </div>`;
+                             html += `
+        <div class="produto-card">
+            ${imagemHtml}${placeholderHtml}
+            <div class="produto-nome">${p.name}</div>
+            <div class="produto-desc">${p.description || ''}</div>
+            <div class="produto-footer">
+                <div class="produto-preco">R$ ${fmt(precoKg)} <span style="font-size:11px;font-weight:400;color:#6b7280;">/kg</span></div>
+                <button class="btn-add-cart" onclick="abrirQuiloModal(${p.id}, '${p.name.replace(/'/g, "\'")}')" title="Escolher quantidade"><i class="fas fa-plus"></i></button>
+            </div>
+        </div>`;
                         } else {
                             html += `
                                 <div class="produto-card">
@@ -1723,7 +1714,11 @@
         tipo_logistica: document.getElementById('checkoutLogistica').value,
         observacoes: document.getElementById('checkoutObs').value,
         data_entrega: document.getElementById('checkoutData').value,
-        hora_entrega: document.getElementById('checkoutHora').value
+        hora_entrega: document.getElementById('checkoutHora').value,
+        imagens: [
+            { url: (typeof kitDecoracaoUrl !== 'undefined' && kitDecoracaoUrl) ? kitDecoracaoUrl : null, tipo: 'decoracao_kit', observacao: 'Decoração do kit' },
+            { url: (typeof quiloDecoracaoUrl !== 'undefined' && quiloDecoracaoUrl) ? quiloDecoracaoUrl : null, tipo: 'decoracao_bolo', observacao: 'Decoração do bolo' }
+        ].filter(i => i.url)
     };
 }
         async function finalizarPedido(e) {
@@ -2094,6 +2089,66 @@ function ehFestaNaCaixa() {
                 if (selSabores) selSabores.style.display = '';
             }
         } catch (e) { /* melhor esforço */ }
+    };
+})();
+function ehBoloCaseiroAtual() {
+    try {
+        if (typeof quiloAtual === 'undefined' || quiloAtual == null) return false;
+        var p = (typeof produtosData !== 'undefined' ? produtosData : []).find(function(x) { return x.id === quiloAtual; });
+        if (!p) return false;
+        return /caseiro/i.test(p.categoria_nome || '');
+    } catch (e) { return false; }
+}
+
+(function () {
+    // 1) Ao abrir o modal, esconde as seções se for bolo caseiro
+    if (typeof abrirQuiloModal === 'function') {
+        var origAbrir = abrirQuiloModal;
+        window.abrirQuiloModal = function (id, nome) {
+            origAbrir(id, nome);
+            try {
+                if (ehBoloCaseiroAtual()) {
+                    var cor = document.getElementById('quiloCorSection');
+                    var deco = document.getElementById('quiloDecoracaoSection');
+                    if (cor) cor.style.display = 'none';
+                    if (deco) deco.style.display = 'none';
+                }
+            } catch (e) { /* melhor esforço */ }
+        };
+    }
+    // 2) Ao trocar a quantidade, impede que as seções reapareçam
+    if (typeof atualizarQuiloModal === 'function') {
+        var origAtualizar = atualizarQuiloModal;
+        window.atualizarQuiloModal = function () {
+            origAtualizar();
+            try {
+                if (ehBoloCaseiroAtual()) {
+                    var cor = document.getElementById('quiloCorSection');
+                    var deco = document.getElementById('quiloDecoracaoSection');
+                    if (cor) cor.style.display = 'none';
+                    if (deco) deco.style.display = 'none';
+                }
+            } catch (e) { /* melhor esforço */ }
+        };
+    }
+})();
+(function () {
+    if (typeof montarPayloadPedido !== 'function') return;
+    var orig = montarPayloadPedido;
+    window.montarPayloadPedido = function () {
+        var payload = orig();
+        if (!payload) return payload;
+        var imgs = [];
+        try {
+            if (typeof kitDecoracaoUrl !== 'undefined' && kitDecoracaoUrl) {
+                imgs.push({ url: kitDecoracaoUrl, tipo: 'decoracao_kit', observacao: 'Decoração do kit' });
+            }
+            if (typeof quiloDecoracaoUrl !== 'undefined' && quiloDecoracaoUrl) {
+                imgs.push({ url: quiloDecoracaoUrl, tipo: 'decoracao_bolo', observacao: 'Decoração do bolo' });
+            }
+        } catch (e) { /* melhor esforço */ }
+        payload.imagens = imgs;
+        return payload;
     };
 })();
     </script>
