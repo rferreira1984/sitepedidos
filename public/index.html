@@ -1391,7 +1391,7 @@
             kitForminhaCor1 = '';
             kitForminhaCor2 = '';
             kitObs = '';
-            kitDecoracaoUrl = '';
+            //kitDecoracaoUrl = '';
             const boloExtraInput = document.getElementById('kmBoloExtraGramas');
             if (boloExtraInput) boloExtraInput.value = '';
             const boloInfo = document.getElementById('kmBoloExtraInfo');
@@ -1474,8 +1474,9 @@
             if (kitDecoracaoUrl) descricao += ` | Decoração: ${kitDecoracaoUrl}`;
             const itemKey = `${kitAtual}-${kitOpcaoAtual}-${Date.now()}`;
             const existente = carrinho.find(i => i.itemKey === itemKey);
+            
             if (existente) existente.qtd += 1;
-            else carrinho.push({ id: kitAtual, itemKey, nome: `${p.name} - ${opcao.label}`, icone: '🎉', preco: precoFinal, label: opcao.label, descricao, composicao: opcao.composicao || '', qtd: 1, composicao_itens: montarComposicaoKit() });
+            else carrinho.push({ id: kitAtual, itemKey, nome: `${p.name} - ${opcao.label}`, icone: '🎉', preco: precoFinal, label: opcao.label, descricao, composicao: opcao.composicao || '', qtd: 1, composicao_itens: montarComposicaoKit(), imagem: kitDecoracaoUrl || '' });
             localStorage.setItem('carrinho', JSON.stringify(carrinho));
             atualizarCarrinhoUI();
             fecharKitModal();
@@ -2139,11 +2140,20 @@ function ehBoloCaseiroAtual() {
         var payload = orig();
         if (!payload) return payload;
         var imgs = [];
+        var vistos = {};
         try {
-            if (typeof kitDecoracaoUrl !== 'undefined' && kitDecoracaoUrl) {
-                imgs.push({ url: kitDecoracaoUrl, tipo: 'decoracao_kit', observacao: 'Decoração do kit' });
+            // 1) Imagens dos kits: lê de cada item do carrinho (suporta vários kits)
+            var carrinhoArr = (typeof carrinho !== 'undefined' && Array.isArray(carrinho)) ? carrinho : [];
+            for (var i = 0; i < carrinhoArr.length; i++) {
+                var item = carrinhoArr[i];
+                if (item && item.imagem && !vistos[item.imagem]) {
+                    vistos[item.imagem] = true;
+                    imgs.push({ url: item.imagem, tipo: 'decoracao_kit', observacao: 'Decoração do kit' });
+                }
             }
-            if (typeof quiloDecoracaoUrl !== 'undefined' && quiloDecoracaoUrl) {
+            // 2) Imagem do bolo por quilo (global — comportamento atual que funciona)
+            if (typeof quiloDecoracaoUrl !== 'undefined' && quiloDecoracaoUrl && !vistos[quiloDecoracaoUrl]) {
+                vistos[quiloDecoracaoUrl] = true;
                 imgs.push({ url: quiloDecoracaoUrl, tipo: 'decoracao_bolo', observacao: 'Decoração do bolo' });
             }
         } catch (e) { /* melhor esforço */ }
