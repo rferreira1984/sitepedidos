@@ -374,6 +374,12 @@
                 </select>
                 <div id="kmBoloSelects"></div>
             </div>
+            <div class="km-section" id="kmBoloExtraSection">
+                <label>🎂 Bolo adicional (gramas)</label>
+                <div class="km-info" style="font-size:11px;color:#9ca3af;margin-bottom:6px;">O sabor será o mesmo do bolo principal. Informe a quantidade em gramas (múltiplos de 500g).</div>
+                <input type="number" class="km-select" id="kmBoloExtraGramas" min="0" step="500" placeholder="0" inputmode="numeric" oninput="atualizarBoloExtra()">
+                <div class="km-extra-info" id="kmBoloExtraInfo">+ R$ 0,00</div>
+            </div>
             <div class="km-section" id="kmDocesSection">
                 <label>🍩 Doces</label>
                 <div class="km-info" style="font-size:11px;color:#9ca3af;margin-bottom:6px;" id="kmDocesInfo"></div>
@@ -388,12 +394,6 @@
                 <label>🥤 Refrigerante</label>
                 <div class="km-info" style="font-size:11px;color:#9ca3af;margin-bottom:6px;" id="kmRefriInfo"></div>
                 <div id="kmRefriSelects"></div>
-            </div>
-            <div class="km-section" id="kmBoloExtraSection">
-                <label>🎂 Bolo adicional (gramas)</label>
-                <div class="km-info" style="font-size:11px;color:#9ca3af;margin-bottom:6px;">O sabor será o mesmo do bolo principal. Informe a quantidade em gramas (múltiplos de 500g).</div>
-                <input type="number" class="km-select" id="kmBoloExtraGramas" min="0" step="500" placeholder="0" inputmode="numeric" oninput="atualizarBoloExtra()">
-                <div class="km-extra-info" id="kmBoloExtraInfo">+ R$ 0,00</div>
             </div>
             <div class="km-section" id="kmForminhaSection">
                 <label>🧁 Cor das forminhas dos doces</label>
@@ -1894,29 +1894,7 @@ function distribuirQtdKit(total, n) {
     return out; // ex.: 50 doces / 3 sabores -> [17, 17, 16]
 }
 
-// 2) Descobre o total de doces/salgados do kit com segurança
-//    (regras_quantidades > texto da composição > 0)
-// function lerTotalComposicaoTxt(grupo) {
-//     try {
-//         if (typeof kitAtual === 'undefined' || kitAtual == null) return 0;
-//         var p = (typeof produtosData !== 'undefined' && produtosData || []).find(function(x) { return x.id === kitAtual; });
-//         if (!p) return 0;
-//         var tier = (p.prices || []).filter(function(x) { return x.price_type === 'tier'; });
-//         var idx = (typeof kitOpcaoAtual !== 'undefined' && kitOpcaoAtual != null) ? kitOpcaoAtual : 0;
-//         var op = tier[idx] || tier[0];
-//         if (!op) return 0;
-//         var rq = op.regras_quantidades || {};
-//         if (typeof rq === 'string') { try { rq = JSON.parse(rq); } catch (e2) { rq = {}; } }
-//         var chave = grupo === 'Doces' ? 'DocesTotal' : 'SalgadosTotal';
-//         var v = parseInt(rq[chave]);
-//         if (v > 0) return v;
-//         var txt = String(op.composicao || '') + ' ' + String(op.label || '');
-//         var pal = grupo === 'Doces' ? 'doce' : 'salgado';
-//         var m = txt.match(new RegExp('(\d+)\s*' + pal + '[s]?', 'i'));
-//         if (!m) m = txt.match(new RegExp(pal + '[s]?[^\d]*?(\d+)', 'i'));
-//         return m ? parseInt(m[1]) : 0;
-//     } catch (e) { return 0; }
-// }
+
 function lerTotalComposicaoTxt(grupo) {
     try {
         if (typeof kitAtual === 'undefined' || kitAtual == null) return 0;
@@ -2160,6 +2138,75 @@ function ehBoloCaseiroAtual() {
         payload.imagens = imgs;
         return payload;
     };
+})();
+(function () {
+    function montarSelectBoloExtra() {
+        var input = document.getElementById('kmBoloExtraGramas');
+        if (!input || input.getAttribute('data-select-bolo-extra')) return;
+        input.setAttribute('data-select-bolo-extra', '1');
+
+        // Esconde o input original (a lógica de preço continua nele)
+        input.style.display = 'none';
+
+        // Cria o combobox
+        var select = document.createElement('select');
+        select.id = 'kmBoloExtraSelect';
+        select.className = input.className || '';
+        select.style.width = '100%';
+        select.style.padding = '10px';
+        select.style.borderRadius = '8px';
+        select.style.border = '1px solid #d1d5db';
+
+        // Opções de 500 em 500g (ajuste o limite final se quiser)
+        var opcoes = [0, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000];
+        opcoes.forEach(function (g) {
+            var opt = document.createElement('option');
+            opt.value = g;
+            if (g === 0) {
+                opt.textContent = 'Sem bolo adicional';
+            } else if (g < 1000) {
+                opt.textContent = g + 'g';
+            } else {
+                var kg = (g / 1000);
+                opt.textContent = (kg % 1 === 0 ? kg : kg.toFixed(1).replace('.', ',')) + ' kg';
+            }
+            select.appendChild(opt);
+        });
+
+        // Insere o select logo após o input
+        input.parentNode.insertBefore(select, input.nextSibling);
+
+        // Sincroniza: select -> input (dispara os listeners existentes de preço)
+        select.addEventListener('change', function () {
+            var g = parseInt(select.value) || 0;
+            kitBoloExtraGramas = g;
+            input.value = g === 0 ? '' : String(g);
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+
+        // Reseta o select quando o modal do kit fecha
+        var origFechar = window.fecharKitModal;
+        if (typeof origFechar === 'function') {
+            window.fecharKitModal = function () {
+                select.value = '0';
+                return origFechar.apply(this, arguments);
+            };
+        }
+    }
+
+    // Monta o select quando o modal do kit abre
+    function tentarMontar() {
+        var overlay = document.getElementById('kitModalOverlay');
+        if (overlay && overlay.classList.contains('active')) montarSelectBoloExtra();
+    }
+
+    var obs = new MutationObserver(function () { tentarMontar(); });
+    var overlay = document.getElementById('kitModalOverlay');
+    if (overlay) obs.observe(overlay, { attributes: true, attributeFilter: ['class'] });
+    else obs.observe(document.body, { childList: true, subtree: true });
+
+    setTimeout(tentarMontar, 500);
 })();
     </script>
 </body>
