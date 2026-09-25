@@ -856,59 +856,41 @@ if (imagensPedido.length > 0) {
    IMPRESSÃO COZINHA — TÉRMICA 80mm
    Cabeçalho padrão + itens agrupados por área de produção
    ============================================================ */
+/* ============================================================
+   IMPRESSÃO COZINHA — TÉRMICA 80mm
+   Para cada item do pedido (pedido_itens):
+   1) Linha do item (id - nome - label)
+   2) Áreas de produção com a composição daquele item
+   ============================================================ */
 (function () {
     function fmtQtdLocal(v) {
         var n = parseFloat(v) || 0;
         return (n % 1 === 0) ? String(n) : String(n).replace('.', ',');
     }
 
-    function coletarItensPorArea() {
-        var itens = (typeof pedidoAtualItens !== 'undefined' && Array.isArray(pedidoAtualItens))
-            ? pedidoAtualItens : (window.pedidoAtualItens || []);
-        var grupos = {};
-        function add(area, desc, qtd) {
-            area = (area || 'GERAL').trim().toUpperCase() || 'GERAL';
-            if (!grupos[area]) grupos[area] = [];
-            grupos[area].push({ desc: desc, qtd: qtd });
-        }
-        itens.forEach(function (i) {
-            var area = i.local_producao || null;
-            var qtd = i.quantidade_kg ? fmtQtdLocal(i.quantidade_kg) + 'kg' : fmtQtdLocal(i.quantidade) + 'un';
-            var desc = (i.product_name || 'Item') + (i.label ? ' (' + i.label + ')' : '');
-            if (i.composicao && i.composicao.length > 0) {
-                i.composicao.forEach(function (c) {
-                    add(c.local_producao || area, (c.product_name || 'Item') , fmtQtdLocal(c.quantidade) + 'un');
-                });
-            } else {
-                add(area, desc, qtd);
-            }
-        });
-        return grupos;
-    }
-
     function imprimirCozinha() {
         try {
             var p = (typeof pedidoAtual !== 'undefined') ? pedidoAtual : (window.pedidoAtual || {});
-            var grupos = coletarItensPorArea();
-            var areas = Object.keys(grupos).sort();
+            var itens = (typeof pedidoAtualItens !== 'undefined' && Array.isArray(pedidoAtualItens))
+                ? pedidoAtualItens : (window.pedidoAtualItens || []);
 
             // ===== CABEÇALHO PADRÃO =====
             var dataEntrega = p.data_entrega ? new Date(p.data_entrega).toLocaleDateString('pt-BR') : '-';
             var horaEntrega = p.hora_entrega || '-';
-            var dataPedido = p.data_criacao ? new Date(p.data_criacao).toLocaleString('pt-BR') : '-';
 
             var html = '<html><head><title>Cozinha - Pedido #' + String(p.id || '').padStart(3, '0') + '</title>';
             html += '<style>';
             html += '@page { size: 80mm auto; margin: 3mm; }';
             html += '* { box-sizing: border-box; }';
-            html += 'body { font-family: "Courier New", monospace; width: 74mm; margin: 10; font-size: 12px; color: #000; }';
+            html += 'body { font-family: "Courier New", monospace; width: 74mm; margin: 0 0 0 2mm; font-size: 12px; color: #000; }';
             html += '.centro { text-align: center; }';
             html += '.loja { font-size: 15px; font-weight: bold; letter-spacing: 1px; }';
             html += '.subtitulo { font-size: 12px; font-weight: bold; margin-top: 2px; }';
             html += '.numero { font-size: 16px; font-weight: bold; margin: 2px 0; }';
             html += '.linha { border-top: 1px dashed #000; margin: 4px 0; }';
             html += '.info { font-size: 11px; line-height: 1.5; }';
-            html += '.area { font-size: 13px; font-weight: bold; text-align: center; background: #000; color: #fff; padding: 2px 0; margin: 6px 0 3px 0; }';
+            html += '.itemPai { font-size: 12px; font-weight: bold; padding: 4px 0 2px 0; border-bottom: 1px solid #000; margin-top: 6px; word-break: break-word; }';
+            html += '.area { font-size: 12px; font-weight: bold; text-align: center; background: #000; color: #fff; padding: 2px 0; margin: 4px 0 2px 0; }';
             html += '.item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }';
             html += '.item .desc { flex: 1; padding-right: 4px; word-break: break-word; }';
             html += '.item .qtd { font-weight: bold; white-space: nowrap; }';
@@ -927,14 +909,42 @@ if (imagensPedido.length > 0) {
             html += '</div>';
             html += '<div class="linha"></div>';
 
-            if (areas.length === 0) {
+            if (itens.length === 0) {
                 html += '<div class="centro">--- SEM ITENS ---</div>';
             } else {
-                areas.forEach(function (area) {
-                    html += '<div class="area">' + area + '</div>';
-                    grupos[area].forEach(function (it) {
-                        html += '<div class="item"><span class="desc">' + it.desc + '</span><span class="qtd">' + it.qtd + '</span></div>';
-                    });
+                itens.forEach(function (i) {
+                    // ===== LINHA DO ITEM DO PEDIDO (pedido_itens) =====
+                    var labelItem = i.label || '';
+                    var linhaItem = String(i.product_id || '') + ' - ' + (i.product_name || 'Item');
+                    if (labelItem) linhaItem += ' - ' + labelItem ;
+                    html += '<div class="itemPai">' + linhaItem + '</div>';
+
+                    // ===== COMPOSIÇÃO AGRUPADA POR ÁREA =====
+                    if (i.composicao && i.composicao.length > 0) {
+                        var grupos = {};
+                        i.composicao.forEach(function (c) {
+                            var area = (c.local_producao || i.local_producao || 'GERAL').trim().toUpperCase() || 'GERAL';
+                            if (!grupos[area]) grupos[area] = [];
+                            grupos[area].push({
+                                desc: c.product_name || 'Item',
+                                qtd: fmtQtdLocal(c.quantidade) + 'un'
+                            });
+                        });
+                        Object.keys(grupos).sort().forEach(function (area) {
+                            html += '<div class="area">' + area + '</div>';
+                            grupos[area].forEach(function (it) {
+                                html += '<div class="item"><span class="desc">' + it.desc + '</span><span class="qtd">' + it.qtd + '</span></div>';
+                            });
+                        });
+                    } else {
+                        // Item simples: imprime direto na área dele
+                        var areaSimples = (i.local_producao || 'GERAL').trim().toUpperCase() || 'GERAL';
+                        var qtd = i.quantidade_kg ? fmtQtdLocal(i.quantidade_kg) + 'kg' : fmtQtdLocal(i.quantidade) + 'un';
+                        html += '<div class="area">' + areaSimples + '</div>';
+                        html += '<div class="item"><span class="desc">' + (i.product_name || 'Item') + (labelItem ? ' (' + labelItem + ')' : '') + '</span><span class="qtd">' + qtd + '</span></div>';
+                    }
+                    html += '<div class="linha"></div>';
+                    
                 });
             }
 
@@ -943,7 +953,7 @@ if (imagensPedido.length > 0) {
                 html += '<div class="obs"><b>OBS:</b> ' + p.observacoes + '</div>';
             }
 
-            html += '<div class="linha"></div>';
+            /*html += '<div class="linha"></div>';*/
             html += '<div class="rodape">' + new Date().toLocaleString('pt-BR') + '</div>';
             html += '<div class="no-print centro" style="margin-top:10px;"><button onclick="window.print()" style="padding:8px 20px;font-size:13px;">🖨️ Imprimir</button></div>';
             html += '</body></html>';
@@ -970,6 +980,490 @@ if (imagensPedido.length > 0) {
             e.preventDefault();
             e.stopPropagation();
             imprimirCozinha();
+        }
+    }, true);
+})();
+/* ============================================================
+   IMPRESSÃO POR ÁREA — TÉRMICA 80mm
+   Mesmo padrão da Cozinha, porém cada botão de área imprime
+   SOMENTE os itens daquela área.
+   ============================================================ */
+(function () {
+    function norm(s) { return String(s || '').trim().toUpperCase(); }
+
+    function fmtQtdLocal(v) {
+        var n = parseFloat(v) || 0;
+        return (n % 1 === 0) ? String(n) : String(n).replace('.', ',');
+    }
+
+    function getPedido() {
+        return (typeof pedidoAtual !== 'undefined') ? pedidoAtual : (window.pedidoAtual || {});
+    }
+
+    function getItens() {
+        return (typeof pedidoAtualItens !== 'undefined' && Array.isArray(pedidoAtualItens))
+            ? pedidoAtualItens : (window.pedidoAtualItens || []);
+    }
+
+    // Áreas presentes no pedido (itens + composição dos kits)
+    function getAreas() {
+        var orig = [];
+        getItens().forEach(function (i) {
+            if (i.local_producao && orig.indexOf(String(i.local_producao).trim()) === -1) orig.push(String(i.local_producao).trim());
+            (i.composicao || []).forEach(function (c) {
+                var a = c.local_producao || i.local_producao;
+                if (a && orig.indexOf(String(a).trim()) === -1) orig.push(String(a).trim());
+            });
+        });
+        return orig;
+    }
+
+    function imprimirArea(area) {
+        try {
+            var p = getPedido();
+            var itens = getItens();
+            var areaNorm = norm(area);
+
+            var dataEntrega = p.data_entrega ? new Date(p.data_entrega).toLocaleDateString('pt-BR') : '-';
+            var horaEntrega = p.hora_entrega || '-';
+
+            var html = '<html><head><title>' + area + ' - Pedido #' + String(p.id || '').padStart(3, '0') + '</title>';
+            html += '<style>';
+            html += '@page { size: 80mm auto; margin: 3mm; }';
+            html += '* { box-sizing: border-box; }';
+            html += 'body { font-family: "Courier New", monospace; width: 74mm; margin: 0 0 0 2mm; font-size: 12px; color: #000; }';
+            html += '.centro { text-align: center; }';
+            html += '.loja { font-size: 15px; font-weight: bold; letter-spacing: 1px; }';
+            html += '.subtitulo { font-size: 12px; font-weight: bold; margin-top: 2px; }';
+            html += '.numero { font-size: 16px; font-weight: bold; margin: 2px 0; }';
+            html += '.linha { border-top: 1px dashed #000; margin: 4px 0; }';
+            html += '.info { font-size: 11px; line-height: 1.5; }';
+            html += '.area { font-size: 13px; font-weight: bold; text-align: center; background: #000; color: #fff; padding: 2px 0; margin: 4px 0 2px 0; }';
+            html += '.itemPai { font-size: 12px; font-weight: bold; padding: 4px 0 2px 0; border-bottom: 1px solid #000; margin-top: 6px; word-break: break-word; }';
+            html += '.item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }';
+            html += '.item .desc { flex: 1; padding-right: 4px; word-break: break-word; }';
+            html += '.item .qtd { font-weight: bold; white-space: nowrap; }';
+            html += '.obs { font-size: 11px; margin-top: 4px; }';
+            html += '.rodape { text-align: center; font-size: 10px; margin-top: 8px; }';
+            html += '@media print { .no-print { display: none; } }';
+            html += '</style></head><body>';
+
+            // ===== CABEÇALHO PADRÃO (igual Cozinha) =====
+            html += '<div class="centro loja">SALGADOS &amp; CIA</div>';
+            html += '<div class="centro numero">Pedido: #' + String(p.id || '').padStart(3, '0') + '</div>';
+            html += '<div class="centro subtitulo">' + (p.tipo_logistica || '-') + '</div>';
+            html += '<div class="centro subtitulo">' + dataEntrega + ' ' + horaEntrega + '</div>';
+            html += '<div class="info">';
+            html += '<div>Cliente:' + (p.nome_cliente || '-') + '</div>';
+            html += '<div>Tel:' + (p.telefone || '-') + '</div>';
+            html += '</div>';
+            html += '<div class="linha"></div>';
+
+            // ===== FAIXA DA ÁREA =====
+            html += '<div class="area">' + area + '</div>';
+
+            var temConteudo = false;
+            itens.forEach(function (i) {
+                var labelItem = i.label || '';
+                var linhaItem = String(i.id || '') + ' - ' + (i.product_name || 'Item');
+                if (labelItem) linhaItem += ' - ' + labelItem + ' (' + labelItem + ')';
+
+                if (i.composicao && i.composicao.length > 0) {
+                    // Só as entradas de composição desta área
+                    var entradas = i.composicao.filter(function (c) {
+                        return norm(c.local_producao || i.local_producao) === areaNorm;
+                    });
+                    if (entradas.length === 0) return;
+                    temConteudo = true;
+                    html += '<div class="itemPai">' + linhaItem + '</div>';
+                    entradas.forEach(function (c) {
+                        html += '<div class="item"><span class="desc">' + (c.product_name || 'Item') + '</span><span class="qtd">' + fmtQtdLocal(c.quantidade) + 'un</span></div>';
+                    });
+                } else if (norm(i.local_producao) === areaNorm) {
+                    // Item simples desta área
+                    temConteudo = true;
+                    html += '<div class="itemPai">' + linhaItem + '</div>';
+                    var qtd = i.quantidade_kg ? fmtQtdLocal(i.quantidade_kg) + 'kg' : fmtQtdLocal(i.quantidade) + 'un';
+                    html += '<div class="item"><span class="desc">' + (i.product_name || 'Item') + (labelItem ? ' (' + labelItem + ')' : '') + '</span><span class="qtd">' + qtd + '</span></div>';
+                }
+            });
+
+            if (!temConteudo) {
+                html += '<div class="centro">--- SEM ITENS NESTA ÁREA ---</div>';
+            }
+
+            if (p.observacoes) {
+                html += '<div class="linha"></div>';
+                html += '<div class="obs"><b>OBS:</b> ' + p.observacoes + '</div>';
+            }
+
+            html += '<div class="linha"></div>';
+            html += '<div class="rodape">' + new Date().toLocaleString('pt-BR') + '</div>';
+            html += '<div class="no-print centro" style="margin-top:10px;"><button onclick="window.print()" style="padding:8px 20px;font-size:13px;">🖨️ Imprimir</button></div>';
+            html += '</body></html>';
+
+            var w = window.open('', '_blank', 'width=340,height=600');
+            if (!w) { alert('Permita pop-ups para imprimir.'); return; }
+            w.document.write(html);
+            w.document.close();
+            w.focus();
+            w.print();
+        } catch (e) {
+            console.warn('Erro na impressão de área:', e);
+        }
+    }
+
+    // Intercepta o clique nos botões de área (capture phase)
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('button, a') : null;
+        if (!btn) return;
+        var body = btn.closest('#modalBody');
+        if (!body) return;
+        var txt = (btn.textContent || '').trim();
+        if (!txt || txt.length > 60) return;
+
+        var areas = getAreas();
+        if (areas.length === 0) return;
+
+        // 1) Match exato com o nome da área
+        if (areas.indexOf(txt) !== -1) {
+            e.preventDefault();
+            e.stopPropagation();
+            imprimirArea(txt);
+            return;
+        }
+
+        // 2) Match sem diferenciar maiúsculas, protegendo os botões padrão
+        var low = txt.toLowerCase();
+        if (low === 'cozinha' || low === 'entrega' || low === 'geral') return;
+        for (var i = 0; i < areas.length; i++) {
+            if (areas[i].toLowerCase() === low) {
+                e.preventDefault();
+                e.stopPropagation();
+                imprimirArea(areas[i]);
+                return;
+            }
+        }
+    }, true);
+})();
+/* ============================================================
+   IMPRESSÃO ENTREGA — TÉRMICA 80mm
+   Mesma lógica da Cozinha + Endereço/Pagamento no cabeçalho
+   e valores (Produtos/Taxa/TOTAL) após os itens
+   ============================================================ */
+(function () {
+    function fmtQtdLocal(v) {
+        var n = parseFloat(v) || 0;
+        return (n % 1 === 0) ? String(n) : String(n).replace('.', ',');
+    }
+
+    function fmtMoeda(v) {
+        return 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ',');
+    }
+
+    function imprimirEntrega() {
+        try {
+            var p = (typeof pedidoAtual !== 'undefined') ? pedidoAtual : (window.pedidoAtual || {});
+            var itens = (typeof pedidoAtualItens !== 'undefined' && Array.isArray(pedidoAtualItens))
+                ? pedidoAtualItens : (window.pedidoAtualItens || []);
+
+            // ===== ENDEREÇO (entrega = cliente; retirada = loja) =====
+            var endereco;
+            if (p.tipo_logistica === 'Retirada') {
+                endereco = 'Salgados & Cia - Rua Espinelo, 123 - Esmeralda';
+            } else {
+                endereco = [
+                    p.endereco_rua || '',
+                    p.endereco_numero ? ', ' + p.endereco_numero : '',
+                    p.endereco_bairro ? ' - ' + p.endereco_bairro : '',
+                    p.endereco_cep ? ' - CEP: ' + p.endereco_cep : ''
+                ].join('');
+                if (!endereco.trim()) endereco = '-';
+            }
+
+            // ===== VALORES =====
+            var taxaEntrega = parseFloat(p.taxa_entrega || 0);
+            var valorTotal = parseFloat(p.valor_total || 0);
+            var valorProdutos = valorTotal - taxaEntrega;
+            if (valorProdutos < 0) valorProdutos = 0;
+
+            var dataEntrega = p.data_entrega ? new Date(p.data_entrega).toLocaleDateString('pt-BR') : '-';
+            var horaEntrega = p.hora_entrega || '-';
+
+            var html = '<html><head><title>Entrega - Pedido #' + String(p.id || '').padStart(3, '0') + '</title>';
+            html += '<style>';
+            html += '@page { size: 80mm auto; margin: 3mm; }';
+            html += '* { box-sizing: border-box; }';
+            html += 'body { font-family: "Courier New", monospace; width: 74mm; margin: 0 0 0 2mm; font-size: 12px; color: #000; }';
+            html += '.centro { text-align: center; }';
+            html += '.loja { font-size: 15px; font-weight: bold; letter-spacing: 1px; }';
+            html += '.subtitulo { font-size: 12px; font-weight: bold; margin-top: 2px; }';
+            html += '.numero { font-size: 16px; font-weight: bold; margin: 2px 0; }';
+            html += '.linha { border-top: 1px dashed #000; margin: 4px 0; }';
+            html += '.info { font-size: 11px; line-height: 1.5; }';
+            html += '.area { font-size: 12px; font-weight: bold; text-align: center; background: #000; color: #fff; padding: 2px 0; margin: 4px 0 2px 0; }';
+            html += '.itemPai { font-size: 12px; font-weight: bold; padding: 4px 0 2px 0; border-bottom: 1px solid #000; margin-top: 6px; word-break: break-word; }';
+            html += '.item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }';
+            html += '.item .desc { flex: 1; padding-right: 4px; word-break: break-word; }';
+            html += '.item .qtd { font-weight: bold; white-space: nowrap; }';
+            html += '.totais { margin-top: 6px; font-size: 12px; }';
+            html += '.totais .linhaTotal { display: flex; justify-content: space-between; padding: 2px 0; }';
+            html += '.totais .total { font-size: 14px; font-weight: bold; border-top: 1px solid #000; margin-top: 3px; padding-top: 3px; }';
+            html += '.obs { font-size: 11px; margin-top: 4px; }';
+            html += '.rodape { text-align: center; font-size: 10px; margin-top: 8px; }';
+            html += '@media print { .no-print { display: none; } }';
+            html += '</style></head><body>';
+
+            // ===== CABEÇALHO PADRÃO =====
+            html += '<div class="centro loja">SALGADOS &amp; CIA</div>';
+            html += '<div class="centro numero">Pedido: #' + String(p.id || '').padStart(3, '0') + '</div>';
+            html += '<div class="centro subtitulo">' + (p.tipo_logistica || '-') + '</div>';
+            html += '<div class="centro subtitulo">' + dataEntrega + ' ' + horaEntrega + '</div>';
+            html += '<div class="info">';
+            html += '<div>Cliente:' + (p.nome_cliente || '-') + '</div>';
+            html += '<div>Tel:' + (p.telefone || '-') + '</div>';
+            html += '<div>Endereço:' + endereco + '</div>';
+            html += '<div>Pagamento:' + (p.forma_pagamento || '-') + '</div>';
+            html += '</div>';
+            html += '<div class="linha"></div>';
+
+            // ===== ITENS (mesma lógica da Cozinha) =====
+            if (itens.length === 0) {
+                html += '<div class="centro">--- SEM ITENS ---</div>';
+            } else {
+                itens.forEach(function (i) {
+                    var labelItem = i.label || '';
+                    var linhaItem = String(i.id || '') + ' - ' + (i.product_name || 'Item');
+                    if (labelItem) linhaItem += ' - ' + labelItem + ' (' + labelItem + ')';
+                    html += '<div class="itemPai">' + linhaItem + '</div>';
+
+                    if (i.composicao && i.composicao.length > 0) {
+                        var grupos = {};
+                        i.composicao.forEach(function (c) {
+                            var area = (c.local_producao || i.local_producao || 'GERAL').trim().toUpperCase() || 'GERAL';
+                            if (!grupos[area]) grupos[area] = [];
+                            grupos[area].push({
+                                desc: c.product_name || 'Item',
+                                qtd: fmtQtdLocal(c.quantidade) + 'un'
+                            });
+                        });
+                        Object.keys(grupos).sort().forEach(function (area) {
+                            html += '<div class="area">' + area + '</div>';
+                            grupos[area].forEach(function (it) {
+                                html += '<div class="item"><span class="desc">' + it.desc + '</span><span class="qtd">' + it.qtd + '</span></div>';
+                            });
+                        });
+                    } else {
+                        var areaSimples = (i.local_producao || 'GERAL').trim().toUpperCase() || 'GERAL';
+                        var qtd = i.quantidade_kg ? fmtQtdLocal(i.quantidade_kg) + 'kg' : fmtQtdLocal(i.quantidade) + 'un';
+                        html += '<div class="area">' + areaSimples + '</div>';
+                        html += '<div class="item"><span class="desc">' + (i.product_name || 'Item') + (labelItem ? ' (' + labelItem + ')' : '') + '</span><span class="qtd">' + qtd + '</span></div>';
+                    }
+                });
+            }
+
+            // ===== VALORES (após os itens) =====
+            html += '<div class="linha"></div>';
+            html += '<div class="totais">';
+            html += '<div class="linhaTotal"><span>Valor Produtos</span><span>' + fmtMoeda(valorProdutos) + '</span></div>';
+            html += '<div class="linhaTotal"><span>Taxa Entrega</span><span>' + fmtMoeda(taxaEntrega) + '</span></div>';
+            html += '<div class="linhaTotal total"><span>TOTAL</span><span>' + fmtMoeda(valorTotal) + '</span></div>';
+            html += '</div>';
+
+            if (p.observacoes) {
+                html += '<div class="linha"></div>';
+                html += '<div class="obs"><b>OBS:</b> ' + p.observacoes + '</div>';
+            }
+
+            html += '<div class="linha"></div>';
+            html += '<div class="rodape">' + new Date().toLocaleString('pt-BR') + '</div>';
+            html += '<div class="no-print centro" style="margin-top:10px;"><button onclick="window.print()" style="padding:8px 20px;font-size:13px;">🖨️ Imprimir</button></div>';
+            html += '</body></html>';
+
+            var w = window.open('', '_blank', 'width=340,height=600');
+            if (!w) { alert('Permita pop-ups para imprimir.'); return; }
+            w.document.write(html);
+            w.document.close();
+            w.focus();
+            w.print();
+        } catch (e) {
+            console.warn('Erro na impressão Entrega:', e);
+        }
+    }
+
+    // Intercepta o clique no botão "Entrega" (capture phase)
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('button, a') : null;
+        if (!btn) return;
+        var body = btn.closest('#modalBody');
+        if (!body) return;
+        var txt = (btn.textContent || '').trim();
+        if (txt === 'Entrega') {
+            e.preventDefault();
+            e.stopPropagation();
+            imprimirEntrega();
+        }
+    }, true);
+})();
+/* ============================================================
+   IMPRESSÃO GERAL — TÉRMICA 80mm
+   Pedido completo: cabeçalho + Endereço/Pagamento + itens
+   com composição por área + valores + observações
+   ============================================================ */
+(function () {
+    function fmtQtdLocal(v) {
+        var n = parseFloat(v) || 0;
+        return (n % 1 === 0) ? String(n) : String(n).replace('.', ',');
+    }
+
+    function fmtMoeda(v) {
+        return 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ',');
+    }
+
+    function imprimirGeral() {
+        try {
+            var p = (typeof pedidoAtual !== 'undefined') ? pedidoAtual : (window.pedidoAtual || {});
+            var itens = (typeof pedidoAtualItens !== 'undefined' && Array.isArray(pedidoAtualItens))
+                ? pedidoAtualItens : (window.pedidoAtualItens || []);
+
+            // ===== ENDEREÇO (entrega = cliente; retirada = loja) =====
+            var endereco;
+            if (p.tipo_logistica === 'Retirada') {
+                endereco = 'Salgados & Cia - Rua Espinelo, 123 - Esmeralda';
+            } else {
+                endereco = [
+                    p.endereco_rua || '',
+                    p.endereco_numero ? ', ' + p.endereco_numero : '',
+                    p.endereco_bairro ? ' - ' + p.endereco_bairro : '',
+                    p.endereco_cep ? ' - CEP: ' + p.endereco_cep : ''
+                ].join('');
+                if (!endereco.trim()) endereco = '-';
+            }
+
+            // ===== VALORES =====
+            var taxaEntrega = parseFloat(p.taxa_entrega || 0);
+            var valorTotal = parseFloat(p.valor_total || 0);
+            var valorProdutos = valorTotal - taxaEntrega;
+            if (valorProdutos < 0) valorProdutos = 0;
+
+            var dataEntrega = p.data_entrega ? new Date(p.data_entrega).toLocaleDateString('pt-BR') : '-';
+            var horaEntrega = p.hora_entrega || '-';
+            var dataPedido = p.data_criacao ? new Date(p.data_criacao).toLocaleString('pt-BR') : '-';
+
+            var html = '<html><head><title>Geral - Pedido #' + String(p.id || '').padStart(3, '0') + '</title>';
+            html += '<style>';
+            html += '@page { size: 80mm auto; margin: 3mm; }';
+            html += '* { box-sizing: border-box; }';
+            html += 'body { font-family: "Courier New", monospace; width: 74mm; margin: 0 0 0 2mm; font-size: 12px; color: #000; }';
+            html += '.centro { text-align: center; }';
+            html += '.loja { font-size: 15px; font-weight: bold; letter-spacing: 1px; }';
+            html += '.subtitulo { font-size: 12px; font-weight: bold; margin-top: 2px; }';
+            html += '.numero { font-size: 16px; font-weight: bold; margin: 2px 0; }';
+            html += '.linha { border-top: 1px dashed #000; margin: 4px 0; }';
+            html += '.info { font-size: 11px; line-height: 1.5; }';
+            html += '.area { font-size: 12px; font-weight: bold; text-align: center; background: #000; color: #fff; padding: 2px 0; margin: 4px 0 2px 0; }';
+            html += '.itemPai { font-size: 12px; font-weight: bold; padding: 4px 0 2px 0; border-bottom: 1px solid #000; margin-top: 6px; word-break: break-word; }';
+            html += '.item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }';
+            html += '.item .desc { flex: 1; padding-right: 4px; word-break: break-word; }';
+            html += '.item .qtd { font-weight: bold; white-space: nowrap; }';
+            html += '.totais { margin-top: 6px; font-size: 12px; }';
+            html += '.totais .linhaTotal { display: flex; justify-content: space-between; padding: 2px 0; }';
+            html += '.totais .total { font-size: 14px; font-weight: bold; border-top: 1px solid #000; margin-top: 3px; padding-top: 3px; }';
+            html += '.obs { font-size: 11px; margin-top: 4px; }';
+            html += '.rodape { text-align: center; font-size: 10px; margin-top: 8px; }';
+            html += '@media print { .no-print { display: none; } }';
+            html += '</style></head><body>';
+
+            // ===== CABEÇALHO PADRÃO =====
+            html += '<div class="centro loja">SALGADOS &amp; CIA</div>';
+            html += '<div class="centro numero">Pedido: #' + String(p.id || '').padStart(3, '0') + '</div>';
+            html += '<div class="centro subtitulo">' + (p.tipo_logistica || '-') + '</div>';
+            html += '<div class="centro subtitulo">' + dataEntrega + ' ' + horaEntrega + '</div>';
+            html += '<div class="info">';
+            html += '<div>Cliente:' + (p.nome_cliente || '-') + '</div>';
+            html += '<div>Tel:' + (p.telefone || '-') + '</div>';
+            html += '<div>Endereço:' + endereco + '</div>';
+            html += '<div>Pagamento:' + (p.forma_pagamento || '-') + '</div>';
+            html += '<div>Pedido:' + dataPedido + '</div>';
+            html += '<div>Status:' + (p.status || '-') + '</div>';
+            html += '</div>';
+            html += '<div class="linha"></div>';
+
+            // ===== ITENS (mesma lógica da Cozinha) =====
+            if (itens.length === 0) {
+                html += '<div class="centro">--- SEM ITENS ---</div>';
+            } else {
+                itens.forEach(function (i) {
+                    var labelItem = i.label || '';
+                    var linhaItem = String(i.id || '') + ' - ' + (i.product_name || 'Item');
+                    if (labelItem) linhaItem += ' - ' + labelItem + ' (' + labelItem + ')';
+                    html += '<div class="itemPai">' + linhaItem + '</div>';
+
+                    if (i.composicao && i.composicao.length > 0) {
+                        var grupos = {};
+                        i.composicao.forEach(function (c) {
+                            var area = (c.local_producao || i.local_producao || 'GERAL').trim().toUpperCase() || 'GERAL';
+                            if (!grupos[area]) grupos[area] = [];
+                            grupos[area].push({
+                                desc: c.product_name || 'Item',
+                                qtd: fmtQtdLocal(c.quantidade) + 'un'
+                            });
+                        });
+                        Object.keys(grupos).sort().forEach(function (area) {
+                            html += '<div class="area">' + area + '</div>';
+                            grupos[area].forEach(function (it) {
+                                html += '<div class="item"><span class="desc">' + it.desc + '</span><span class="qtd">' + it.qtd + '</span></div>';
+                            });
+                        });
+                    } else {
+                        var areaSimples = (i.local_producao || 'GERAL').trim().toUpperCase() || 'GERAL';
+                        var qtd = i.quantidade_kg ? fmtQtdLocal(i.quantidade_kg) + 'kg' : fmtQtdLocal(i.quantidade) + 'un';
+                        html += '<div class="area">' + areaSimples + '</div>';
+                        html += '<div class="item"><span class="desc">' + (i.product_name || 'Item') + (labelItem ? ' (' + labelItem + ')' : '') + '</span><span class="qtd">' + qtd + '</span></div>';
+                    }
+                });
+            }
+
+            // ===== VALORES (após os itens) =====
+            html += '<div class="linha"></div>';
+            html += '<div class="totais">';
+            html += '<div class="linhaTotal"><span>Valor Produtos</span><span>' + fmtMoeda(valorProdutos) + '</span></div>';
+            html += '<div class="linhaTotal"><span>Taxa Entrega</span><span>' + fmtMoeda(taxaEntrega) + '</span></div>';
+            html += '<div class="linhaTotal total"><span>TOTAL</span><span>' + fmtMoeda(valorTotal) + '</span></div>';
+            html += '</div>';
+
+            if (p.observacoes) {
+                html += '<div class="linha"></div>';
+                html += '<div class="obs"><b>OBS:</b> ' + p.observacoes + '</div>';
+            }
+
+            html += '<div class="linha"></div>';
+            html += '<div class="rodape">' + new Date().toLocaleString('pt-BR') + '</div>';
+            html += '<div class="no-print centro" style="margin-top:10px;"><button onclick="window.print()" style="padding:8px 20px;font-size:13px;">🖨️ Imprimir</button></div>';
+            html += '</body></html>';
+
+            var w = window.open('', '_blank', 'width=340,height=600');
+            if (!w) { alert('Permita pop-ups para imprimir.'); return; }
+            w.document.write(html);
+            w.document.close();
+            w.focus();
+            w.print();
+        } catch (e) {
+            console.warn('Erro na impressão Geral:', e);
+        }
+    }
+
+    // Intercepta o clique no botão "Geral" (capture phase)
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('button, a') : null;
+        if (!btn) return;
+        var body = btn.closest('#modalBody');
+        if (!body) return;
+        var txt = (btn.textContent || '').trim();
+        if (txt === 'Geral') {
+            e.preventDefault();
+            e.stopPropagation();
+            imprimirGeral();
         }
     }, true);
 })();
