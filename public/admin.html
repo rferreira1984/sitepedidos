@@ -706,8 +706,8 @@ if (imagensPedido.length > 0) {
                                 const cQtd = fmtQtd(c.quantidade);
                                 const cNome = c.product_name || 'Item';
                                 const cCodigo = (c.product_id !== null && c.product_id !== undefined) ? c.product_id : '-';
-                                const cGrupo = c.grupo ? ' <span class="comp-meta">[' + c.grupo + ']</span>' : '';
-                                const cArea = c.local_producao ? ' <span class="comp-meta">→ ' + c.local_producao + '</span>' : '';
+                                const cGrupo ='';//c .grupo ? ' <span class="comp-meta">[' + c.grupo + ']</span>' : '';
+                                const cArea = '';//c.local_producao ? ' <span class="comp-meta">→ ' + c.local_producao + '</span>' : '';
                                 produtosHtml += '<tr style="border-bottom:1px solid #1e1e36;">'
                                     + '<td style="padding:3px 6px;color:#9ca3af;">' + cCodigo + '</td>'
                                     + '<td style="padding:3px 6px;color:#cbd5e1;">' + cNome + cGrupo + cArea + '</td>'
@@ -852,7 +852,127 @@ if (imagensPedido.length > 0) {
                 carregarPedidos(1);
             }
         })();
+/* ============================================================
+   IMPRESSÃO COZINHA — TÉRMICA 80mm
+   Cabeçalho padrão + itens agrupados por área de produção
+   ============================================================ */
+(function () {
+    function fmtQtdLocal(v) {
+        var n = parseFloat(v) || 0;
+        return (n % 1 === 0) ? String(n) : String(n).replace('.', ',');
+    }
 
+    function coletarItensPorArea() {
+        var itens = (typeof pedidoAtualItens !== 'undefined' && Array.isArray(pedidoAtualItens))
+            ? pedidoAtualItens : (window.pedidoAtualItens || []);
+        var grupos = {};
+        function add(area, desc, qtd) {
+            area = (area || 'GERAL').trim().toUpperCase() || 'GERAL';
+            if (!grupos[area]) grupos[area] = [];
+            grupos[area].push({ desc: desc, qtd: qtd });
+        }
+        itens.forEach(function (i) {
+            var area = i.local_producao || null;
+            var qtd = i.quantidade_kg ? fmtQtdLocal(i.quantidade_kg) + 'kg' : fmtQtdLocal(i.quantidade) + 'un';
+            var desc = (i.product_name || 'Item') + (i.label ? ' (' + i.label + ')' : '');
+            if (i.composicao && i.composicao.length > 0) {
+                i.composicao.forEach(function (c) {
+                    add(c.local_producao || area, (c.product_name || 'Item') , fmtQtdLocal(c.quantidade) + 'un');
+                });
+            } else {
+                add(area, desc, qtd);
+            }
+        });
+        return grupos;
+    }
+
+    function imprimirCozinha() {
+        try {
+            var p = (typeof pedidoAtual !== 'undefined') ? pedidoAtual : (window.pedidoAtual || {});
+            var grupos = coletarItensPorArea();
+            var areas = Object.keys(grupos).sort();
+
+            // ===== CABEÇALHO PADRÃO =====
+            var dataEntrega = p.data_entrega ? new Date(p.data_entrega).toLocaleDateString('pt-BR') : '-';
+            var horaEntrega = p.hora_entrega || '-';
+            var dataPedido = p.data_criacao ? new Date(p.data_criacao).toLocaleString('pt-BR') : '-';
+
+            var html = '<html><head><title>Cozinha - Pedido #' + String(p.id || '').padStart(3, '0') + '</title>';
+            html += '<style>';
+            html += '@page { size: 80mm auto; margin: 3mm; }';
+            html += '* { box-sizing: border-box; }';
+            html += 'body { font-family: "Courier New", monospace; width: 74mm; margin: 10; font-size: 12px; color: #000; }';
+            html += '.centro { text-align: center; }';
+            html += '.loja { font-size: 15px; font-weight: bold; letter-spacing: 1px; }';
+            html += '.subtitulo { font-size: 12px; font-weight: bold; margin-top: 2px; }';
+            html += '.numero { font-size: 16px; font-weight: bold; margin: 2px 0; }';
+            html += '.linha { border-top: 1px dashed #000; margin: 4px 0; }';
+            html += '.info { font-size: 11px; line-height: 1.5; }';
+            html += '.area { font-size: 13px; font-weight: bold; text-align: center; background: #000; color: #fff; padding: 2px 0; margin: 6px 0 3px 0; }';
+            html += '.item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }';
+            html += '.item .desc { flex: 1; padding-right: 4px; word-break: break-word; }';
+            html += '.item .qtd { font-weight: bold; white-space: nowrap; }';
+            html += '.obs { font-size: 11px; margin-top: 4px; }';
+            html += '.rodape { text-align: center; font-size: 10px; margin-top: 8px; }';
+            html += '@media print { .no-print { display: none; } }';
+            html += '</style></head><body>';
+
+            html += '<div class="centro loja">SALGADOS &amp; CIA</div>';
+            html += '<div class="centro numero">Pedido: #' + String(p.id || '').padStart(3, '0') + '</div>';
+            html += '<div class="centro subtitulo">' + (p.tipo_logistica || '-') + '</div>';
+            html += '<div class="centro subtitulo">' + dataEntrega + ' ' + horaEntrega + '</div>';
+            html += '<div class="info">';
+            html += '<div>Cliente:' + (p.nome_cliente || '-') + '</div>';
+            html += '<div>Tel:' + (p.telefone || '-') + '</div>';
+            html += '</div>';
+            html += '<div class="linha"></div>';
+
+            if (areas.length === 0) {
+                html += '<div class="centro">--- SEM ITENS ---</div>';
+            } else {
+                areas.forEach(function (area) {
+                    html += '<div class="area">' + area + '</div>';
+                    grupos[area].forEach(function (it) {
+                        html += '<div class="item"><span class="desc">' + it.desc + '</span><span class="qtd">' + it.qtd + '</span></div>';
+                    });
+                });
+            }
+
+            if (p.observacoes) {
+                html += '<div class="linha"></div>';
+                html += '<div class="obs"><b>OBS:</b> ' + p.observacoes + '</div>';
+            }
+
+            html += '<div class="linha"></div>';
+            html += '<div class="rodape">' + new Date().toLocaleString('pt-BR') + '</div>';
+            html += '<div class="no-print centro" style="margin-top:10px;"><button onclick="window.print()" style="padding:8px 20px;font-size:13px;">🖨️ Imprimir</button></div>';
+            html += '</body></html>';
+
+            var w = window.open('', '_blank', 'width=340,height=600');
+            if (!w) { alert('Permita pop-ups para imprimir.'); return; }
+            w.document.write(html);
+            w.document.close();
+            w.focus();
+            w.print();
+        } catch (e) {
+            console.warn('Erro na impressão Cozinha:', e);
+        }
+    }
+
+    // Intercepta o clique no botão "Cozinha" (capture phase)
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('button, a') : null;
+        if (!btn) return;
+        var body = btn.closest('#modalBody');
+        if (!body) return;
+        var txt = (btn.textContent || '').trim();
+        if (txt === 'Cozinha') {
+            e.preventDefault();
+            e.stopPropagation();
+            imprimirCozinha();
+        }
+    }, true);
+})();
     </script>
 </body>
 </html>
