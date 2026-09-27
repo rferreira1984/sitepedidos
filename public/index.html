@@ -195,6 +195,26 @@
             .kit-modal-overlay { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
             .kit-modal { max-height: calc(100dvh - 32px); }
         }
+.btn-cart {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    border-radius: 8px;
+    background: rgba(0, 151, 70);
+   
+}
+.btn-cart:hover {
+    background: rgba(0, 151, 70, 0.35);
+}
+/* Ajuste para telas pequenas */
+@media (max-width: 768px) {
+    .btn-cart {
+        bottom: 16px;
+        right: 16px;
+    }
+}
     </style>
 </head>
 <link rel="icon" type="image/jpg" href="https://site-picsur.hjs9cn.easypanel.host/i/cc6c98ff-c1d0-4b97-b0ff-962955affa69.jpg">
@@ -210,10 +230,10 @@
          </div>
         </div>
             <div class="header-actions">
-                <a href="/login.html" class="btn-header user" id="loginBtn" style="display:none;"><i class="fas fa-user"></i> Entrar</a>
+                <a href="/login.html" class="btn-header user" id="loginBtn" style="display:none;"><i class="fas fa-user"></i> Entrar/Cadastrar</a>
                 <button class="btn-header user" id="userBtn" style="display:none;" onclick="sairCliente()" title="Clique para sair"><i class="fas fa-user-circle"></i> <span id="userName"></span> <i class="fas fa-sign-out-alt" style="margin-left:4px;"></i></button>
                 <a href="/meus-pedidos.html" class="btn-header"><i class="fas fa-receipt"></i> Meus Pedidos</a>
-                <a href="/admin" class="btn-header"><i class="fas fa-user-shield"></i> Admin</a>
+                <!-- <a href="/admin" class="btn-header"><i class="fas fa-user-shield"></i> Admin</a> -->
                 <button class="btn-cart" onclick="abrirCarrinho()">
                     <i class="fas fa-shopping-bag"></i> Carrinho
                     <span class="cart-count" id="cartCount">0</span>
@@ -2207,6 +2227,191 @@ function ehBoloCaseiroAtual() {
     else obs.observe(document.body, { childList: true, subtree: true });
 
     setTimeout(tentarMontar, 500);
+})();
+/* ============================================================
+   SALGADOS FRITOS / ASSADOS — card único em largura total
+   Com área de foto + carrossel de imagens dos sabores
+   ============================================================ */
+(function () {
+    if (typeof adicionarAoCarrinho !== 'function') return;
+
+    // ===== Estilos =====
+    var styleEl = document.createElement('style');
+    styleEl.textContent =
+        '.card-unificado-salgados{grid-column:1 / -1 !important;width:100% !important;flex-basis:100% !important;}' +
+        '.sabor-chip{padding:8px 12px;border:1.5px solid #d1d5db;border-radius:20px;background:#fff;font-size:13px;cursor:pointer;transition:all .15s;}' +
+        '.sabor-chip.selected{background:#16A34A;color:#fff;border-color:#16A34A;}' +
+        '.sabores-chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;}' +
+        '.carrossel{position:relative;width:100%;aspect-ratio:16/7;max-height:260px;border-radius:12px;overflow:hidden;background:#f3f4f6;margin-bottom:10px;}' +
+        '.carrossel .slide{position:absolute;inset:0;opacity:0;transition:opacity .4s;display:flex;align-items:center;justify-content:center;}' +
+        '.carrossel .slide.ativo{opacity:1;}' +
+        '.carrossel .slide img{width:100%;height:100%;object-fit:cover;}' +
+        '.carrossel .slide .sem-foto{font-size:48px;color:#9ca3af;}' +
+        '.carrossel .car-prev,.carrossel .car-next{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.45);color:#fff;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:14px;z-index:2;}' +
+        '.carrossel .car-prev{left:8px;}.carrossel .car-next{right:8px;}' +
+        '.carrossel .car-dots{position:absolute;bottom:8px;left:0;right:0;display:flex;justify-content:center;gap:6px;z-index:2;}' +
+        '.carrossel .car-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.5);border:none;cursor:pointer;padding:0;}' +
+        '.carrossel .car-dot.ativo{background:#fff;}' +
+        '.carrossel .car-legenda{position:absolute;bottom:24px;left:0;right:0;text-align:center;color:#fff;font-size:12px;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,.8);z-index:2;pointer-events:none;}';
+    document.head.appendChild(styleEl);
+
+    function ehCategoriaAlvo(cat) {
+        var c = (cat || '').toLowerCase();
+        return c.indexOf('salgado') !== -1 && (c.indexOf('frito') !== -1 || c.indexOf('assado') !== -1) || c.indexOf('doces') !== -1 && (c.indexOf('tradicionais') !== -1 || c.indexOf('gourmet') !== -1);
+    }
+
+    function processarSecao(sec) {
+        if (sec.querySelector('.card-unificado-salgados')) return;
+        var cat = sec.getAttribute('data-cat') || 'Salgados';
+        if (!ehCategoriaAlvo(cat)) return;
+        var grid = sec.querySelector('.produtos-grid');
+        if (!grid) return;
+
+        // Coleta os cards de sabor
+        var sabores = [];
+        var cards = Array.prototype.slice.call(grid.querySelectorAll(':scope > .produto-card'));
+        cards.forEach(function (cardEl) {
+            var nomeEl = cardEl.querySelector('.produto-nome');
+            var addBtn = cardEl.querySelector('.btn-add-cart');
+            if (!nomeEl || !addBtn) return;
+            var m = (addBtn.getAttribute('onclick') || '').match(/adicionarAoCarrinho\((\d+)/);
+            if (!m) return;
+            var pid = parseInt(m[1], 10);
+            var p = (typeof produtosData !== 'undefined') ? produtosData.find(function (x) { return x.id === pid; }) : null;
+            sabores.push({ id: pid, nome: nomeEl.textContent.trim(), card: cardEl, imagem: (p && p.imagem) || '' });
+        });
+        if (sabores.length === 0) return;
+
+        // Opções de quantidade/preço do primeiro sabor
+        var primeiro = (typeof produtosData !== 'undefined') ? produtosData.find(function (p) { return p.id === sabores[0].id; }) : null;
+        if (!primeiro || !primeiro.prices || primeiro.prices.length === 0) return;
+
+        // Esconde os cards individuais
+        sabores.forEach(function (s) { s.card.style.display = 'none'; });
+
+        var tierPadrao = primeiro.prices.reduce(function (a, b) {
+            return parseFloat(a.price) >= parseFloat(b.price) ? a : b;
+        });
+
+        // ===== Carrossel =====
+        var slidesHtml = sabores.map(function (s, i) {
+            var inner = s.imagem
+                ? '<img src="' + s.imagem + '" alt="' + s.nome.replace(/"/g, '&quot;') + '" loading="lazy" onerror="this.style.display=\'none\';this.parentNode.querySelector(\'.sem-foto\').style.display=\'flex\';">'
+                : '';
+            inner += '<div class="sem-foto" style="display:' + (s.imagem ? 'none' : 'flex') + ';">🥟</div>';
+            return '<div class="slide' + (i === 0 ? ' ativo' : '') + '" data-idx="' + i + '">' + inner + '</div>';
+        }).join('');
+        var dotsHtml = sabores.map(function (s, i) {
+            return '<button type="button" class="car-dot' + (i === 0 ? ' ativo' : '') + '" data-idx="' + i + '"></button>';
+        }).join('');
+
+        var card = document.createElement('div');
+        card.className = 'produto-card card-unificado-salgados';
+
+        var tiersHtml = primeiro.prices.map(function (pr) {
+            var isSel = pr.id === tierPadrao.id;
+            return '<button type="button" class="produto-opcao-btn' + (isSel ? ' selected' : '') + '" data-tier-label="' + String(pr.label).replace(/"/g, '&quot;') + '">' + pr.label + '<strong>R$ ' + fmt(parseFloat(pr.price)) + '</strong></button>';
+        }).join('');
+
+        var chipsHtml = sabores.map(function (s) {
+            return '<button type="button" class="sabor-chip" data-sabor-id="' + s.id + '">' + s.nome + '</button>';
+        }).join('');
+
+        card.innerHTML =
+            '<div class="carrossel" id="carrossel-' + cat.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '">' +
+                slidesHtml +
+                '<button type="button" class="car-prev">‹</button>' +
+                '<button type="button" class="car-next">›</button>' +
+                '<div class="car-legenda"></div>' +
+                '<div class="car-dots">' + dotsHtml + '</div>' +
+            '</div>' +
+            '<div class="produto-nome">' + cat + '</div>' +
+            '<div class="produto-desc">Selecione o(s) sabor(es) e a quantidade desejada.</div>' +
+            '<div class="produto-opcoes">' + tiersHtml + '</div>' +
+            '<div class="sabores-chips">' + chipsHtml + '</div>' +
+            '<div class="produto-footer">' +
+                '<div class="produto-preco preco-unificado">R$ ' + fmt(parseFloat(tierPadrao.price)) + '</div>' +
+                '<button class="btn-add-cart btn-add-unificado" title="Adicionar sabores selecionados"><i class="fas fa-plus"></i></button>' +
+            '</div>';
+        grid.insertBefore(card, grid.firstChild);
+
+        // ===== Controle do carrossel =====
+        var car = card.querySelector('.carrossel');
+        var slides = car.querySelectorAll('.slide');
+        var dots = car.querySelectorAll('.car-dot');
+        var legenda = car.querySelector('.car-legenda');
+        var idxAtual = 0;
+        var timer = null;
+
+        function mostrar(i) {
+            idxAtual = (i + slides.length) % slides.length;
+            slides.forEach(function (s, k) { s.classList.toggle('ativo', k === idxAtual); });
+            dots.forEach(function (d, k) { d.classList.toggle('ativo', k === idxAtual); });
+            legenda.textContent = sabores[idxAtual].nome;
+        }
+        function auto() {
+            if (timer) clearInterval(timer);
+            timer = setInterval(function () { mostrar(idxAtual + 1); }, 4000);
+        }
+        car.querySelector('.car-prev').addEventListener('click', function () { mostrar(idxAtual - 1); auto(); });
+        car.querySelector('.car-next').addEventListener('click', function () { mostrar(idxAtual + 1); auto(); });
+        dots.forEach(function (d) {
+            d.addEventListener('click', function () { mostrar(parseInt(d.getAttribute('data-idx'), 10)); auto(); });
+        });
+        mostrar(0);
+        auto();
+
+        // ===== Seleção de quantidade/preço =====
+        var tierBtns = card.querySelectorAll('.produto-opcao-btn');
+        tierBtns.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                tierBtns.forEach(function (b) { b.classList.remove('selected'); });
+                btn.classList.add('selected');
+                var pr = primeiro.prices.find(function (x) { return x.label === btn.getAttribute('data-tier-label'); });
+                if (pr) card.querySelector('.preco-unificado').textContent = 'R$ ' + fmt(parseFloat(pr.price));
+            });
+        });
+
+        // ===== Seleção de sabores (clicar no chip mostra a foto dele) =====
+        card.querySelectorAll('.sabor-chip').forEach(function (chip) {
+            chip.addEventListener('click', function () {
+                chip.classList.toggle('selected');
+                var pid = parseInt(chip.getAttribute('data-sabor-id'), 10);
+                var i = sabores.findIndex(function (s) { return s.id === pid; });
+                if (i !== -1) { mostrar(i); auto(); }
+            });
+        });
+
+        // ===== Adicionar: um item por sabor selecionado =====
+        card.querySelector('.btn-add-unificado').addEventListener('click', function () {
+            var sel = card.querySelectorAll('.sabor-chip.selected');
+            if (sel.length === 0) {
+                if (typeof mostrarToast === 'function') mostrarToast('Selecione pelo menos um sabor.', 'error');
+                else alert('Selecione pelo menos um sabor.');
+                return;
+            }
+            var tierLabel = card.querySelector('.produto-opcao-btn.selected').getAttribute('data-tier-label');
+            sel.forEach(function (chip) {
+                var pid = parseInt(chip.getAttribute('data-sabor-id'), 10);
+                var p = produtosData.find(function (x) { return x.id === pid; });
+                if (!p) return;
+                var pr = (p.prices || []).find(function (x) { return x.label === tierLabel; });
+                if (pr) produtoSelecionado[pid] = pr.id;
+                adicionarAoCarrinho(pid, p.name);
+            });
+        });
+    }
+
+    function processarTudo() {
+        document.querySelectorAll('section.categoria-secao').forEach(processarSecao);
+    }
+
+    var gridEl = document.getElementById('produtosGrid');
+    if (gridEl) {
+        var obs = new MutationObserver(function () { setTimeout(processarTudo, 50); });
+        obs.observe(gridEl, { childList: true, subtree: true });
+    }
+    setTimeout(processarTudo, 800);
 })();
     </script>
 </body>
