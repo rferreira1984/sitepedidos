@@ -1467,6 +1467,72 @@ if (imagensPedido.length > 0) {
         }
     }, true);
 })();
+/* ============================================================
+   AGUARDANDO PAGAMENTO — pergunta antes de enviar dados PIX
+   Webhook n8n: envia dados do pedido para o cliente pagar
+   ============================================================ */
+(function () {
+
+
+    function getPedido() {
+        return (typeof pedidoAtual !== 'undefined') ? pedidoAtual : (window.pedidoAtual || {});
+    }
+
+   function enviarPix(p) {
+
+       const savedToken = localStorage.getItem('token');
+        token = savedToken;
+        if (!token) {
+            if (typeof mostrarToast === 'function') mostrarToast('Sessão expirada. Faça login novamente.', 'error');
+            else alert('Sessão expirada. Faça login novamente.');
+            return;
+        }
+
+        fetch('/api/pedidos/' + p.id + '/enviar-pix', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            }
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.success) {
+                if (typeof mostrarToast === 'function') mostrarToast('💰 PIX enviado ao cliente!', 'success');
+            } else {
+                if (typeof mostrarToast === 'function') mostrarToast(data.message || 'Erro ao enviar PIX.', 'error');
+            }
+        })
+        .catch(function () {
+            if (typeof mostrarToast === 'function') mostrarToast('Erro de conexão ao enviar PIX.', 'error');
+        });
+    }
+
+    // Intercepta o clique no botão "Aguardando Pagamento" (capture phase)
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('button, a') : null;
+        if (!btn) return;
+        var body = btn.closest('#modalBody');
+        if (!body) return;
+        var txt = (btn.textContent || '').trim();
+        if (txt !== 'Aguardando Pagamento') return;
+
+        var p = getPedido();
+        var nome = p.nome_cliente || 'cliente';
+        var valor = parseFloat(p.valor_total || 0).toFixed(2).replace('.', ',');
+
+        var enviar = confirm(
+            'Deseja enviar os dados PIX para o cliente pagar?\n\n' +
+            'Pedido #' + String(p.id || '').padStart(3, '0') + '\n' +
+            'Cliente: ' + nome + '\n' +
+            'Valor: R$ ' + valor + '\n\n' +
+            'OK = Enviar PIX  |  Cancelar = Apenas alterar status'
+        );
+
+        if (enviar) enviarPix(p);
+        // Status change segue normalmente (handler original roda depois)
+    }, true);
+})();
     </script>
 </body>
 </html>

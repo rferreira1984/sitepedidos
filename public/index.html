@@ -1638,7 +1638,7 @@
                 const json = await res.json();
                 if (!json.success) throw new Error(json.message);
                 custoEntrega = json.data.custo_entrega;
-                resultEl.innerHTML = `🚚 Distância: ${json.data.distancia_texto} (${json.data.distancia_km} km) · Tempo: ${json.data.duracao_texto}<br><strong>Taxa de entrega: R$ ${fmt(custoEntrega)}</strong>`;
+                resultEl.innerHTML = `🚚 Distância: ${json.data.distancia_texto}<br><strong>Taxa de entrega: R$ ${fmt(custoEntrega)}</strong>`;
                 resultEl.classList.add('show');
                 atualizarResumoTotal();
             } catch (err) {
@@ -2412,6 +2412,109 @@ function ehBoloCaseiroAtual() {
         obs.observe(gridEl, { childList: true, subtree: true });
     }
     setTimeout(processarTudo, 800);
+})();
+/* ============================================================
+   CHECKOUT — bloqueia confirmação se o frete não foi calculado
+   Regras:
+   1) Tipo Entrega + frete não calculado → bloqueia confirmação
+   2) Mudança de endereço → exige recalcular o frete
+   3) Mudança de tipo de logística → exige recalcular o frete
+      (se sair de Entrega e voltar, o bloqueio volta a valer)
+   ============================================================ */
+(function () {
+    // 1) Detecta cálculo de frete com sucesso (resposta da API de entrega)
+    if (!window.__freteHookInstalado) {
+        window.__freteHookInstalado = true;
+        window.__freteCalculado = false;
+        var origFetch = window.fetch;
+        window.fetch = function () {
+            var url = (arguments[0] && (typeof arguments[0] === 'string'
+                ? arguments[0] : (arguments[0].url || ''))) || '';
+            var promise = origFetch.apply(this, arguments);
+            if (url.indexOf('/api/entrega/calcular') !== -1) {
+                promise.then(function (resp) {
+                    if (resp && resp.ok) window.__freteCalculado = true;
+                }).catch(function () {});
+            }
+            return promise;
+        };
+    }
+
+    // 2) Localiza o select de tipo de entrega (opções Entrega/Retirada)
+    function selectTipoEntrega() {
+        var selects = document.querySelectorAll('select');
+        for (var i = 0; i < selects.length; i++) {
+            var opts = Array.prototype.slice.call(selects[i].options)
+                .map(function (o) { return (o.textContent || '').trim(); });
+            var temEntrega = opts.some(function (t) { return /entrega/i.test(t); });
+            var temRetirada = opts.some(function (t) { return /retirada/i.test(t); });
+            if (temEntrega && temRetirada) return selects[i];
+        }
+        return null;
+    }
+
+    function tipoEhEntrega() {
+        var sel = selectTipoEntrega();
+        if (!sel) return false;
+        var opt = sel.options[sel.selectedIndex];
+        return !!(opt && /entrega/i.test(opt.textContent || '') && !/retirada/i.test(opt.textContent || ''));
+    }
+
+    function freteJaCalculado() {
+        if (window.__freteCalculado) return true;
+        try { if (typeof freteCalculado !== 'undefined' && freteCalculado) return true; } catch (e) {}
+        return false;
+    }
+
+    function avisarFrete() {
+        var msg = '⚠️ Calcule o frete antes de confirmar o pedido.';
+        if (typeof mostrarToast === 'function') mostrarToast(msg, 'error');
+        else alert(msg);
+        var btns = document.querySelectorAll('button');
+        for (var i = 0; i < btns.length; i++) {
+            if (/calcular\s*frete/i.test(btns[i].textContent || '')) {
+                btns[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                btns[i].style.outline = '3px solid #ef4444';
+                (function (b) {
+                    setTimeout(function () { b.style.outline = ''; }, 2500);
+                })(btns[i]);
+                break;
+            }
+        }
+    }
+
+    // 3) Intercepta os botões de confirmação (capture phase)
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('button, a') : null;
+        if (!btn) return;
+        var txt = (btn.textContent || '').trim();
+        var ehConfirmar = /confirmar\s+pedido/i.test(txt)
+            || /confirmar\s+via\s+c[oó]digo/i.test(txt)
+            || /entrar\s+para\s+pedir/i.test(txt);
+        if (!ehConfirmar) return;
+        if (!tipoEhEntrega()) return;        // Retirada: fluxo normal
+        if (freteJaCalculado()) return;      // Frete calculado: fluxo normal
+        e.preventDefault();
+        e.stopPropagation();
+        avisarFrete();
+    }, true);
+
+    // 4) Mudança de ENDEREÇO → exige recalcular o frete
+    document.addEventListener('input', function (e) {
+        var t = e.target;
+        if (!t || (t.tagName !== 'INPUT' && t.tagName !== 'TEXTAREA')) return;
+        var ref = ((t.id || '') + ' ' + (t.name || '')).toLowerCase();
+        if (/endereco|rua|address/.test(ref)) window.__freteCalculado = false;
+    }, true);
+
+    // 5) Mudança de TIPO DE LOGÍSTICA → exige recalcular o frete
+    //    Se o cliente sair de Entrega e voltar, o bloqueio volta a valer
+    document.addEventListener('change', function (e) {
+        var t = e.target;
+        if (!t || t.tagName !== 'SELECT') return;
+        var sel = selectTipoEntrega();
+        if (sel && t === sel) window.__freteCalculado = false;
+    }, true);
 })();
     </script>
 </body>
