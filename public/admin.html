@@ -1533,6 +1533,69 @@ if (imagensPedido.length > 0) {
         // Status change segue normalmente (handler original roda depois)
     }, true);
 })();
+(function () {
+    var MAPA_MSG = {
+        'Confirmado': 'confirmado',
+        'Aguardando Retirada': 'aguardando_retirada',
+        'Saiu Para Entrega': 'saiu_entrega',
+        'Entregue': 'entregue'
+    };
+
+    function getPedido() {
+        return (typeof pedidoAtual !== 'undefined') ? pedidoAtual : (window.pedidoAtual || {});
+    }
+
+    function enviarNotificacao(p, tipomsg) {
+        const savedToken = localStorage.getItem('token');
+        const token = savedToken;
+        if (!token) {
+            if (typeof mostrarToast === 'function') mostrarToast('Sessão expirada. Faça login novamente.', 'error');
+            else alert('Sessão expirada. Faça login novamente.');
+            return;
+        }
+        fetch('/api/pedidos/' + p.id + '/notificar', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({ tipomsg: tipomsg })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.success) {
+                if (typeof mostrarToast === 'function') mostrarToast('📨 Mensagem enviada ao cliente!', 'success');
+            } else {
+                if (typeof mostrarToast === 'function') mostrarToast(data.message || 'Erro ao enviar mensagem.', 'error');
+            }
+        })
+        .catch(function () {
+            if (typeof mostrarToast === 'function') mostrarToast('Erro de conexão ao enviar mensagem.', 'error');
+        });
+    }
+
+    // Intercepta o clique nos botões de status (capture phase)
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('button, a') : null;
+        if (!btn) return;
+        var body = btn.closest('#modalBody');
+        if (!body) return;
+        var txt = (btn.textContent || '').trim();
+        var tipomsg = MAPA_MSG[txt];
+        if (!tipomsg) return;
+
+        var p = getPedido();
+        var enviar = confirm(
+            'Deseja enviar a mensagem de "' + txt + '" para o cliente?\n\n' +
+            'Pedido #' + String(p.id || '').padStart(3, '0') + '\n' +
+            'Cliente: ' + (p.nome_cliente || '-') + '\n\n' +
+            'OK = Enviar mensagem  |  Cancelar = Apenas alterar status'
+        );
+
+        if (enviar) enviarNotificacao(p, tipomsg);
+        // Mudança de status segue normalmente (handler original roda depois)
+    }, true);
+})();
     </script>
 </body>
 </html>
