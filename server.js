@@ -1025,14 +1025,17 @@ app.post('/api/pedidos/:id/enviar-pix', authMiddleware, async (req, res) => {
         const p = pedido.rows[0];
         if (!p.telefone) return res.status(400).json({ success: false, message: 'Pedido não tem telefone' });
 
-        // Gera o payload PIX (BR Code Copia e Cola)
+        // Valor do PIX: total ou parcial (informado no body.valor) /// 01/10
+        const valorPix = parseFloat(req.body.valor) > 0
+            ? parseFloat(req.body.valor)
+            : parseFloat(p.valor_total || 0);
         const pix = new Pix(
             PIX_CHAVE,
             'Pedido #' + String(p.id).padStart(3, '0'),
             PIX_NOME,
             PIX_CIDADE,
             'PED' + String(p.id).padStart(6, '0'),
-            parseFloat(p.valor_total || 0)
+            valorPix
         );
         const payloadPix = pix.getPayload();
 
@@ -1048,14 +1051,15 @@ app.post('/api/pedidos/:id/enviar-pix', authMiddleware, async (req, res) => {
                 chavepix: PIX_CHAVE,
                 pix_payload: payloadPix,
                 nome_cliente: p.nome_cliente,
-                mensagem: 'Segue o PIX para pagamento do seu pedido #' + String(p.id).padStart(3, '0')
+                mensagem: 'Segue o PIX para pagamento do seu pedido #' + String(p.id).padStart(3, '0'),
+                valor_pix: valorPix 
             })
         });
 
         // Registra no histórico
         await pool.query(
             'INSERT INTO status_historico (pedido_id, status_anterior, status_novo, observacao, usuario_id) VALUES ($1,$2,$3,$4,$5)',
-            [p.id, p.status, p.status, 'PIX enviado ao cliente (R$ ' + parseFloat(p.valor_total || 0).toFixed(2) + ')', req.usuario.id]
+            [p.id, p.status, p.status, 'PIX enviado ao cliente (R$ ' + valorPix.toFixed(2) + ')', req.usuario.id]
         );
 
         res.json({ success: true, message: 'PIX enviado ao cliente!', pix_payload: payloadPix });
@@ -1064,7 +1068,148 @@ app.post('/api/pedidos/:id/enviar-pix', authMiddleware, async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao enviar PIX' });
     }
 });
-//
+// ==================== STATUS DE PAGAMENTO (CONTROLE SEPARADO) ====================
+app.put('/api/pedidos/:id/status-pagamento', authMiddleware, async (req, res) => {
+    try {
+        const { status_pagamento, valor_pago } = req.body;
+        const validos = ['Não Pago', 'Pago Parcialmente', 'Pago Total', 'Receber na Entrega'];
+        if (!validos.includes(status_pagamento)) {
+            return res.status(400).json({ success: false, message: 'Status de pagamento inválido' });
+        }
+        const pedido = await pool.query('SELECT * FROM s_pedidos WHERE id = $1', [req.params.id]);
+        if (pedido.rows.length === 0) return res.status(404).json({ success: false, message: 'Pedido não encontrado' });
+        const p = pedido.rows[0];
+        const total = parseFloat(p.valor_total || 0);
+        let novoPago = parseFloat(p.valor_pago || 0);
+
+        if (status_pagamento === 'Não Pago') {
+            novoPago = 0;
+        } else if (status_pagamento === 'Pago Total') {
+            const restante = Math.max(total - novoPago, 0);
+            if (restante > 0) {
+                await pool.query(
+                    'INSERT INTO pedido_pagamentos (pedido_id, valor, forma_pagamento, observacao, usuario_id) VALUES ($1,$2,$3,$4,$5)',
+                    [p.id, restante, p.forma_pagamento || '', 'Pagamento total registrado', req.usuario.id]
+                );
+            }
+            novoPago = total;
+        } else if (status_pagamento === 'Pago Parcialmente') {
+            const vp = parseFloat(valor_pago);
+            if (!vp || vp <= 0) return res.status(400).json({ success: false, message: 'Informe o valor pago' });
+            if (vp >= total - 0.009) return res.status(400).json({ success: false, message: 'Valor igual ou maior que o total. Use "Pago Total".' });
+            await pool.query(
+                'INSERT INTO pedido_pagamentos (pedido_id, valor, forma_pagamento, observacao, usuario_id) VALUES ($1,$2,$3,$4,$5)',
+                [p.id, vp, p.forma_pagamento || '', 'Pagamento parcial registrado', req.usuario.id]
+            );
+            novoPago = vp;
+        }
+        // 'Receber na Entrega': apenas marca o status, valor_pago permanece
+
+        await pool.query('UPDATE s_pedidos SET status_pagamento = $1, valor_pago = $2 WHERE id = $3', [status_pagamento, novoPago, p.id]);
+        await pool.query(
+            'INSERT INTO status_historico (pedido_id, status_anterior, status_novo, observacao, usuario_id) VALUES ($1,$2,$3,$4,$5)',
+            [p.id, p.status, p.status, 'Pagamento: ' + status_pagamento + (novoPago > 0 ? ' (R$ ' + novoPago.toFixed(2) + ')' : ''), req.usuario.id]
+        );
+        res.json({ success: true, message: 'Pagamento: ' + status_pagamento, status_pagamento: status_pagamento, valor_pago: novoPago });
+    } catch (err) {
+        console.error('Erro ao atualizar status de pagamento:', err);
+        res.status(500).json({ success: false, message: 'Erro ao atualizar status de pagamento' });
+    }
+});
+// ==================== PAGAMENTOS (TOTAL OU PARCIAL) ====================
+app.post('/api/pedidos/:id/pagamento', authMiddleware, async (req, res) => {
+    try {
+        const { valor, forma_pagamento, observacao } = req.body;
+        const valorNum = parseFloat(valor);
+        if (!valorNum || valorNum <= 0) return res.status(400).json({ success: false, message: 'Valor inválido' });
+        const pedido = await pool.query('SELECT * FROM s_pedidos WHERE id = $1', [req.params.id]);
+        if (pedido.rows.length === 0) return res.status(404).json({ success: false, message: 'Pedido não encontrado' });
+        const p = pedido.rows[0];
+        const total = parseFloat(p.valor_total || 0);
+        const jaPago = parseFloat(p.valor_pago || 0);
+        const saldo = total - jaPago;
+        if (valorNum > saldo + 0.009) {
+            return res.status(400).json({ success: false, message: 'Valor maior que o saldo restante (R$ ' + saldo.toFixed(2) + ')' });
+        }
+
+        await pool.query(
+            'INSERT INTO pedido_pagamentos (pedido_id, valor, forma_pagamento, observacao, usuario_id) VALUES ($1,$2,$3,$4,$5)',
+            [p.id, valorNum, forma_pagamento || p.forma_pagamento || '', observacao || null, req.usuario.id]
+        );
+        const novoPago = jaPago + valorNum;
+        const novoStatus = (novoPago >= total - 0.009) ? 'Confirmado' : 'Pagamento Pendente';
+        await pool.query('UPDATE s_pedidos SET valor_pago = $1, status = $2 WHERE id = $3', [novoPago, novoStatus, p.id]);
+        await pool.query(
+            'INSERT INTO status_historico (pedido_id, status_anterior, status_novo, observacao, usuario_id) VALUES ($1,$2,$3,$4,$5)',
+            [p.id, p.status, novoStatus, 'Pagamento registrado: R$ ' + valorNum.toFixed(2) + (forma_pagamento ? ' (' + forma_pagamento + ')' : ''), req.usuario.id]
+        );
+        res.json({ success: true, message: 'Pagamento registrado!', valor_pago: novoPago, saldo: Math.max(total - novoPago, 0), status: novoStatus });
+    } catch (err) {
+        console.error('Erro ao registrar pagamento:', err);
+        res.status(500).json({ success: false, message: 'Erro ao registrar pagamento' });
+    }
+});
+
+app.get('/api/pedidos/:id/pagamentos', authMiddleware, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM pedido_pagamentos WHERE pedido_id = $1 ORDER BY id', [req.params.id]);
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Erro ao listar pagamentos' });
+    }
+});
+// ==================== NOTIFICAÇÃO DE STATUS AO CLIENTE ====================
+app.post('/api/pedidos/:id/notificar', authMiddleware, async (req, res) => {
+    try {
+        const { tipomsg } = req.body;
+        const tiposValidos = ['confirmado', 'aguardando_retirada', 'saiu_entrega', 'entregue'];
+        if (!tiposValidos.includes(tipomsg)) {
+            return res.status(400).json({ success: false, message: 'Tipo de mensagem inválido' });
+        }
+        const pedido = await pool.query('SELECT * FROM s_pedidos WHERE id = $1', [req.params.id]);
+        if (pedido.rows.length === 0) return res.status(404).json({ success: false, message: 'Pedido não encontrado' });
+        const p = pedido.rows[0];
+        if (!p.telefone) return res.status(400).json({ success: false, message: 'Pedido não tem telefone' });
+       let mensagem = 'Atualização do pedido #' + String(p.id).padStart(3, '0');
+
+const statusMap = {
+  confirmado: 'CONFIRMADO',
+  aguardando_retirada: 'AGUARDANDO RETIRADA',
+  saiu_entrega: 'SAIU PARA ENTREGA',
+  entregue: 'ENTREGUE'
+};
+         let status = statusMap[tipomsg];
+
+        await fetch(WEBHOOK_PIX, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                tipomsg: tipomsg,
+                pedido_id: p.id,
+                valor_total: parseFloat(p.valor_total || 0),
+                telefone: p.telefone,
+                chavepix: PIX_CHAVE,
+                nome_cliente: p.nome_cliente,
+                tipo_logistica: p.tipo_logistica || '',
+                data_entrega: p.data_entrega || '',
+                hora_entrega: p.hora_entrega || '',
+                mensagem: mensagem,
+                status: status
+
+            })
+        });
+
+        await pool.query(
+            'INSERT INTO status_historico (pedido_id, status_anterior, status_novo, observacao, usuario_id) VALUES ($1,$2,$3,$4,$5)',
+            [p.id, p.status, p.status, 'Mensagem "' + tipomsg + '" enviada ao cliente', req.usuario.id]
+        );
+
+        res.json({ success: true, message: 'Mensagem enviada ao cliente!' });
+    } catch (err) {
+        console.error('Erro ao enviar notificação:', err);
+        res.status(500).json({ success: false, message: 'Erro ao enviar notificação' });
+    }
+});
     app.post('/api/pedidos/:id/mensagem', authMiddleware, async (req, res) => {
         try {
             const { mensagem } = req.body;
