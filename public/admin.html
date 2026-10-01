@@ -1147,27 +1147,27 @@ if (imagensPedido.length > 0) {
     }, true);
 })();
 /* ============================================================
-   IMPRESSÃO ENTREGA — TÉRMICA 80mm
-   Mesma lógica da Cozinha + Endereço/Pagamento no cabeçalho
-   e valores (Produtos/Taxa/TOTAL) após os itens
+   IMPRESSÃO ENTREGA + GERAL — TÉRMICA 80mm (bloco unificado)
+   Entrega: cabeçalho + Endereço/Pagamento + itens + valores
+   Geral: Entrega + data do pedido e status
+   Ambos com Pago/Saldo após o TOTAL
    ============================================================ */
 (function () {
-    function fmtQtdLocal(v) {
+    function fmtQtd(v) {
         var n = parseFloat(v) || 0;
         return (n % 1 === 0) ? String(n) : String(n).replace('.', ',');
     }
-
     function fmtMoeda(v) {
         return 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ',');
     }
 
-    function imprimirEntrega() {
+    function imprimir(tipo) {
         try {
+            var geral = (tipo === 'geral');
             var p = (typeof pedidoAtual !== 'undefined') ? pedidoAtual : (window.pedidoAtual || {});
             var itens = (typeof pedidoAtualItens !== 'undefined' && Array.isArray(pedidoAtualItens))
                 ? pedidoAtualItens : (window.pedidoAtualItens || []);
 
-            // ===== ENDEREÇO (entrega = cliente; retirada = loja) =====
             var endereco;
             if (p.tipo_logistica === 'Retirada') {
                 endereco = 'Salgados & Cia - Rua Espinelo, 123 - Esmeralda';
@@ -1181,16 +1181,18 @@ if (imagensPedido.length > 0) {
                 if (!endereco.trim()) endereco = '-';
             }
 
-            // ===== VALORES =====
             var taxaEntrega = parseFloat(p.taxa_entrega || 0);
             var valorTotal = parseFloat(p.valor_total || 0);
-            var valorProdutos = valorTotal - taxaEntrega;
-            if (valorProdutos < 0) valorProdutos = 0;
+            var valorProdutos = Math.max(valorTotal - taxaEntrega, 0);
+            var valorPago = parseFloat(p.valor_pago || 0);
+            var saldo = Math.max(valorTotal - valorPago, 0);
+            var statusPag = p.status_pagamento || 'Não Pago';
 
             var dataEntrega = p.data_entrega ? new Date(p.data_entrega).toLocaleDateString('pt-BR') : '-';
             var horaEntrega = p.hora_entrega || '-';
+            var dataPedido = p.data_criacao ? new Date(p.data_criacao).toLocaleString('pt-BR') : '-';
 
-            var html = '<html><head><title>Entrega - Pedido #' + String(p.id || '').padStart(3, '0') + '</title>';
+            var html = '<html><head><title>' + (geral ? 'Geral' : 'Entrega') + ' - Pedido #' + String(p.id || '').padStart(3, '0') + '</title>';
             html += '<style>';
             html += '@page { size: 80mm auto; margin: 3mm; }';
             html += '* { box-sizing: border-box; }';
@@ -1214,7 +1216,6 @@ if (imagensPedido.length > 0) {
             html += '@media print { .no-print { display: none; } }';
             html += '</style></head><body>';
 
-            // ===== CABEÇALHO PADRÃO =====
             html += '<div class="centro loja">SALGADOS &amp; CIA</div>';
             html += '<div class="centro numero">Pedido: #' + String(p.id || '').padStart(3, '0') + '</div>';
             html += '<div class="centro subtitulo">' + (p.tipo_logistica || '-') + '</div>';
@@ -1223,11 +1224,14 @@ if (imagensPedido.length > 0) {
             html += '<div>Cliente:' + (p.nome_cliente || '-') + '</div>';
             html += '<div>Tel:' + (p.telefone || '-') + '</div>';
             html += '<div>Endereço:' + endereco + '</div>';
-            html += '<div>Pagamento:' + (p.forma_pagamento || '-') + '</div>';
+            html += '<div>Pagamento:' + (p.forma_pagamento || '-') + ' (' + statusPag + ')</div>';
+            if (geral) {
+                html += '<div>Pedido:' + dataPedido + '</div>';
+                html += '<div>Status:' + (p.status || '-') + '</div>';
+            }
             html += '</div>';
             html += '<div class="linha"></div>';
 
-            // ===== ITENS (mesma lógica da Cozinha) =====
             if (itens.length === 0) {
                 html += '<div class="centro">--- SEM ITENS ---</div>';
             } else {
@@ -1244,7 +1248,7 @@ if (imagensPedido.length > 0) {
                             if (!grupos[area]) grupos[area] = [];
                             grupos[area].push({
                                 desc: c.product_name || 'Item',
-                                qtd: fmtQtdLocal(c.quantidade) + 'un'
+                                qtd: fmtQtd(c.quantidade) + 'un'
                             });
                         });
                         Object.keys(grupos).sort().forEach(function (area) {
@@ -1255,19 +1259,20 @@ if (imagensPedido.length > 0) {
                         });
                     } else {
                         var areaSimples = (i.local_producao || 'GERAL').trim().toUpperCase() || 'GERAL';
-                        var qtd = i.quantidade_kg ? fmtQtdLocal(i.quantidade_kg) + 'kg' : fmtQtdLocal(i.quantidade) + 'un';
+                        var qtd = i.quantidade_kg ? fmtQtd(i.quantidade_kg) + 'kg' : fmtQtd(i.quantidade) + 'un';
                         html += '<div class="area">' + areaSimples + '</div>';
                         html += '<div class="item"><span class="desc">' + (i.product_name || 'Item') + (labelItem ? ' (' + labelItem + ')' : '') + '</span><span class="qtd">' + qtd + '</span></div>';
                     }
                 });
             }
 
-            // ===== VALORES (após os itens) =====
             html += '<div class="linha"></div>';
             html += '<div class="totais">';
             html += '<div class="linhaTotal"><span>Valor Produtos</span><span>' + fmtMoeda(valorProdutos) + '</span></div>';
             html += '<div class="linhaTotal"><span>Taxa Entrega</span><span>' + fmtMoeda(taxaEntrega) + '</span></div>';
             html += '<div class="linhaTotal total"><span>TOTAL</span><span>' + fmtMoeda(valorTotal) + '</span></div>';
+            html += '<div class="linhaTotal"><span>Pago</span><span>' + fmtMoeda(valorPago) + '</span></div>';
+            html += '<div class="linhaTotal"><span>Saldo</span><span style="font-weight:bold;">' + fmtMoeda(saldo) + '</span></div>';
             html += '</div>';
 
             if (p.observacoes) {
@@ -1287,11 +1292,10 @@ if (imagensPedido.length > 0) {
             w.focus();
             w.print();
         } catch (e) {
-            console.warn('Erro na impressão Entrega:', e);
+            console.warn('Erro na impressão:', e);
         }
     }
 
-    // Intercepta o clique no botão "Entrega" (capture phase)
     document.addEventListener('click', function (e) {
         var btn = e.target.closest ? e.target.closest('button, a') : null;
         if (!btn) return;
@@ -1301,214 +1305,34 @@ if (imagensPedido.length > 0) {
         if (txt === 'Entrega') {
             e.preventDefault();
             e.stopPropagation();
-            imprimirEntrega();
-        }
-    }, true);
-})();
-/* ============================================================
-   IMPRESSÃO GERAL — TÉRMICA 80mm
-   Pedido completo: cabeçalho + Endereço/Pagamento + itens
-   com composição por área + valores + observações
-   ============================================================ */
-(function () {
-    function fmtQtdLocal(v) {
-        var n = parseFloat(v) || 0;
-        return (n % 1 === 0) ? String(n) : String(n).replace('.', ',');
-    }
-
-    function fmtMoeda(v) {
-        return 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ',');
-    }
-
-    function imprimirGeral() {
-        try {
-            var p = (typeof pedidoAtual !== 'undefined') ? pedidoAtual : (window.pedidoAtual || {});
-            var itens = (typeof pedidoAtualItens !== 'undefined' && Array.isArray(pedidoAtualItens))
-                ? pedidoAtualItens : (window.pedidoAtualItens || []);
-
-            // ===== ENDEREÇO (entrega = cliente; retirada = loja) =====
-            var endereco;
-            if (p.tipo_logistica === 'Retirada') {
-                endereco = 'Salgados & Cia - Rua Espinelo, 123 - Esmeralda';
-            } else {
-                endereco = [
-                    p.endereco_rua || '',
-                    p.endereco_numero ? ', ' + p.endereco_numero : '',
-                    p.endereco_bairro ? ' - ' + p.endereco_bairro : '',
-                    p.endereco_cep ? ' - CEP: ' + p.endereco_cep : ''
-                ].join('');
-                if (!endereco.trim()) endereco = '-';
-            }
-
-            // ===== VALORES =====
-            var taxaEntrega = parseFloat(p.taxa_entrega || 0);
-            var valorTotal = parseFloat(p.valor_total || 0);
-            var valorProdutos = valorTotal - taxaEntrega;
-            if (valorProdutos < 0) valorProdutos = 0;
-
-            var dataEntrega = p.data_entrega ? new Date(p.data_entrega).toLocaleDateString('pt-BR') : '-';
-            var horaEntrega = p.hora_entrega || '-';
-            var dataPedido = p.data_criacao ? new Date(p.data_criacao).toLocaleString('pt-BR') : '-';
-
-            var html = '<html><head><title>Geral - Pedido #' + String(p.id || '').padStart(3, '0') + '</title>';
-            html += '<style>';
-            html += '@page { size: 80mm auto; margin: 3mm; }';
-            html += '* { box-sizing: border-box; }';
-            html += 'body { font-family: "Courier New", monospace; width: 74mm; margin: 0 0 0 2mm; font-size: 12px; color: #000; }';
-            html += '.centro { text-align: center; }';
-            html += '.loja { font-size: 15px; font-weight: bold; letter-spacing: 1px; }';
-            html += '.subtitulo { font-size: 12px; font-weight: bold; margin-top: 2px; }';
-            html += '.numero { font-size: 16px; font-weight: bold; margin: 2px 0; }';
-            html += '.linha { border-top: 1px dashed #000; margin: 4px 0; }';
-            html += '.info { font-size: 11px; line-height: 1.5; }';
-            html += '.area { font-size: 12px; font-weight: bold; text-align: center; background: #000; color: #fff; padding: 2px 0; margin: 4px 0 2px 0; }';
-            html += '.itemPai { font-size: 12px; font-weight: bold; padding: 4px 0 2px 0; border-bottom: 1px solid #000; margin-top: 6px; word-break: break-word; }';
-            html += '.item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }';
-            html += '.item .desc { flex: 1; padding-right: 4px; word-break: break-word; }';
-            html += '.item .qtd { font-weight: bold; white-space: nowrap; }';
-            html += '.totais { margin-top: 6px; font-size: 12px; }';
-            html += '.totais .linhaTotal { display: flex; justify-content: space-between; padding: 2px 0; }';
-            html += '.totais .total { font-size: 14px; font-weight: bold; border-top: 1px solid #000; margin-top: 3px; padding-top: 3px; }';
-            html += '.obs { font-size: 11px; margin-top: 4px; }';
-            html += '.rodape { text-align: center; font-size: 10px; margin-top: 8px; }';
-            html += '@media print { .no-print { display: none; } }';
-            html += '</style></head><body>';
-
-            // ===== CABEÇALHO PADRÃO =====
-            html += '<div class="centro loja">SALGADOS &amp; CIA</div>';
-            html += '<div class="centro numero">Pedido: #' + String(p.id || '').padStart(3, '0') + '</div>';
-            html += '<div class="centro subtitulo">' + (p.tipo_logistica || '-') + '</div>';
-            html += '<div class="centro subtitulo">' + dataEntrega + ' ' + horaEntrega + '</div>';
-            html += '<div class="info">';
-            html += '<div>Cliente:' + (p.nome_cliente || '-') + '</div>';
-            html += '<div>Tel:' + (p.telefone || '-') + '</div>';
-            html += '<div>Endereço:' + endereco + '</div>';
-            html += '<div>Pagamento:' + (p.forma_pagamento || '-') + '</div>';
-            html += '<div>Pedido:' + dataPedido + '</div>';
-            html += '<div>Status:' + (p.status || '-') + '</div>';
-            html += '</div>';
-            html += '<div class="linha"></div>';
-
-            // ===== ITENS (mesma lógica da Cozinha) =====
-            if (itens.length === 0) {
-                html += '<div class="centro">--- SEM ITENS ---</div>';
-            } else {
-                itens.forEach(function (i) {
-                    var labelItem = i.label || '';
-                    var linhaItem = String(i.id || '') + ' - ' + (i.product_name || 'Item');
-                    if (labelItem) linhaItem += ' - ' + labelItem + ' (' + labelItem + ')';
-                    html += '<div class="itemPai">' + linhaItem + '</div>';
-
-                    if (i.composicao && i.composicao.length > 0) {
-                        var grupos = {};
-                        i.composicao.forEach(function (c) {
-                            var area = (c.local_producao || i.local_producao || 'GERAL').trim().toUpperCase() || 'GERAL';
-                            if (!grupos[area]) grupos[area] = [];
-                            grupos[area].push({
-                                desc: c.product_name || 'Item',
-                                qtd: fmtQtdLocal(c.quantidade) + 'un'
-                            });
-                        });
-                        Object.keys(grupos).sort().forEach(function (area) {
-                            html += '<div class="area">' + area + '</div>';
-                            grupos[area].forEach(function (it) {
-                                html += '<div class="item"><span class="desc">' + it.desc + '</span><span class="qtd">' + it.qtd + '</span></div>';
-                            });
-                        });
-                    } else {
-                        var areaSimples = (i.local_producao || 'GERAL').trim().toUpperCase() || 'GERAL';
-                        var qtd = i.quantidade_kg ? fmtQtdLocal(i.quantidade_kg) + 'kg' : fmtQtdLocal(i.quantidade) + 'un';
-                        html += '<div class="area">' + areaSimples + '</div>';
-                        html += '<div class="item"><span class="desc">' + (i.product_name || 'Item') + (labelItem ? ' (' + labelItem + ')' : '') + '</span><span class="qtd">' + qtd + '</span></div>';
-                    }
-                });
-            }
-
-            // ===== VALORES (após os itens) =====
-            html += '<div class="linha"></div>';
-            html += '<div class="totais">';
-            html += '<div class="linhaTotal"><span>Valor Produtos</span><span>' + fmtMoeda(valorProdutos) + '</span></div>';
-            html += '<div class="linhaTotal"><span>Taxa Entrega</span><span>' + fmtMoeda(taxaEntrega) + '</span></div>';
-            html += '<div class="linhaTotal total"><span>TOTAL</span><span>' + fmtMoeda(valorTotal) + '</span></div>';
-            html += '</div>';
-
-            if (p.observacoes) {
-                html += '<div class="linha"></div>';
-                html += '<div class="obs"><b>OBS:</b> ' + p.observacoes + '</div>';
-            }
-
-            html += '<div class="linha"></div>';
-            html += '<div class="rodape">' + new Date().toLocaleString('pt-BR') + '</div>';
-            html += '<div class="no-print centro" style="margin-top:10px;"><button onclick="window.print()" style="padding:8px 20px;font-size:13px;">🖨️ Imprimir</button></div>';
-            html += '</body></html>';
-
-            var w = window.open('', '_blank', 'width=340,height=600');
-            if (!w) { alert('Permita pop-ups para imprimir.'); return; }
-            w.document.write(html);
-            w.document.close();
-            w.focus();
-            w.print();
-        } catch (e) {
-            console.warn('Erro na impressão Geral:', e);
-        }
-    }
-
-    // Intercepta o clique no botão "Geral" (capture phase)
-    document.addEventListener('click', function (e) {
-        var btn = e.target.closest ? e.target.closest('button, a') : null;
-        if (!btn) return;
-        var body = btn.closest('#modalBody');
-        if (!body) return;
-        var txt = (btn.textContent || '').trim();
-        if (txt === 'Geral') {
+            imprimir('entrega');
+        } else if (txt === 'Geral') {
             e.preventDefault();
             e.stopPropagation();
-            imprimirGeral();
+            imprimir('geral');
         }
     }, true);
 })();
 /* ============================================================
-   AGUARDANDO PAGAMENTO — pergunta antes de enviar dados PIX
-   Webhook n8n: envia dados do pedido para o cliente pagar
+   AGUARDANDO PAGAMENTO — PIX total ou parcial (BLOCO ÚNICO)
+   Trava anti-duplicação: se colado 2x, a 2ª cópia não executa
    ============================================================ */
 (function () {
+    if (window.__pixInterceptorAtivo) return; // já existe outro bloco ativo
+    window.__pixInterceptorAtivo = true;
 
-
+    function fmt(v) { return 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ','); }
+    function getToken() {
+        return localStorage.getItem('token');
+    }
     function getPedido() {
         return (typeof pedidoAtual !== 'undefined') ? pedidoAtual : (window.pedidoAtual || {});
     }
-
-   function enviarPix(p) {
-
-       const savedToken = localStorage.getItem('token');
-        token = savedToken;
-        if (!token) {
-            if (typeof mostrarToast === 'function') mostrarToast('Sessão expirada. Faça login novamente.', 'error');
-            else alert('Sessão expirada. Faça login novamente.');
-            return;
-        }
-
-        fetch('/api/pedidos/' + p.id + '/enviar-pix', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + token
-            }
-        })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-            if (data.success) {
-                if (typeof mostrarToast === 'function') mostrarToast('💰 PIX enviado ao cliente!', 'success');
-            } else {
-                if (typeof mostrarToast === 'function') mostrarToast(data.message || 'Erro ao enviar PIX.', 'error');
-            }
-        })
-        .catch(function () {
-            if (typeof mostrarToast === 'function') mostrarToast('Erro de conexão ao enviar PIX.', 'error');
-        });
+    function toast(msg, tipo) {
+        if (typeof mostrarToast === 'function') mostrarToast(msg, tipo || 'info');
+        else alert(msg);
     }
 
-    // Intercepta o clique no botão "Aguardando Pagamento" (capture phase)
     document.addEventListener('click', function (e) {
         var btn = e.target.closest ? e.target.closest('button, a') : null;
         if (!btn) return;
@@ -1518,20 +1342,179 @@ if (imagensPedido.length > 0) {
         if (txt !== 'Aguardando Pagamento') return;
 
         var p = getPedido();
-        var nome = p.nome_cliente || 'cliente';
-        var valor = parseFloat(p.valor_total || 0).toFixed(2).replace('.', ',');
-
+        var total = parseFloat(p.valor_total || 0);
         var enviar = confirm(
             'Deseja enviar os dados PIX para o cliente pagar?\n\n' +
             'Pedido #' + String(p.id || '').padStart(3, '0') + '\n' +
-            'Cliente: ' + nome + '\n' +
-            'Valor: R$ ' + valor + '\n\n' +
-            'OK = Enviar PIX  |  Cancelar = Apenas alterar status'
+            'Cliente: ' + (p.nome_cliente || '-') + '\n' +
+            'Valor total: ' + fmt(total) + '\n\n' +
+            'OK = Escolher valor do PIX  |  Cancelar = Apenas alterar status'
         );
+        if (!enviar) return;
 
-        if (enviar) enviarPix(p);
-        // Status change segue normalmente (handler original roda depois)
+        var entrada = prompt(
+            'Valor do PIX:\n\n' +
+            'OK sem alterar = valor TOTAL (' + fmt(total) + ')\n' +
+            'ou digite o valor PARCIAL desejado:',
+            total.toFixed(2)
+        );
+        if (entrada === null) return;
+
+        // Aceita "50,00", "50.00" e "R$ 50,00"
+        var limpo = String(entrada).replace(/[^\d.,]/g, '');
+        if (limpo.indexOf(',') !== -1) limpo = limpo.replace(/\./g, '').replace(',', '.');
+        var valor = parseFloat(limpo);
+        if (!valor || valor <= 0 || valor > total) valor = total;
+
+        var token = getToken();
+        if (!token) { toast('Sessão expirada. Faça login novamente.', 'error'); return; }
+
+        fetch('/api/pedidos/' + p.id + '/enviar-pix', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ valor: valor })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.success) toast('💰 PIX de ' + fmt(valor) + ' enviado ao cliente!', 'success');
+            else toast(data.message || 'Erro ao enviar PIX.', 'error');
+        })
+        .catch(function () { toast('Erro de conexão ao enviar PIX.', 'error'); });
     }, true);
+})();
+/* ============================================================
+   STATUS DE PAGAMENTO v2 — seção no modal do pedido
+   Não Pago | Pago Parcialmente | Pago Total | Receber na Entrega
+   + botão "Enviar PIX do Saldo"
+   ============================================================ */
+(function () {
+    if (window.__statusPagamentoAtivo) return;
+    window.__statusPagamentoAtivo = true;
+
+    var STATUS_PAG = ['Não Pago', 'Pago Parcialmente', 'Pago Total', 'Receber na Entrega'];
+
+    function fmt(v) { return 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ','); }
+    function getToken() {
+        return localStorage.getItem('token');
+    }
+    function getPedido() {
+        return (typeof pedidoAtual !== 'undefined') ? pedidoAtual : (window.pedidoAtual || {});
+    }
+    function toast(msg, tipo) {
+        if (typeof mostrarToast === 'function') mostrarToast(msg, tipo || 'info');
+        else alert(msg);
+    }
+    function atualizarLista() {
+        try {
+            if (typeof carregarPedidos === 'function') { carregarPedidos(); return; }
+            if (typeof loadPedidos === 'function') loadPedidos();
+        } catch (e) {}
+    }
+
+    function secaoHtml(p) {
+        var total = parseFloat(p.valor_total || 0);
+        var pago = parseFloat(p.valor_pago || 0);
+        var saldo = Math.max(total - pago, 0);
+        var atual = p.status_pagamento || 'Não Pago';
+        var html = '<div id="secaoStatusPagamento" data-pedido-id="' + p.id + '" style="border:1px dashed #9ca3af;border-radius:8px;padding:10px;margin:10px 0;background:#f9fafb;">';
+        html += '<div style="font-weight:bold;margin-bottom:6px;">💳 Status do Pagamento: <span style="color:#1d4ed8;">' + atual + '</span></div>';
+        html += '<div style="font-size:13px;">Total: <b>' + fmt(total) + '</b> &nbsp;|&nbsp; Pago: <b>' + fmt(pago) + '</b> &nbsp;|&nbsp; Saldo: <b style="color:' + (saldo > 0 ? '#dc2626' : '#16a34a') + '">' + fmt(saldo) + '</b></div>';
+        html += '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">';
+        STATUS_PAG.forEach(function (s) {
+            var cor = s === 'Pago Total' ? '#16a34a' : s === 'Pago Parcialmente' ? '#f59e0b' : s === 'Receber na Entrega' ? '#6366f1' : '#6b7280';
+            html += '<button class="btn-status-pag" data-status="' + s + '" style="padding:6px 10px;border:none;border-radius:6px;background:' + cor + ';color:#fff;cursor:pointer;font-size:12px;">' + s + '</button>';
+        });
+        html += '<button id="btnPixSaldo" style="padding:6px 10px;border:none;border-radius:6px;background:#0ea5e9;color:#fff;cursor:pointer;font-size:12px;">📤 Enviar PIX do Saldo</button>';
+        html += '</div></div>';
+        return html;
+    }
+
+    function enviarPixSaldo() {
+        var p = getPedido();
+        var total = parseFloat(p.valor_total || 0);
+        var pago = parseFloat(p.valor_pago || 0);
+        var saldo = Math.max(total - pago, 0);
+        if (saldo <= 0) { toast('✅ Pedido já quitado — sem saldo para PIX.', 'info'); return; }
+        if (!confirm('Enviar PIX do saldo restante?\n\nPedido #' + String(p.id || '').padStart(3, '0') + '\nCliente: ' + (p.nome_cliente || '-') + '\nSaldo: ' + fmt(saldo))) return;
+        var token = getToken();
+        if (!token) { toast('Sessão expirada. Faça login novamente.', 'error'); return; }
+        fetch('/api/pedidos/' + p.id + '/enviar-pix', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ valor: saldo })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.success) toast('💰 PIX de ' + fmt(saldo) + ' enviado ao cliente!', 'success');
+            else toast(data.message || 'Erro ao enviar PIX.', 'error');
+        })
+        .catch(function () { toast('Erro de conexão ao enviar PIX.', 'error'); });
+    }
+
+    function injetar() {
+        var body = document.getElementById('modalBody');
+        if (!body) return;
+        var p = getPedido();
+        if (!p || !p.id) return;
+        var sec = body.querySelector('#secaoStatusPagamento');
+        if (sec) {
+            if (sec.getAttribute('data-pedido-id') !== String(p.id)) {
+                sec.outerHTML = secaoHtml(p);
+                ligarBotoes();
+            }
+            return;
+        }
+        body.insertAdjacentHTML('beforeend', secaoHtml(p));
+        ligarBotoes();
+    }
+
+    function ligarBotoes() {
+        document.querySelectorAll('.btn-status-pag').forEach(function (btn) {
+            btn.onclick = function () {
+                var p = getPedido();
+                var status = btn.getAttribute('data-status');
+                var bodyPayload = { status_pagamento: status };
+
+                if (status === 'Pago Parcialmente') {
+                    var total = parseFloat(p.valor_total || 0);
+                    var entrada = prompt('Valor pago pelo cliente (total do pedido: ' + fmt(total) + '):', '');
+                    if (entrada === null) return;
+                    var vp = parseFloat(String(entrada).replace(',', '.'));
+                    if (!vp || vp <= 0) { toast('Valor inválido.', 'error'); return; }
+                    bodyPayload.valor_pago = vp;
+                }
+
+                fetch('/api/pedidos/' + p.id + '/status-pagamento', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+                    body: JSON.stringify(bodyPayload)
+                })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.success) {
+                        p.status_pagamento = data.status_pagamento;
+                        p.valor_pago = data.valor_pago;
+                        toast('💳 ' + data.message, 'success');
+                        var sec = document.getElementById('secaoStatusPagamento');
+                        if (sec) sec.outerHTML = secaoHtml(p);
+                        ligarBotoes();
+                        atualizarLista();
+                    } else toast(data.message || 'Erro ao atualizar.', 'error');
+                })
+                .catch(function () { toast('Erro de conexão.', 'error'); });
+            };
+        });
+        var btnPix = document.getElementById('btnPixSaldo');
+        if (btnPix) btnPix.onclick = enviarPixSaldo;
+    }
+
+    var obs = new MutationObserver(function () { setTimeout(injetar, 50); });
+    function iniciar() {
+        obs.observe(document.body, { childList: true, subtree: true });
+        injetar();
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
+    else iniciar();
 })();
 (function () {
     var MAPA_MSG = {
@@ -1595,6 +1578,111 @@ if (imagensPedido.length > 0) {
         if (enviar) enviarNotificacao(p, tipomsg);
         // Mudança de status segue normalmente (handler original roda depois)
     }, true);
+})();
+/* ============================================================
+   COLUNA "PAGAMENTO" — exibe status_pagamento na listagem
+   ============================================================ */
+(function () {
+    if (window.__colunaPagamentoAtivo) return;
+    window.__colunaPagamentoAtivo = true;
+
+    var mapaPedidos = {};
+    var CORES = {
+        'Pago Total': '#16a34a',
+        'Pago Parcialmente': '#f59e0b',
+        'Receber na Entrega': '#6366f1',
+        'Não Pago': '#6b7280'
+    };
+
+    function getToken() {
+        return localStorage.getItem('token');
+    }
+
+    // Captura as respostas da listagem de pedidos
+    var origFetch = window.fetch;
+    window.fetch = function () {
+        var url = (arguments[0] && (typeof arguments[0] === 'string'
+            ? arguments[0] : (arguments[0].url || ''))) || '';
+        var promise = origFetch.apply(this, arguments);
+        if (/\/api\/pedidos(\?|$)/.test(url)) {
+            promise.then(function (resp) {
+                try {
+                    resp.clone().json().then(function (j) {
+                        if (j.success && Array.isArray(j.data)) {
+                            j.data.forEach(function (p) { mapaPedidos[p.id] = p; });
+                            setTimeout(atualizarColuna, 50);
+                        }
+                    }).catch(function () {});
+                } catch (e) {}
+            }).catch(function () {});
+        }
+        return promise;
+    };
+
+    function acharIdLinha(tr) {
+        var tds = tr.querySelectorAll('td');
+        if (tds.length) {
+            var m = (tds[0].textContent || '').match(/\d+/);
+            if (m) return parseInt(m[0], 10);
+        }
+        var el = tr.querySelector('[onclick]');
+        if (el) {
+            var mm = (el.getAttribute('onclick') || '').match(/(\d+)/);
+            if (mm) return parseInt(mm[1], 10);
+        }
+        return null;
+    }
+
+    function atualizarColuna() {
+        var table = document.querySelector('table');
+        if (!table || !table.querySelector('thead')) return;
+        var idx = -1;
+        table.querySelectorAll('thead th').forEach(function (th, i) {
+            if ((th.textContent || '').trim().toLowerCase().indexOf('pagamento') !== -1) idx = i;
+        });
+        if (idx === -1) return;
+        table.querySelectorAll('tbody tr').forEach(function (tr) {
+            var tds = tr.querySelectorAll('td');
+            if (tds.length <= idx) return;
+            var id = acharIdLinha(tr);
+            var p = id && mapaPedidos[id];
+            if (!p) return;
+            var cell = tds[idx];
+            var badge = cell.querySelector('.badge-status-pag');
+            if (!badge) {
+                badge = document.createElement('div');
+                badge.className = 'badge-status-pag';
+                cell.appendChild(badge);
+            }
+            var sp = p.status_pagamento || 'Não Pago';
+            badge.textContent = sp;
+            badge.style.cssText = 'display:inline-block;margin-top:2px;padding:2px 8px;border-radius:10px;font-size:11px;color:#fff;background:' + (CORES[sp] || '#6b7280') + ';';
+            badge.title = 'Pago: R$ ' + parseFloat(p.valor_pago || 0).toFixed(2).replace('.', ',')
+                + ' | Saldo: R$ ' + Math.max(parseFloat(p.valor_total || 0) - parseFloat(p.valor_pago || 0), 0).toFixed(2).replace('.', ',');
+        });
+    }
+
+    // Carga inicial (caso a 1ª listagem aconteça antes deste bloco)
+    function seed() {
+        var token = getToken();
+        if (!token) return;
+        fetch('/api/pedidos?page=1&limit=100', { headers: { 'Authorization': 'Bearer ' + token } })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+                if (j.success && Array.isArray(j.data)) {
+                    j.data.forEach(function (p) { mapaPedidos[p.id] = p; });
+                    atualizarColuna();
+                }
+            }).catch(function () {});
+    }
+
+    var obs = new MutationObserver(function () { setTimeout(atualizarColuna, 50); });
+    function iniciar() {
+        obs.observe(document.body, { childList: true, subtree: true });
+        seed();
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
+    else iniciar();
 })();
     </script>
 </body>
