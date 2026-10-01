@@ -1064,6 +1064,7 @@ app.post('/api/pedidos/:id/enviar-pix', authMiddleware, async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao enviar PIX' });
     }
 });
+//
     app.post('/api/pedidos/:id/mensagem', authMiddleware, async (req, res) => {
         try {
             const { mensagem } = req.body;
