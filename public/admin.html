@@ -795,6 +795,7 @@ if (imagensPedido.length > 0) {
                         ${p.observacoes ? '<div class="detail-item full"><label>Observações</label><span>' + p.observacoes + '</span></div>' : ''}
                          <ul class="historico-list">${imagensHtml}</ul>
                     </div>
+                    
                     <div class="section-title">Alterar Status</div>
                     <div class="status-actions">${statusBtns}</div>
                     <textarea class="observacao-input" id="obsInput" placeholder="Observação..." rows="2"></textarea>
@@ -811,9 +812,7 @@ if (imagensPedido.length > 0) {
                     <div class="section-title">Histórico de Status</div>
                     <ul class="historico-list">${historicoHtml}</ul>
                    
-                    <div class="section-title whatsapp-area">Enviar WhatsApp</div>
-                    <textarea id="whatsappMsg" rows="3">Olá ${p.nome_cliente || ''}! Seu pedido #${String(p.id).padStart(3,'0')} está ${p.status.toLowerCase()}. Qualquer dúvida, estamos à disposição! 🎉</textarea>
-                    <button class="btn-whatsapp" onclick="enviarWhatsApp(${p.id}, '${p.telefone || ''}')"><i class="fab fa-whatsapp"></i> Enviar WhatsApp</button>
+                   
                 `;
             } catch (err) {
                 document.getElementById('modalBody').innerHTML = '<p style="color:#f87171;text-align:center;padding:20px;">Erro: ' + err.message + '</p>';
@@ -1383,7 +1382,8 @@ if (imagensPedido.length > 0) {
     }, true);
 })();
 /* ============================================================
-   STATUS DE PAGAMENTO v2 — seção no modal do pedido
+   STATUS DE PAGAMENTO v3 — seção no modal do pedido
+   POSIÇÃO: antes da seção "Alterar Status"
    Não Pago | Pago Parcialmente | Pago Total | Receber na Entrega
    + botão "Enviar PIX do Saldo"
    ============================================================ */
@@ -1395,7 +1395,7 @@ if (imagensPedido.length > 0) {
 
     function fmt(v) { return 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ','); }
     function getToken() {
-        return localStorage.getItem('token');
+        return  localStorage.getItem('token');
     }
     function getPedido() {
         return (typeof pedidoAtual !== 'undefined') ? pedidoAtual : (window.pedidoAtual || {});
@@ -1416,7 +1416,7 @@ if (imagensPedido.length > 0) {
         var pago = parseFloat(p.valor_pago || 0);
         var saldo = Math.max(total - pago, 0);
         var atual = p.status_pagamento || 'Não Pago';
-        var html = '<div id="secaoStatusPagamento" data-pedido-id="' + p.id + '" style="border:1px dashed #9ca3af;border-radius:8px;padding:10px;margin:10px 0;background:#f9fafb;">';
+        var html = '<div id="secaoStatusPagamento" data-pedido-id="' + p.id + '" style="border:1px dashed #9ca3af;border-radius:8px;padding:10px;margin:10px 0;background:#19191a;">';
         html += '<div style="font-weight:bold;margin-bottom:6px;">💳 Status do Pagamento: <span style="color:#1d4ed8;">' + atual + '</span></div>';
         html += '<div style="font-size:13px;">Total: <b>' + fmt(total) + '</b> &nbsp;|&nbsp; Pago: <b>' + fmt(pago) + '</b> &nbsp;|&nbsp; Saldo: <b style="color:' + (saldo > 0 ? '#dc2626' : '#16a34a') + '">' + fmt(saldo) + '</b></div>';
         html += '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">';
@@ -1427,6 +1427,26 @@ if (imagensPedido.length > 0) {
         html += '<button id="btnPixSaldo" style="padding:6px 10px;border:none;border-radius:6px;background:#0ea5e9;color:#fff;cursor:pointer;font-size:12px;">📤 Enviar PIX do Saldo</button>';
         html += '</div></div>';
         return html;
+    }
+
+    // Localiza o elemento da seção "Alterar Status" no modal
+    function acharSecaoAlterarStatus(body) {
+        var todos = body.querySelectorAll('*');
+        var menor = null;
+        for (var i = 0; i < todos.length; i++) {
+            var t = todos[i].textContent || '';
+            if (/alterar\s*status/i.test(t)) {
+                if (!menor || t.length < (menor.textContent || '').length) menor = todos[i];
+            }
+        }
+        if (!menor) return null;
+        // Sobe até um elemento de bloco (evita inserir dentro de um span/título)
+        var blocos = { DIV: 1, SECTION: 1, FIELDSET: 1, H1: 1, H2: 1, H3: 1, H4: 1, H5: 1, H6: 1, P: 1, TABLE: 1, UL: 1 };
+        var alvo = menor;
+        while (alvo && alvo !== body && !blocos[alvo.tagName]) {
+            alvo = alvo.parentNode;
+        }
+        return (alvo && alvo !== body) ? alvo : null;
     }
 
     function enviarPixSaldo() {
@@ -1464,7 +1484,13 @@ if (imagensPedido.length > 0) {
             }
             return;
         }
-        body.insertAdjacentHTML('beforeend', secaoHtml(p));
+        // Insere ANTES da seção "Alterar Status"; se não achar, vai para o fim
+        var alvo = acharSecaoAlterarStatus(body);
+        if (alvo) {
+            alvo.insertAdjacentHTML('beforebegin', secaoHtml(p));
+        } else {
+            body.insertAdjacentHTML('beforeend', secaoHtml(p));
+        }
         ligarBotoes();
     }
 
@@ -1516,6 +1542,7 @@ if (imagensPedido.length > 0) {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
     else iniciar();
 })();
+
 (function () {
     var MAPA_MSG = {
         'Confirmado': 'confirmado',
