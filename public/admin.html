@@ -853,18 +853,15 @@ if (imagensPedido.length > 0) {
         })();
 /* ============================================================
    IMPRESSÃO COZINHA — TÉRMICA 80mm
-   Cabeçalho padrão + itens agrupados por área de produção
-   ============================================================ */
-/* ============================================================
-   IMPRESSÃO COZINHA — TÉRMICA 80mm
-   Para cada item do pedido (pedido_itens):
-   1) Linha do item (id - nome - label)
-   2) Áreas de produção com a composição daquele item
+   Com observação do item abaixo de cada produto
    ============================================================ */
 (function () {
-    function fmtQtdLocal(v) {
+    function fmtQtd(v) {
         var n = parseFloat(v) || 0;
         return (n % 1 === 0) ? String(n) : String(n).replace('.', ',');
+    }
+    function esc(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
     function imprimirCozinha() {
@@ -873,7 +870,6 @@ if (imagensPedido.length > 0) {
             var itens = (typeof pedidoAtualItens !== 'undefined' && Array.isArray(pedidoAtualItens))
                 ? pedidoAtualItens : (window.pedidoAtualItens || []);
 
-            // ===== CABEÇALHO PADRÃO =====
             var dataEntrega = p.data_entrega ? new Date(p.data_entrega).toLocaleDateString('pt-BR') : '-';
             var horaEntrega = p.hora_entrega || '-';
 
@@ -888,11 +884,12 @@ if (imagensPedido.length > 0) {
             html += '.numero { font-size: 16px; font-weight: bold; margin: 2px 0; }';
             html += '.linha { border-top: 1px dashed #000; margin: 4px 0; }';
             html += '.info { font-size: 11px; line-height: 1.5; }';
-            html += '.itemPai { font-size: 12px; font-weight: bold; padding: 4px 0 2px 0; border-bottom: 1px solid #000; margin-top: 6px; word-break: break-word; }';
             html += '.area { font-size: 12px; font-weight: bold; text-align: center; background: #000; color: #fff; padding: 2px 0; margin: 4px 0 2px 0; }';
+            html += '.itemPai { font-size: 12px; font-weight: bold; padding: 4px 0 2px 0; border-bottom: 1px solid #000; margin-top: 6px; word-break: break-word; }';
             html += '.item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }';
             html += '.item .desc { flex: 1; padding-right: 4px; word-break: break-word; }';
             html += '.item .qtd { font-weight: bold; white-space: nowrap; }';
+            html += '.obsItem { font-size: 11px; font-style: italic; padding: 1px 0 1px 8px; word-break: break-word; }';
             html += '.obs { font-size: 11px; margin-top: 4px; }';
             html += '.rodape { text-align: center; font-size: 10px; margin-top: 8px; }';
             html += '@media print { .no-print { display: none; } }';
@@ -912,13 +909,11 @@ if (imagensPedido.length > 0) {
                 html += '<div class="centro">--- SEM ITENS ---</div>';
             } else {
                 itens.forEach(function (i) {
-                    // ===== LINHA DO ITEM DO PEDIDO (pedido_itens) =====
                     var labelItem = i.label || '';
-                    var linhaItem = String(i.product_id || '') + ' - ' + (i.product_name || 'Item');
-                    if (labelItem) linhaItem += ' - ' + labelItem ;
-                    html += '<div class="itemPai">' + linhaItem + '</div>';
+                    var linhaItem = String(i.id || '') + ' - ' + (i.product_name || 'Item');
+                    if (labelItem) linhaItem += ' - ' + labelItem + ' (' + labelItem + ')';
+                    html += '<div class="itemPai">' + esc(linhaItem) + '</div>';
 
-                    // ===== COMPOSIÇÃO AGRUPADA POR ÁREA =====
                     if (i.composicao && i.composicao.length > 0) {
                         var grupos = {};
                         i.composicao.forEach(function (c) {
@@ -926,33 +921,34 @@ if (imagensPedido.length > 0) {
                             if (!grupos[area]) grupos[area] = [];
                             grupos[area].push({
                                 desc: c.product_name || 'Item',
-                                qtd: fmtQtdLocal(c.quantidade) + 'un'
+                                qtd: fmtQtd(c.quantidade) + 'un'
                             });
                         });
                         Object.keys(grupos).sort().forEach(function (area) {
                             html += '<div class="area">' + area + '</div>';
                             grupos[area].forEach(function (it) {
-                                html += '<div class="item"><span class="desc">' + it.desc + '</span><span class="qtd">' + it.qtd + '</span></div>';
+                                html += '<div class="item"><span class="desc">' + esc(it.desc) + '</span><span class="qtd">' + it.qtd + '</span></div>';
                             });
                         });
                     } else {
-                        // Item simples: imprime direto na área dele
                         var areaSimples = (i.local_producao || 'GERAL').trim().toUpperCase() || 'GERAL';
-                        var qtd = i.quantidade_kg ? fmtQtdLocal(i.quantidade_kg) + 'kg' : fmtQtdLocal(i.quantidade) + 'un';
+                        var qtd = i.quantidade_kg ? fmtQtd(i.quantidade_kg) + 'kg' : fmtQtd(i.quantidade) + 'un';
                         html += '<div class="area">' + areaSimples + '</div>';
-                        html += '<div class="item"><span class="desc">' + (i.product_name || 'Item') + (labelItem ? ' (' + labelItem + ')' : '') + '</span><span class="qtd">' + qtd + '</span></div>';
+                        html += '<div class="item"><span class="desc">' + esc(i.product_name || 'Item') + (labelItem ? ' (' + esc(labelItem) + ')' : '') + '</span><span class="qtd">' + qtd + '</span></div>';
                     }
-                    html += '<div class="linha"></div>';
-                    
+
+                    if (i.observacao) {
+                        html += '<div class="obsItem"><b>OBS:</b> ' + esc(i.observacao) + '</div>';
+                    }
                 });
             }
 
             if (p.observacoes) {
                 html += '<div class="linha"></div>';
-                html += '<div class="obs"><b>OBS:</b> ' + p.observacoes + '</div>';
+                html += '<div class="obs"><b>OBS:</b> ' + esc(p.observacoes) + '</div>';
             }
 
-            /*html += '<div class="linha"></div>';*/
+            html += '<div class="linha"></div>';
             html += '<div class="rodape">' + new Date().toLocaleString('pt-BR') + '</div>';
             html += '<div class="no-print centro" style="margin-top:10px;"><button onclick="window.print()" style="padding:8px 20px;font-size:13px;">🖨️ Imprimir</button></div>';
             html += '</body></html>';
@@ -968,7 +964,6 @@ if (imagensPedido.length > 0) {
         }
     }
 
-    // Intercepta o clique no botão "Cozinha" (capture phase)
     document.addEventListener('click', function (e) {
         var btn = e.target.closest ? e.target.closest('button, a') : null;
         if (!btn) return;
@@ -1147,9 +1142,7 @@ if (imagensPedido.length > 0) {
 })();
 /* ============================================================
    IMPRESSÃO ENTREGA + GERAL — TÉRMICA 80mm (bloco unificado)
-   Entrega: cabeçalho + Endereço/Pagamento + itens + valores
-   Geral: Entrega + data do pedido e status
-   Ambos com Pago/Saldo após o TOTAL
+   Com observação do item abaixo de cada produto
    ============================================================ */
 (function () {
     function fmtQtd(v) {
@@ -1158,6 +1151,9 @@ if (imagensPedido.length > 0) {
     }
     function fmtMoeda(v) {
         return 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ',');
+    }
+    function esc(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
     function imprimir(tipo) {
@@ -1207,6 +1203,7 @@ if (imagensPedido.length > 0) {
             html += '.item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }';
             html += '.item .desc { flex: 1; padding-right: 4px; word-break: break-word; }';
             html += '.item .qtd { font-weight: bold; white-space: nowrap; }';
+            html += '.obsItem { font-size: 11px; font-style: italic; padding: 1px 0 1px 8px; word-break: break-word; }';
             html += '.totais { margin-top: 6px; font-size: 12px; }';
             html += '.totais .linhaTotal { display: flex; justify-content: space-between; padding: 2px 0; }';
             html += '.totais .total { font-size: 14px; font-weight: bold; border-top: 1px solid #000; margin-top: 3px; padding-top: 3px; }';
@@ -1222,7 +1219,7 @@ if (imagensPedido.length > 0) {
             html += '<div class="info">';
             html += '<div>Cliente:' + (p.nome_cliente || '-') + '</div>';
             html += '<div>Tel:' + (p.telefone || '-') + '</div>';
-            html += '<div>Endereço:' + endereco + '</div>';
+            html += '<div>Endereço:' + esc(endereco) + '</div>';
             html += '<div>Pagamento:' + (p.forma_pagamento || '-') + ' (' + statusPag + ')</div>';
             if (geral) {
                 html += '<div>Pedido:' + dataPedido + '</div>';
@@ -1238,7 +1235,7 @@ if (imagensPedido.length > 0) {
                     var labelItem = i.label || '';
                     var linhaItem = String(i.id || '') + ' - ' + (i.product_name || 'Item');
                     if (labelItem) linhaItem += ' - ' + labelItem + ' (' + labelItem + ')';
-                    html += '<div class="itemPai">' + linhaItem + '</div>';
+                    html += '<div class="itemPai">' + esc(linhaItem) + '</div>';
 
                     if (i.composicao && i.composicao.length > 0) {
                         var grupos = {};
@@ -1253,14 +1250,20 @@ if (imagensPedido.length > 0) {
                         Object.keys(grupos).sort().forEach(function (area) {
                             html += '<div class="area">' + area + '</div>';
                             grupos[area].forEach(function (it) {
-                                html += '<div class="item"><span class="desc">' + it.desc + '</span><span class="qtd">' + it.qtd + '</span></div>';
+                                html += '<div class="item"><span class="desc">' + esc(it.desc) + '</span><span class="qtd">' + it.qtd + '</span></div>';
                             });
                         });
                     } else {
                         var areaSimples = (i.local_producao || 'GERAL').trim().toUpperCase() || 'GERAL';
                         var qtd = i.quantidade_kg ? fmtQtd(i.quantidade_kg) + 'kg' : fmtQtd(i.quantidade) + 'un';
                         html += '<div class="area">' + areaSimples + '</div>';
-                        html += '<div class="item"><span class="desc">' + (i.product_name || 'Item') + (labelItem ? ' (' + labelItem + ')' : '') + '</span><span class="qtd">' + qtd + '</span></div>';
+                        html += '<div class="item"><span class="desc">' + esc(i.product_name || 'Item') + (labelItem ? ' (' + esc(labelItem) + ')' : '') + '</span><span class="qtd">' + qtd + '</span></div>';
+                    }
+
+                    // Observação do item — abaixo do produto
+                    if (i.observacao) {
+                        html += '<div class="obsItem"><b>OBS:</b> ' + esc(i.observacao) + '</div>';
+                        html += '<div class="linha"></div>';
                     }
                 });
             }
@@ -1276,7 +1279,7 @@ if (imagensPedido.length > 0) {
 
             if (p.observacoes) {
                 html += '<div class="linha"></div>';
-                html += '<div class="obs"><b>OBS:</b> ' + p.observacoes + '</div>';
+                html += '<div class="obs"><b>OBS:</b> ' + esc(p.observacoes) + '</div>';
             }
 
             html += '<div class="linha"></div>';
@@ -1707,6 +1710,81 @@ if (imagensPedido.length > 0) {
     function iniciar() {
         obs.observe(document.body, { childList: true, subtree: true });
         seed();
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
+    else iniciar();
+})();
+/* ============================================================
+   OBSERVAÇÕES DOS ITENS — seção no modal do admin
+   "#ID - Produto: observação" abaixo da lista de produtos
+   ============================================================ */
+(function () {
+    if (window.__obsItensModalAtivo) return;
+    window.__obsItensModalAtivo = true;
+
+    function esc(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    function getPedido() {
+        return (typeof pedidoAtual !== 'undefined') ? pedidoAtual : (window.pedidoAtual || {});
+    }
+    function getItens() {
+        return (typeof pedidoAtualItens !== 'undefined' && Array.isArray(pedidoAtualItens))
+            ? pedidoAtualItens : (window.pedidoAtualItens || []);
+    }
+
+    function secaoHtml(itens, pedidoId) {
+        var comObs = itens.filter(function (i) { return i.observacao; });
+        if (comObs.length === 0) return '';
+        var html = '<div id="secaoObsItens" data-pedido-id="' + pedidoId + '" style="border:1px dashed #19191a;border-radius:8px;padding:10px;margin:10px 0;background:#51a0e3;">';
+        html += '<div style="font-weight:bold;margin-bottom:6px;">📝 Observações dos Itens</div>';
+        comObs.forEach(function (i) {
+            html += '<div style="font-size:13px;padding:2px 0;"><b>Item #' + i.product_id + '</b> - ' + '<span style="color:#fbbf24;">' + esc(i.observacao) + '</span></div>';
+        });
+        html += '</div>';
+        return html;
+    }
+
+    function acharSecaoAlterarStatus(body) {
+        var todos = body.querySelectorAll('*');
+        var menor = null;
+        for (var i = 0; i < todos.length; i++) {
+            var t = todos[i].textContent || '';
+            if (/alterar\s*status/i.test(t)) {
+                if (!menor || t.length < (menor.textContent || '').length) menor = todos[i];
+            }
+        }
+        if (!menor) return null;
+        var blocos = { DIV: 1, SECTION: 1, FIELDSET: 1, H1: 1, H2: 1, H3: 1, H4: 1, H5: 1, H6: 1, P: 1, TABLE: 1, UL: 1 };
+        var alvo = menor;
+        while (alvo && alvo !== body && !blocos[alvo.tagName]) alvo = alvo.parentNode;
+        return (alvo && alvo !== body) ? alvo : null;
+    }
+
+    function injetar() {
+        var body = document.getElementById('modalBody');
+        if (!body) return;
+        var p = getPedido();
+        if (!p || !p.id) return;
+        var html = secaoHtml(getItens(), p.id);
+        var sec = body.querySelector('#secaoObsItens');
+
+        if (!html) { if (sec) sec.remove(); return; }
+
+        if (sec && sec.getAttribute('data-pedido-id') === String(p.id)) return;
+
+        if (sec) sec.outerHTML = html;
+        else {
+            var alvo = body.querySelector('#secaoStatusPagamento') || acharSecaoAlterarStatus(body);
+            if (alvo) alvo.insertAdjacentHTML('beforebegin', html);
+            else body.insertAdjacentHTML('beforeend', html);
+        }
+    }
+
+    var obs = new MutationObserver(function () { setTimeout(injetar, 50); });
+    function iniciar() {
+        obs.observe(document.body, { childList: true, subtree: true });
+        injetar();
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
     else iniciar();

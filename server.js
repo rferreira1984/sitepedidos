@@ -454,8 +454,8 @@ const PIX_CIDADE = process.env.PIX_CIDADE || 'CASCAVEL';
                 ? kgBruto
                 : null;
             const itemRes = await pool.query(
-                `INSERT INTO pedido_itens (pedido_id, product_id, product_name, label, quantidade, quantidade_kg, preco_unitario, preco_total, descricao)
-                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+                `INSERT INTO pedido_itens (pedido_id, product_id, product_name, label, quantidade, quantidade_kg, preco_unitario, preco_total, descricao,observacao)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
                 [
                     pedido.id,
                     item.product_id || null,
@@ -465,7 +465,8 @@ const PIX_CIDADE = process.env.PIX_CIDADE || 'CASCAVEL';
                     quantidade_kg,
                     parseFloat(item.preco_unitario) || 0,
                     parseFloat(item.preco_total) || 0,
-                    item.descricao || null
+                    item.descricao || null,
+                    item.observacao || null
                 ]
             );
                     const pedidoItemId = itemRes.rows[0].id;

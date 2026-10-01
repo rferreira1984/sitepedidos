@@ -2516,6 +2516,105 @@ function ehBoloCaseiroAtual() {
         if (sel && t === sel) window.__freteCalculado = false;
     }, true);
 })();
+/* ============================================================
+   OBSERVAÇÕES POR ITEM — grava em pedido_itens.observacao
+   (coluna separada, criada na migração)
+   1) Captura a observação digitada nos modais (Kit, Bolo, Quilo)
+      no clique de "Adicionar ao Carrinho" e anexa ao item do carrinho
+   2) No envio do pedido, injeta a observação de cada item no campo
+      "observacao" — o server.js grava na coluna própria
+   ============================================================ */
+(function () {
+    if (window.__obsItensAtivo) return;
+    window.__obsItensAtivo = true;
+
+    function getCarrinho() {
+        try {
+            if (typeof carrinho !== 'undefined' && Array.isArray(carrinho)) return carrinho;
+        } catch (e) {}
+        return window.carrinho || null;
+    }
+
+    function acharTextareaObs(container) {
+        var tas = container.querySelectorAll('textarea');
+        for (var i = 0; i < tas.length; i++) {
+            var el = tas[i];
+            for (var k = 0; k < 3 && el; k++) {
+                el = el.parentNode;
+                if (!el) break;
+                var txt = (el.textContent || '').toLowerCase();
+                if (txt.indexOf('observaç') !== -1 || txt.indexOf('observac') !== -1) return tas[i];
+            }
+        }
+        return tas.length ? tas[tas.length - 1] : null;
+    }
+
+    // ===== 1) CAPTURA NO MODAL (roda antes do handler original) =====
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('button') : null;
+        if (!btn) return;
+        var txt = (btn.textContent || '').trim();
+        if (!/adicionar\s+ao\s+carrinho/i.test(txt)) return;
+
+        var container = null;
+        var el = btn.parentNode;
+        for (var k = 0; k < 8 && el && el !== document.body; k++) {
+            if (el.querySelector && el.querySelector('textarea')) { container = el; break; }
+            el = el.parentNode;
+        }
+        if (!container) return;
+
+        var ta = acharTextareaObs(container);
+        var obs = (ta && ta.value) ? ta.value.trim() : '';
+        if (!obs) return;
+
+        var carr = getCarrinho();
+        var lenAntes = carr ? carr.length : null;
+        if (lenAntes === null) return;
+
+        var t0 = Date.now();
+        setTimeout(function tentarAnexar() {
+            var c = getCarrinho();
+            if (!c) return;
+            if (c.length > lenAntes) {
+                for (var i = lenAntes; i < c.length; i++) {
+                    if (c[i] && !c[i].obsItem) c[i].obsItem = obs;
+                }
+                return;
+            }
+            if (Date.now() - t0 < 1500) setTimeout(tentarAnexar, 100);
+        }, 60);
+    }, true);
+
+    // ===== 2) INJEÇÃO NO ENVIO DO PEDIDO (coluna observacao) =====
+    var origFetch = window.fetch;
+    window.fetch = function () {
+        var args = arguments;
+        var url = (typeof args[0] === 'string') ? args[0] : ((args[0] && args[0].url) || '');
+        var opts = args[1];
+        if (url.indexOf('/api/pedidos') !== -1 && opts && opts.method === 'POST' && opts.body) {
+            try {
+                var body = JSON.parse(opts.body);
+                if (Array.isArray(body.itens)) {
+                    var carr = getCarrinho() || [];
+                    body.itens.forEach(function (it) {
+                        if (it.observacao) return;
+                        if (it.obsItem) { it.observacao = it.obsItem; return; }
+                        if (it.obs) { it.observacao = it.obs; return; }
+                        var match = carr.find(function (c) {
+                            return c && c.obsItem
+                                && String(c.id) === String(it.product_id || it.id)
+                                && String(c.nome || '') === String(it.nome || '');
+                        });
+                        if (match) it.observacao = match.obsItem;
+                    });
+                    opts.body = JSON.stringify(body);
+                }
+            } catch (e) {}
+        }
+        return origFetch.apply(this, args);
+    };
+})();
     </script>
 </body>
 </html>
