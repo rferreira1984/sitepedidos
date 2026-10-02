@@ -2615,6 +2615,115 @@ function ehBoloCaseiroAtual() {
         return origFetch.apply(this, args);
     };
 })();
+/* ============================================================
+   VALOR MÍNIMO POR TIPO DE LOGÍSTICA — bloqueia a confirmação
+   Mínimos lidos do backend (/api/config); fallback fixo
+   ============================================================ */
+(function () {
+    if (window.__valorMinimoAtivo) return;
+    window.__valorMinimoAtivo = true;
+
+    // Fallback caso /api/config não responda (mantenha igual ao .env)
+    var MIN_ENTREGA = 70;
+    var MIN_RETIRADA = 0;
+
+    // Busca os valores reais do backend
+    fetch('/api/config')
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+            if (j.success && j.data) {
+                var e = parseFloat(j.data.min_pedido_entrega);
+                var r = parseFloat(j.data.min_pedido_retirada);
+                if (!isNaN(e)) MIN_ENTREGA = e;
+                if (!isNaN(r)) MIN_RETIRADA = r;
+            }
+        })
+        .catch(function () {});
+
+    function fmt(v) { return 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ','); }
+
+    function tipoEhRetirada() {
+        var selects = document.querySelectorAll('select');
+        for (var i = 0; i < selects.length; i++) {
+            var opts = Array.prototype.slice.call(selects[i].options)
+                .map(function (o) { return (o.textContent || '').trim(); });
+            var temEntrega = opts.some(function (t) { return /entrega/i.test(t); });
+            var temRetirada = opts.some(function (t) { return /retirada/i.test(t); });
+            if (temEntrega && temRetirada) {
+                var opt = selects[i].options[selects[i].selectedIndex];
+                return !!(opt && /retirada/i.test(opt.textContent || ''));
+            }
+        }
+        return false;
+    }
+
+    function totalDoPedido() {
+        try {
+            var carr = (typeof carrinho !== 'undefined' && Array.isArray(carrinho))
+                ? carrinho : (window.carrinho || null);
+            if (carr && carr.length > 0) {
+                var subtotal = 0;
+                carr.forEach(function (it) {
+                    if (!it) return;
+                    if (it.porQuilo) {
+                        subtotal += parseFloat(it.preco_total)
+                            || (parseFloat(it.preco) || 0) * (parseFloat(it.quantidade_kg) || 0);
+                    } else {
+                        subtotal += (parseFloat(it.preco) || 0) * (parseFloat(it.qtd) || 0);
+                    }
+                });
+                var frete = 0;
+                try {
+                    if (!tipoEhRetirada() && typeof custoEntrega !== 'undefined') {
+                        frete = parseFloat(custoEntrega) || 0;
+                    }
+                } catch (e) {}
+                return subtotal;
+            }
+        } catch (e) {}
+        var els = document.querySelectorAll('b, span, div, strong');
+        for (var i = els.length - 1; i >= 0; i--) {
+            var t = (els[i].textContent || '').trim();
+            var m = t.match(/^Total\s*R\$\s*([\d.,]+)$/i);
+            if (m) {
+                var num = m[1].replace(/\./g, '').replace(',', '.');
+                var v = parseFloat(num);
+                if (!isNaN(v)) return v;
+            }
+        }
+        return null;
+    }
+
+    function avisarMinimo(minimo, total) {
+        var msg = '⚠️ Pedido mínimo de ' + fmt(minimo) + ' para '
+            + (tipoEhRetirada() ? 'retirada' : 'entrega')
+            + '. Seu pedido está em ' + fmt(total) + '.';
+        if (typeof mostrarToast === 'function') mostrarToast(msg, 'error');
+        else alert(msg);
+    }
+
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('button, a') : null;
+        if (!btn) return;
+        var txt = (btn.textContent || '').trim();
+        var ehConfirmar = /confirmar\s+pedido/i.test(txt)
+            || /confirmar\s+via\s+c[oó]digo/i.test(txt)
+            || /entrar\s+para\s+pedir/i.test(txt);
+        if (!ehConfirmar) return;
+
+        var minimo = tipoEhRetirada() ? MIN_RETIRADA : MIN_ENTREGA;
+        if (!minimo || minimo <= 0) return;
+
+        var total = totalDoPedido();
+        if (total === null) return;
+
+        if (total < minimo - 0.009) {
+            e.preventDefault();
+            e.stopPropagation();
+            avisarMinimo(minimo, total);
+        }
+    }, true);
+})();
     </script>
 </body>
 </html>

@@ -14,7 +14,7 @@
     const WEBHOOK_CONFIRMACAO = process.env.WEBHOOK_CONFIRMACAO || 'https://n8n-salgadoscia-n8n.hjs9cn.easypanel.host/webhook/27084bb2-983f-45b7-8a91-f3627a1704b7';
     const WEBHOOK_VERIFICACAO = process.env.WEBHOOK_VERIFICACAO || 'https://n8n-salgadoscia-n8n.hjs9cn.easypanel.host/webhook/9764c692-0c00-4308-b490-6807e2816662';
     const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyDcy5vIhEOUAeVLBZ9S8pmv8zeOz6NQ8-A';
-    const LOJA_ORIGEM = '-24.965348589309297,-53.51220562301614';
+    const LOJA_ORIGEM = process.env.LOJA_ORIGEM||'-24.965348589309297,-53.51220562301614';
     const TAXA_BASE_ENTREGA = parseFloat(process.env.TAXA_BASE_ENTREGA || '0');
     const TAXA_POR_KM = parseFloat(process.env.TAXA_POR_KM || '3');
     const FRETE_GRATIS_ACIMA = parseFloat(process.env.FRETE_GRATIS_ACIMA || '0');
@@ -24,6 +24,8 @@
 const PIX_CHAVE = process.env.PIX_CHAVE || '00368540006';
 const PIX_NOME = process.env.PIX_NOME || 'RENATO LUIS FERREIRA';
 const PIX_CIDADE = process.env.PIX_CIDADE || 'CASCAVEL';
+const MIN_PEDIDO_ENTREGA = parseFloat(process.env.MIN_PEDIDO_ENTREGA || '70');
+const MIN_PEDIDO_RETIRADA = parseFloat(process.env.MIN_PEDIDO_RETIRADA || '0');
 
 
     class Pix {
@@ -433,6 +435,18 @@ const PIX_CIDADE = process.env.PIX_CIDADE || 'CASCAVEL';
             const validacao = validarRegrasPedido(dataEntrega, horaEntrega, tipo_logistica || 'Entrega', itens);
             if (!validacao.ok) {
                 return res.status(400).json({ success: false, message: validacao.msg });
+            }
+            const ehRetirada = String(tipo_logistica || '').toLowerCase().includes('retirada');
+            const minPedido = ehRetirada ? MIN_PEDIDO_RETIRADA : MIN_PEDIDO_ENTREGA;
+            const valorTotalNum = parseFloat(valor_total) || 0;
+            if (minPedido > 0 && valorTotalNum < minPedido - 0.009) {
+                const tipoTxt = ehRetirada ? 'retirada' : 'entrega';
+                return res.status(400).json({
+                    success: false,
+                    message: 'Pedido mínimo de R$ ' + minPedido.toFixed(2).replace('.', ',')
+                        + ' para ' + tipoTxt + '. Seu pedido está em R$ '
+                        + valorTotalNum.toFixed(2).replace('.', ',') + '.'
+                });
             }
             // TODO PEDIDO INICIA COMO PENDENTE (conforme fluxo)
             const statusInicial = 'Pendente';
@@ -932,6 +946,15 @@ const PIX_CIDADE = process.env.PIX_CIDADE || 'CASCAVEL';
     app.get('/recuperar.html', (req, res) => {
         res.sendFile(path.join(__dirname, 'public', 'recuperar.html'));
     });
+    app.get('/api/config', async (req, res) => {
+    res.json({
+        success: true,
+        data: {
+            min_pedido_entrega: MIN_PEDIDO_ENTREGA,
+            min_pedido_retirada: MIN_PEDIDO_RETIRADA
+        }
+    });
+});
     // ==================== ROTAS ADMIN (PROTEGIDAS) ====================
     app.get('/api/pedidos', authMiddleware, async (req, res) => {
         try {
