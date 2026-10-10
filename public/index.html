@@ -390,7 +390,7 @@
                 <div class="km-info" style="font-size:11px;color:#9ca3af;margin-bottom:6px;" id="kmBoloInfo"></div>
                 <select class="km-select" id="kmBoloSabores" onchange="montarSelectsBolo()">
                     <option value="1">1 sabor</option>
-                    <option value="2">2 sabores (metade/metade)</option>
+                    <option value="2">2 sabores (uma camada de cada sabor)</option>
                 </select>
                 <div id="kmBoloSelects"></div>
             </div>
@@ -993,8 +993,8 @@
             const tipoCento = detectarTipoCento(p.name);
             const saboresDisponiveis = SABORES_CENTO_POR_TIPO[tipoCento] || SABORES_CENTO_POR_TIPO['Salgados Fritos'];
             document.getElementById('kmTitle').textContent = `🥟 ${p.name}`;
-            document.getElementById('kmSubtitle').textContent = `${centoQtd} unidades — ${tipoCento} · escolha ${maxSabores} ${maxSabores > 1 ? 'sabores' : 'sabor'}`;
-            document.getElementById('kmComposicao').textContent = `Quantidade: ${centoQtd} · Tipo: ${tipoCento} · Sabores: até ${maxSabores}`;
+            document.getElementById('kmSubtitle').textContent = ``;
+            document.getElementById('kmComposicao').textContent = `Quantidade: ${centoQtd} · Tipo: ${tipoCento}`;
             document.getElementById('kmBoloSection').style.display = 'none';
             document.getElementById('kmDocesSection').style.display = 'none';
             document.getElementById('kmRefriSection').style.display = 'none';
@@ -1003,7 +1003,7 @@
             document.getElementById('kmObsSection').style.display = 'none';
             document.getElementById('kmDecoracaoSection').style.display = 'none';
             document.getElementById('kmSalgadosSection').style.display = '';
-            document.getElementById('kmSalgadosInfo').textContent = maxSabores === 1 ? `Selecione 1 sabor (${tipoCento})` : `Selecione até ${maxSabores} sabores (${tipoCento})`;
+            document.getElementById('kmSalgadosInfo').textContent = maxSabores === 1 ? `Selecione 1 sabor (${tipoCento})` : `Selecione ${maxSabores} sabores`;
             const container = document.getElementById('kmSalgadosChips');
             container.dataset.max = maxSabores;
             container.innerHTML = saboresDisponiveis.map(s => `<span class="km-chip" data-value="${s}">${s}</span>`).join('');
@@ -1319,7 +1319,7 @@
             section.style.display = '';
            
             
-            document.getElementById('kmBoloInfo').textContent = 'Escolha 1 ou 2 sabores (metade/metade)';
+            document.getElementById('kmBoloInfo').textContent = 'Escolha 1 ou 2 sabores (uma cada de cada sabor)';
             const sel = document.getElementById('kmBoloSabores');
             if (sel) sel.value = '1';
             montarSelectsBolo();
