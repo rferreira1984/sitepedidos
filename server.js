@@ -1017,6 +1017,55 @@ const PIX_CIDADE = process.env.PIX_CIDADE || 'CASCAVEL';
             res.status(500).json({ success: false, message: 'Erro ao atualizar status' });
         }
     });
+    // ==================== STATUS DE PAGAMENTO (CONTROLE SEPARADO) ====================
+app.put('/api/pedidos/:id/status-pagamento', authMiddleware, async (req, res) => {
+    try {
+        const { status_pagamento, valor_pago } = req.body;
+        const validos = ['Não Pago', 'Pago Parcialmente', 'Pago Total', 'Receber na Entrega'];
+        if (!validos.includes(status_pagamento)) {
+            return res.status(400).json({ success: false, message: 'Status de pagamento inválido' });
+        }
+        const pedido = await pool.query('SELECT * FROM s_pedidos WHERE id = $1', [req.params.id]);
+        if (pedido.rows.length === 0) return res.status(404).json({ success: false, message: 'Pedido não encontrado' });
+        const p = pedido.rows[0];
+        const total = parseFloat(p.valor_total || 0);
+        let novoPago = parseFloat(p.valor_pago || 0);
+
+        if (status_pagamento === 'Não Pago') {
+            novoPago = 0;
+        } else if (status_pagamento === 'Pago Total') {
+            const restante = Math.max(total - novoPago, 0);
+            if (restante > 0) {
+                await pool.query(
+                    'INSERT INTO pedido_pagamentos (pedido_id, valor, forma_pagamento, observacao, usuario_id) VALUES ($1,$2,$3,$4,$5)',
+                    [p.id, restante, p.forma_pagamento || '', 'Pagamento total registrado', req.usuario.id]
+                );
+            }
+            novoPago = total;
+        } else if (status_pagamento === 'Pago Parcialmente') {
+            const vp = parseFloat(valor_pago);
+            if (!vp || vp <= 0) return res.status(400).json({ success: false, message: 'Informe o valor pago' });
+            if (vp >= total - 0.009) return res.status(400).json({ success: false, message: 'Valor igual ou maior que o total. Use "Pago Total".' });
+            await pool.query(
+                'INSERT INTO pedido_pagamentos (pedido_id, valor, forma_pagamento, observacao, usuario_id) VALUES ($1,$2,$3,$4,$5)',
+                [p.id, vp, p.forma_pagamento || '', 'Pagamento parcial registrado', req.usuario.id]
+            );
+            novoPago = vp;
+        }
+        // 'Receber na Entrega': apenas marca o status, valor_pago permanece
+
+        await pool.query('UPDATE s_pedidos SET status_pagamento = $1, valor_pago = $2 WHERE id = $3', [status_pagamento, novoPago, p.id]);
+        await pool.query(
+            'INSERT INTO status_historico (pedido_id, status_anterior, status_novo, observacao, usuario_id) VALUES ($1,$2,$3,$4,$5)',
+            [p.id, p.status, p.status, 'Pagamento: ' + status_pagamento + (novoPago > 0 ? ' (R$ ' + novoPago.toFixed(2) + ')' : ''), req.usuario.id]
+        );
+        res.json({ success: true, message: 'Pagamento: ' + status_pagamento, status_pagamento: status_pagamento, valor_pago: novoPago });
+    } catch (err) {
+        console.error('Erro ao atualizar status de pagamento:', err);
+        res.status(500).json({ success: false, message: 'Erro ao atualizar status de pagamento' });
+    }
+});
+
     // ==================== ENVIO DE PIX PARA O CLIENTE ====================
 app.post('/api/pedidos/:id/enviar-pix', authMiddleware, async (req, res) => {
     try {
@@ -1025,14 +1074,17 @@ app.post('/api/pedidos/:id/enviar-pix', authMiddleware, async (req, res) => {
         const p = pedido.rows[0];
         if (!p.telefone) return res.status(400).json({ success: false, message: 'Pedido não tem telefone' });
 
-        // Gera o payload PIX (BR Code Copia e Cola)
+       // Valor do PIX: total ou parcial (informado no body.valor)
+        const valorPix = parseFloat(req.body.valor) > 0
+            ? parseFloat(req.body.valor)
+            : parseFloat(p.valor_total || 0);
         const pix = new Pix(
             PIX_CHAVE,
             'Pedido #' + String(p.id).padStart(3, '0'),
             PIX_NOME,
             PIX_CIDADE,
             'PED' + String(p.id).padStart(6, '0'),
-            parseFloat(p.valor_total || 0)
+            valorPix
         );
         const payloadPix = pix.getPayload();
 
@@ -1048,6 +1100,7 @@ app.post('/api/pedidos/:id/enviar-pix', authMiddleware, async (req, res) => {
                 chavepix: PIX_CHAVE,
                 pix_payload: payloadPix,
                 nome_cliente: p.nome_cliente,
+                valor_pix: valorPix,
                 mensagem: 'Segue o PIX para pagamento do seu pedido #' + String(p.id).padStart(3, '0')
             })
         });
@@ -1062,6 +1115,47 @@ app.post('/api/pedidos/:id/enviar-pix', authMiddleware, async (req, res) => {
     } catch (err) {
         console.error('Erro ao enviar PIX:', err);
         res.status(500).json({ success: false, message: 'Erro ao enviar PIX' });
+    }
+});
+app.post('/api/pedidos/:id/notificar', authMiddleware, async (req, res) => {
+    try {
+        const { tipomsg } = req.body;
+        const tiposValidos = ['confirmado', 'aguardando_retirada', 'saiu_entrega', 'entregue'];
+        if (!tiposValidos.includes(tipomsg)) {
+            return res.status(400).json({ success: false, message: 'Tipo de mensagem inválido' });
+        }
+        const pedido = await pool.query('SELECT * FROM s_pedidos WHERE id = $1', [req.params.id]);
+        if (pedido.rows.length === 0) return res.status(404).json({ success: false, message: 'Pedido não encontrado' });
+        const p = pedido.rows[0];
+        if (!p.telefone) return res.status(400).json({ success: false, message: 'Pedido não tem telefone' });
+   
+        await fetch(WEBHOOK_PIX, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                tipomsg: tipomsg,
+                pedido_id: p.id,
+                valor_total: parseFloat(p.valor_total || 0),
+                telefone: p.telefone,
+                chavepix: PIX_CHAVE,
+                nome_cliente: p.nome_cliente,
+                tipo_logistica: p.tipo_logistica || '',
+                data_entrega: p.data_entrega || '',
+                hora_entrega: p.hora_entrega || '',
+                mensagem: 'Atualização do pedido #' + String(p.id).padStart(3, '0'),
+                status: tipomsg
+            })
+        });
+
+        await pool.query(
+            'INSERT INTO status_historico (pedido_id, status_anterior, status_novo, observacao, usuario_id) VALUES ($1,$2,$3,$4,$5)',
+            [p.id, p.status, p.status, 'Mensagem "' + tipomsg + '" enviada ao cliente', req.usuario.id]
+        );
+
+        res.json({ success: true, message: 'Mensagem enviada ao cliente!' });
+    } catch (err) {
+        console.error('Erro ao enviar notificação:', err);
+        res.status(500).json({ success: false, message: 'Erro ao enviar notificação' });
     }
 });
     app.post('/api/pedidos/:id/mensagem', authMiddleware, async (req, res) => {
@@ -1096,6 +1190,77 @@ app.post('/api/pedidos/:id/enviar-pix', authMiddleware, async (req, res) => {
             res.json({ success: true, stats: result.rows[0], hoje: hoje.rows[0] });
         } catch (err) {
             res.status(500).json({ success: false, message: 'Erro ao buscar stats' });
+        }
+    });
+    // ==================== GESTÃO DE USUÁRIOS ADMIN ====================
+    app.get('/api/usuarios', authMiddleware, async (req, res) => {
+        try {
+            const result = await pool.query('SELECT id, nome, email, created_at FROM usuarios ORDER BY id');
+            res.json({ success: true, data: result.rows });
+        } catch (err) {
+            res.status(500).json({ success: false, message: 'Erro ao listar usuários' });
+        }
+    });
+
+    app.post('/api/usuarios', authMiddleware, async (req, res) => {
+        try {
+            const { nome, email, senha } = req.body;
+            if (!nome || !email || !senha) return res.status(400).json({ success: false, message: 'Nome, email e senha são obrigatórios' });
+            if (String(senha).length < 4) return res.status(400).json({ success: false, message: 'A senha deve ter no mínimo 4 dígitos' });
+            const existe = await pool.query('SELECT id FROM usuarios WHERE email = $1', [email]);
+            if (existe.rows.length > 0) return res.status(400).json({ success: false, message: 'Este email já está cadastrado' });
+            const senhaHash = await bcrypt.hash(senha, 10);
+            const result = await pool.query(
+                'INSERT INTO usuarios (nome, email, senha_hash) VALUES ($1,$2,$3) RETURNING id, nome, email, created_at',
+                [nome, email, senhaHash]
+            );
+            res.status(201).json({ success: true, data: result.rows[0], message: 'Usuário criado com sucesso!' });
+        } catch (err) {
+            console.error('Erro ao criar usuário:', err);
+            res.status(500).json({ success: false, message: 'Erro ao criar usuário' });
+        }
+    });
+
+    app.put('/api/usuarios/:id', authMiddleware, async (req, res) => {
+        try {
+            const { nome, email, senha } = req.body;
+            if (!nome || !email) return res.status(400).json({ success: false, message: 'Nome e email são obrigatórios' });
+            const existe = await pool.query('SELECT id FROM usuarios WHERE email = $1 AND id != $2', [email, req.params.id]);
+            if (existe.rows.length > 0) return res.status(400).json({ success: false, message: 'Este email já está em uso por outro usuário' });
+            let query, params;
+            if (senha) {
+                if (String(senha).length < 4) return res.status(400).json({ success: false, message: 'A senha deve ter no mínimo 4 dígitos' });
+                const senhaHash = await bcrypt.hash(senha, 10);
+                query = 'UPDATE usuarios SET nome=$1, email=$2, senha_hash=$3 WHERE id=$4 RETURNING id, nome, email';
+                params = [nome, email, senhaHash, req.params.id];
+            } else {
+                query = 'UPDATE usuarios SET nome=$1, email=$2 WHERE id=$3 RETURNING id, nome, email';
+                params = [nome, email, req.params.id];
+            }
+            const result = await pool.query(query, params);
+            if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Usuário não encontrado' });
+            res.json({ success: true, data: result.rows[0], message: 'Usuário atualizado!' });
+        } catch (err) {
+            console.error('Erro ao atualizar usuário:', err);
+            res.status(500).json({ success: false, message: 'Erro ao atualizar usuário' });
+        }
+    });
+
+    app.delete('/api/usuarios/:id', authMiddleware, async (req, res) => {
+        try {
+            if (String(req.usuario.id) === String(req.params.id)) {
+                return res.status(400).json({ success: false, message: 'Você não pode excluir seu próprio usuário' });
+            }
+            const total = await pool.query('SELECT COUNT(*)::int AS total FROM usuarios');
+            if (total.rows[0].total <= 1) {
+                return res.status(400).json({ success: false, message: 'Não é possível excluir o único usuário do sistema' });
+            }
+            const result = await pool.query('DELETE FROM usuarios WHERE id = $1 RETURNING id', [req.params.id]);
+            if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Usuário não encontrado' });
+            res.json({ success: true, message: 'Usuário removido' });
+        } catch (err) {
+            console.error('Erro ao remover usuário:', err);
+            res.status(500).json({ success: false, message: 'Erro ao remover usuário' });
         }
     });
     // CRUD Produtos (admin)

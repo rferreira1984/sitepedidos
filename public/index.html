@@ -2259,10 +2259,11 @@ function ehBoloCaseiroAtual() {
         var c = (cat || '').toLowerCase();
         return c.indexOf('salgado') !== -1 && (c.indexOf('frito') !== -1 || c.indexOf('assado') !== -1) || c.indexOf('doces') !== -1 && (c.indexOf('tradicionais') !== -1 || c.indexOf('gourmet') !== -1);
     }
-
+ 
     function processarSecao(sec) {
         if (sec.querySelector('.card-unificado-salgados')) return;
         var cat = sec.getAttribute('data-cat') || 'Salgados';
+       
         if (!ehCategoriaAlvo(cat)) return;
         var grid = sec.querySelector('.produtos-grid');
         if (!grid) return;
@@ -2316,7 +2317,11 @@ function ehBoloCaseiroAtual() {
         var chipsHtml = sabores.map(function (s) {
             return '<button type="button" class="sabor-chip" data-sabor-id="' + s.id + '">' + s.nome + '</button>';
         }).join('');
-
+        var desc = "Selecione o(s) sabor(es) e a quantidade desejada";
+        if(cat == "Salgados Assados")
+        {
+         desc = "Selecione o sabor desejado";
+        }
         card.innerHTML =
             '<div class="carrossel" id="carrossel-' + cat.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '">' +
                 slidesHtml +
@@ -2326,7 +2331,7 @@ function ehBoloCaseiroAtual() {
                 '<div class="car-dots">' + dotsHtml + '</div>' +
             '</div>' +
             '<div class="produto-nome">' + cat + '</div>' +
-            '<div class="produto-desc">Selecione o(s) sabor(es) e a quantidade desejada.</div>' +
+            '<div class="produto-desc">' + desc +'</div>' +
             '<div class="produto-opcoes">' + tiersHtml + '</div>' +
             '<div class="sabores-chips">' + chipsHtml + '</div>' +
             '<div class="produto-footer">' +
@@ -2517,21 +2522,25 @@ function ehBoloCaseiroAtual() {
     }, true);
 })();
 /* ============================================================
-   SALGADOS ASSADOS — preço por sabor
-   Os botões de unidades exibem o preço do sabor selecionado
-   (somente o valor muda; rótulos e demais seções permanecem)
+   SALGADOS ASSADOS — botões de preço com sabores abaixo
+   Botões de preço clonados dos botões de unidades da página:
+   mesma classe (.produto-opcao-btn), mesma estrutura
+   ("100 unidades<strong>R$ 100,00</strong>") e mesma fonte
    ============================================================ */
 (function () {
-    if (window.__precoAssadosAtivo) return;
-    window.__precoAssadosAtivo = true;
+    if (window.__botoesPrecoAtivo) return;
+    window.__botoesPrecoAtivo = true;
 
+    function esc(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    function fmt(v) { return 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ','); }
     function getProdutos() {
         try {
             if (typeof produtosData !== 'undefined' && Array.isArray(produtosData)) return produtosData;
         } catch (e) {}
         return window.produtosData || [];
     }
-    function fmt(v) { return 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ','); }
     function getCarrinho() {
         try {
             if (typeof carrinho !== 'undefined' && Array.isArray(carrinho)) return carrinho;
@@ -2539,24 +2548,23 @@ function ehBoloCaseiroAtual() {
         return window.carrinho || null;
     }
 
-    // Localiza o card unificado da seção Salgados Assados
-    function acharCardAssados() {
-        var cards = document.querySelectorAll('.card-unificado-salgados');
-        for (var i = 0; i < cards.length; i++) {
-            var sec = cards[i].closest('section') || cards[i].parentNode;
-            var titulo = '';
-            for (var k = 0; k < 4 && sec; k++) {
-                var h = sec.querySelector ? sec.querySelector('h2, h3, .section-title, .categoria-titulo') : null;
-                if (h) { titulo = h.textContent || ''; break; }
-                sec = sec.parentNode;
-            }
-            if (/assados/i.test(titulo)) return cards[i];
+    function cardEhAssados(card) {
+        var sec = card.closest('section') || card.parentNode;
+        var titulo = '';
+        for (var k = 0; k < 4 && sec; k++) {
+            var h = sec.querySelector ? sec.querySelector('h2, h3, .section-title, .categoria-titulo') : null;
+            if (h) { titulo = h.textContent || ''; break; }
+            sec = sec.parentNode;
         }
-        return null;
+        return /assados/i.test(titulo);
     }
 
-    function produtoDoSabor(nomeSabor) {
-        var alvo = String(nomeSabor || '').trim().toLowerCase();
+    function nomeDoChip(chip) {
+        return String(chip.getAttribute('data-sabor') || chip.textContent || '').trim();
+    }
+
+    function produtoDoSabor(nome) {
+        var alvo = String(nome || '').trim().toLowerCase();
         if (!alvo) return null;
         var prods = getProdutos();
         for (var i = 0; i < prods.length; i++) {
@@ -2568,110 +2576,199 @@ function ehBoloCaseiroAtual() {
         return null;
     }
 
-    // Encontra a linha de preço correspondente ao botão (por quantidade ou rótulo)
-    function precoDaLinha(prices, btnTxt) {
-        if (!prices || !prices.length) return null;
-        var nums = (String(btnTxt).match(/\d+/g) || []).map(Number);
-        for (var i = 0; i < prices.length; i++) {
-            var q = parseFloat(prices[i].quantity);
-            if (!isNaN(q) && nums.indexOf(q) !== -1) return prices[i];
-        }
-        for (var j = 0; j < prices.length; j++) {
-            var lbl = String(prices[j].label || '');
-            if (lbl && String(btnTxt).toLowerCase().indexOf(lbl.toLowerCase()) !== -1) return prices[j];
-        }
-        return null;
+    // Estilo dos botões de sabor (copiado dos chips originais)
+    function copiarEstilo(modelo) {
+        if (!modelo) return null;
+        var cs = getComputedStyle(modelo);
+        var props = ['padding', 'border', 'border-radius', 'background-color', 'background',
+            'color', 'font-size', 'font-weight', 'font-family', 'margin', 'cursor',
+            'transition', 'box-shadow', 'line-height', 'text-align', 'border-width',
+            'border-style', 'border-color', 'letter-spacing'];
+        var out = {};
+        props.forEach(function (p) {
+            try { var v = cs.getPropertyValue(p); if (v) out[p] = v; } catch (e) {}
+        });
+        return out;
+    }
+    function aplicarEstilo(el, estilo) {
+        if (!estilo) return;
+        Object.keys(estilo).forEach(function (p) { try { el.style[p] = estilo[p]; } catch (e) {} });
     }
 
-    function chipSelecionado(card) {
-        return card.querySelector('.sabor-chip.selected')
-            || card.querySelector('.sabor-chip.ativo')
-            || card.querySelector('.sabor-chip.active');
+    function injectCSS() {
+        if (document.getElementById('css-botoes-preco-assados')) return;
+        var st = document.createElement('style');
+        st.id = 'css-botoes-preco-assados';
+        st.textContent = [
+            '.sabor-chip-preco.sel { background:#16a34a !important; color:#fff !important; border-color:#16a34a !important; }',
+            '.grupos-preco-wrap { margin: 10px 0; }'
+        ].join('\n');
+        document.head.appendChild(st);
     }
-    function tierSelecionado(card) {
-        return card.querySelector('.produto-opcao-btn.selected')
-            || card.querySelector('.produto-opcao-btn.ativo')
-            || card.querySelector('.produto-opcao-btn.active');
+
+    function construirGrupos(card) {
+        var grupos = {};
+        var vistos = {};
+        card.querySelectorAll('.sabor-chip').forEach(function (chip) {
+            var prod = produtoDoSabor(nomeDoChip(chip));
+            if (!prod || !Array.isArray(prod.prices)) return;
+            prod.prices.forEach(function (row) {
+                var p = parseFloat(row.price);
+                if (isNaN(p) || p <= 0) return;
+                var chave = p.toFixed(2);
+                var marca = chave + '|' + (prod.id || prod.name);
+                if (vistos[marca]) return;
+                vistos[marca] = true;
+                if (!grupos[chave]) grupos[chave] = [];
+                grupos[chave].push({ chip: chip, prod: prod, row: row, preco: p });
+            });
+        });
+        return grupos;
     }
 
-    // Atualiza os botões de unidades e o preço exibido com os preços do sabor
-    function atualizarPrecos(card) {
-        var chip = chipSelecionado(card);
-        if (!chip) return;
-        var sabor = String(chip.getAttribute('data-sabor') || chip.textContent || '').trim();
-        var prod = produtoDoSabor(sabor);
-        if (!prod || !prod.prices || !prod.prices.length) return;
-        card.__precosSabor = prod.prices;
-        card.__saborSel = sabor;
+    function qtdDaRow(row) {
+        var q = parseFloat(row && row.quantity);
+        if (!isNaN(q) && q > 0) return q;
+        var m = String((row && row.label) || '').match(/\d+/);
+        return m ? parseFloat(m[0]) : null;
+    }
 
-        card.querySelectorAll('.produto-opcao-btn').forEach(function (btn) {
-            var linha = precoDaLinha(prod.prices, btn.textContent || '');
-            if (!linha) return;
-            var novoValor = fmt(linha.price);
+    // Botão de unidades original com a mesma quantidade do grupo
+    function acharTierModelo(card, row) {
+        var q = qtdDaRow(row);
+        var alvo = null;
+        card.querySelectorAll('.produto-opcao-btn').forEach(function (b) {
+            if (alvo) return;
+            var m = String(b.getAttribute('data-tier-label') || b.textContent || '').match(/\d+/);
+            if (m && q !== null && parseFloat(m[0]) === q) alvo = b;
+        });
+        return alvo || card.querySelector('.produto-opcao-btn');
+    }
 
-            // Procura o elemento interno (folha) que contém o preço — ex.: <span>R$ 45,00</span>
-            var alvo = null;
-            var filhos = btn.querySelectorAll('*');
-            for (var i = 0; i < filhos.length; i++) {
-                var t = (filhos[i].textContent || '').trim();
-                if (filhos[i].children.length === 0 && /R\$\s*[\d.,]+/.test(t)) {
-                    alvo = filhos[i];
-                    break;
-                }
+    function montarUI(card) {
+        if (card.__uiPreco) return;
+        var grupos = construirGrupos(card);
+        var chaves = Object.keys(grupos).sort(function (a, b) { return parseFloat(a) - parseFloat(b); });
+        if (!chaves.length) return;
+
+        var chipModelo = card.querySelector('.sabor-chip');
+        var estiloChip = copiarEstilo(chipModelo);
+
+        var wrap = document.createElement('div');
+        wrap.className = 'grupos-preco-wrap';
+
+        chaves.forEach(function (chave) {
+            var item0 = grupos[chave][0];
+
+            // Botão de preço = clone do botão de unidades original:
+            // mesma classe, fonte e estrutura; troca apenas o preço
+            var modelo = acharTierModelo(card, item0.row);
+            var btnPreco = modelo ? modelo.cloneNode(true) : document.createElement('button');
+            btnPreco.type = 'button';
+            btnPreco.classList.remove('selected', 'ativo', 'active');
+            btnPreco.classList.add('btn-preco-grupo');
+            btnPreco.removeAttribute('onclick');
+            if (!modelo) {
+                btnPreco.style.padding = '8px 14px';
+                btnPreco.style.border = '2px solid #16a34a';
+                btnPreco.style.borderRadius = '8px';
+                btnPreco.style.background = '#fff';
+                btnPreco.style.color = '#16a34a';
+                btnPreco.style.fontWeight = 'bold';
             }
 
-            if (alvo) {
-                // Preserva a formatação: troca só o texto do elemento do preço
-                alvo.textContent = alvo.textContent.replace(/R\$\s*[\d.,]+/, novoValor);
-            } else {
-                // Fallback: preço inline no texto do botão (sem elementos internos)
-                var txt = btn.textContent || '';
-                var novo = txt.replace(/R\$\s*[\d.,]+/, novoValor);
-                if (novo !== txt) btn.textContent = novo;
+            // Mantém o rótulo (quantidade) e troca somente o preço
+            btnPreco.querySelectorAll('strong').forEach(function (s) { s.remove(); });
+            var rotulo = (btnPreco.textContent || '').replace(/R\$\s*[\d.,]+/g, '').trim();
+            var q = qtdDaRow(item0.row);
+            if (q !== null) {
+                var mQ = rotulo.match(/\d+/);
+                if (!mQ || parseFloat(mQ[0]) !== q) rotulo = q + ' ' + (item0.row.unit_label || 'unidades');
             }
-            if (btn.hasAttribute('data-price')) btn.setAttribute('data-price', linha.price);
+            btnPreco.textContent = rotulo;
+            if (rotulo) btnPreco.setAttribute('data-tier-label', rotulo);
+
+            var st = document.createElement('strong');
+            st.textContent = fmt(chave);
+            btnPreco.appendChild(st);
+            btnPreco.setAttribute('data-preco', chave);
+
+            // O botão de preço é etiqueta: clique não aciona a lógica dos tiers
+            btnPreco.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                ev.stopPropagation();
+            });
+
+            btnPreco.style.margin = '10px 0 6px 0';
+            wrap.appendChild(btnPreco);
+
+            // Linha de sabores — mesmo estilo de sempre
+            var linha = document.createElement('div');
+            linha.style.display = 'flex';
+            linha.style.flexWrap = 'wrap';
+            linha.style.gap = '6px';
+            linha.style.marginBottom = '8px';
+
+            grupos[chave].forEach(function (item) {
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'sabor-chip-preco';
+                b.textContent = item.prod.name || '';
+                aplicarEstilo(b, estiloChip);
+                b.onclick = function () {
+                    var orig = item.chip;
+                    if (orig) {
+                        var estavaSel = orig.classList.contains('selected')
+                            || orig.classList.contains('ativo') || orig.classList.contains('active');
+                        if (estavaSel) orig.click();
+                        orig.click();
+                    }
+                    setTimeout(function () {
+                        card.querySelectorAll('.sabor-chip').forEach(function (c) {
+                            c.classList.remove('selected', 'ativo', 'active');
+                        });
+                        if (orig) orig.classList.add('selected');
+                        wrap.querySelectorAll('.sabor-chip-preco').forEach(function (x) { x.classList.remove('sel'); });
+                        b.classList.add('sel');
+                        // Destaque do grupo: mesmo estilo "selecionado" dos demais botões
+                        wrap.querySelectorAll('.btn-preco-grupo').forEach(function (x) { x.classList.remove('selected'); });
+                        btnPreco.classList.add('selected');
+                        card.__selPreco = item;
+                    }, 120);
+                };
+                linha.appendChild(b);
+            });
+            wrap.appendChild(linha);
         });
 
-        // Preço exibido no card (mantém o tier selecionado)
+        // Oculta a interface antiga depois dos clones (clones saem limpos)
+        var chipsBox = card.querySelector('.sabores-chips');
+        if (chipsBox) chipsBox.style.display = 'none';
+        card.querySelectorAll('.produto-opcao-btn').forEach(function (b) { b.style.display = 'none'; });
         var precoEl = card.querySelector('.preco-unificado');
-        if (precoEl) {
-            var btnTier = tierSelecionado(card);
-            var linha = btnTier ? precoDaLinha(prod.prices, btnTier.textContent || '') : prod.prices[0];
-            if (linha) precoEl.innerHTML = precoEl.innerHTML.replace(/R\$\s*[\d.,]+/, fmt(linha.price));
-        }
+        if (precoEl) precoEl.style.display = 'none';
+
+        var addBtn = card.querySelector('.btn-add-unificado');
+        if (addBtn && addBtn.parentNode) addBtn.parentNode.insertBefore(wrap, addBtn);
+        else card.appendChild(wrap);
+
+        card.__uiPreco = { grupos: grupos, chaves: chaves, wrap: wrap };
     }
 
-    // Sabor selecionado → atualiza preços
-    document.addEventListener('click', function (e) {
-        var chip = e.target.closest ? e.target.closest('.sabor-chip') : null;
-        if (!chip) return;
-        var card = chip.closest('.card-unificado-salgados');
-        if (card && card === acharCardAssados()) {
-            setTimeout(function () { atualizarPrecos(card); }, 50);
-        }
-    }, true);
+    function montarTodas() {
+        document.querySelectorAll('.card-unificado-salgados').forEach(function (card) {
+            if (cardEhAssados(card)) montarUI(card);
+        });
+    }
 
-    // Tier selecionado → reaplica o preço do sabor atual
-    document.addEventListener('click', function (e) {
-        var btn = e.target.closest ? e.target.closest('.produto-opcao-btn') : null;
-        if (!btn) return;
-        var card = btn.closest('.card-unificado-salgados');
-        if (card && card === acharCardAssados()) {
-            setTimeout(function () { atualizarPrecos(card); }, 50);
-        }
-    }, true);
-
-    // Adicionar ao carrinho → corrige o preço de cada item pelo sabor
+    // Adicionar ao carrinho: grava o item com o preço do grupo escolhido
     document.addEventListener('click', function (e) {
         var btn = e.target.closest ? e.target.closest('.btn-add-unificado') : null;
         if (!btn) return;
         var card = btn.closest('.card-unificado-salgados');
-        if (!card || card !== acharCardAssados()) return;
-
-        var tierTxt = '';
-        var btnTier = tierSelecionado(card);
-        if (btnTier) tierTxt = btnTier.textContent || '';
-
+        if (!card || !cardEhAssados(card)) return;
+        var sel = card.__selPreco;
+        if (!sel) return;
         var carr = getCarrinho();
         if (!carr) return;
         var lenAntes = carr.length;
@@ -2682,13 +2779,9 @@ function ehBoloCaseiroAtual() {
             if (c.length > lenAntes) {
                 for (var i = lenAntes; i < c.length; i++) {
                     var it = c[i];
-                    if (!it || !it.nome) continue;
-                    var prod = produtoDoSabor(it.nome);
-                    if (!prod || !prod.prices || !prod.prices.length) continue;
-                    var linha = precoDaLinha(prod.prices, tierTxt + ' ' + (it.label || ''));
-                    if (!linha) linha = prod.prices[0];
-                    it.preco = parseFloat(linha.price);
-                    if (it.preco_total != null) it.preco_total = it.preco * (parseFloat(it.qtd) || 1);
+                    if (!it) continue;
+                    it.preco = sel.preco;
+                    if (it.preco_total != null) it.preco_total = sel.preco * (parseFloat(it.qtd) || 1);
                 }
                 try { if (typeof atualizarCarrinhoUI === 'function') atualizarCarrinhoUI(); } catch (err) {}
                 return;
@@ -2697,23 +2790,16 @@ function ehBoloCaseiroAtual() {
         }, 60);
     }, true);
 
-    // Primeira carga: se já houver sabor marcado, aplica os preços dele
-    function initPass() {
-        var card = acharCardAssados();
-        if (!card) return;
-        var chip = chipSelecionado(card);
-        if (!chip) return;
-        var sabor = String(chip.getAttribute('data-sabor') || chip.textContent || '').trim();
-        if (card.__saborSel !== sabor) atualizarPrecos(card);
-    }
-    var obs = new MutationObserver(function () { setTimeout(initPass, 80); });
+    var obs = new MutationObserver(function () { setTimeout(montarTodas, 80); });
     function iniciar() {
+        injectCSS();
         obs.observe(document.body, { childList: true, subtree: true });
-        initPass();
+        montarTodas();
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
     else iniciar();
 })();
+
 /* ============================================================
    SELEÇÃO ÚNICA — Salgados Assados, Fritos,
    Doces Gourmet e Doces Tradicionais
