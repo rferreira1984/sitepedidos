@@ -750,7 +750,7 @@
                 horaInput.min = janela.inicio;
                 horaInput.max = janela.fim;
             }
-            el.innerHTML = tipo + ' em <strong>' + nomeDiaStr + '</strong>: das <strong>' + janela.inicio + '</strong> às <strong>' + janela.fim + '</strong>.<br>Pedidos para o mesmo dia até 16h00. ' + (temKitFesta() ? 'Kit Festa: 2h de antecedência.' : 'Demais itens: 1h de antecedência.');
+            //el.innerHTML = tipo + ' em <strong>' + nomeDiaStr + '</strong>: das <strong>' + janela.inicio + '</strong> às <strong>' + janela.fim + '</strong>.<br>Pedidos para o mesmo dia até 16h00. ' + (temKitFesta() ? 'Kit Festa: 2h de antecedência.' : 'Demais itens: 1h de antecedência.');
         }
         function ehPorQuilo(p) {
             if (!p) return false;
@@ -2854,6 +2854,215 @@ function ehBoloCaseiroAtual() {
             card.querySelectorAll('.sabor-chip').forEach(function (c) {
                 if (c !== ultimoSelecionado) c.classList.remove('selected', 'ativo', 'active');
             });
+        }
+    }, true);
+})();
+/* ============================================================
+   OBSERVAÇÕES POR ITEM — grava em pedido_itens.observacao
+   (coluna separada, criada na migração)
+   1) Captura a observação digitada nos modais (Kit, Bolo, Quilo)
+      no clique de "Adicionar ao Carrinho" e anexa ao item do carrinho
+   2) No envio do pedido, injeta a observação de cada item no campo
+      "observacao" — o server.js grava na coluna própria
+   ============================================================ */
+(function () {
+    if (window.__obsItensAtivo) return;
+    window.__obsItensAtivo = true;
+
+    function getCarrinho() {
+        try {
+            if (typeof carrinho !== 'undefined' && Array.isArray(carrinho)) return carrinho;
+        } catch (e) {}
+        return window.carrinho || null;
+    }
+
+    function acharTextareaObs(container) {
+        var tas = container.querySelectorAll('textarea');
+        for (var i = 0; i < tas.length; i++) {
+            var el = tas[i];
+            for (var k = 0; k < 3 && el; k++) {
+                el = el.parentNode;
+                if (!el) break;
+                var txt = (el.textContent || '').toLowerCase();
+                if (txt.indexOf('observaç') !== -1 || txt.indexOf('observac') !== -1) return tas[i];
+            }
+        }
+        return tas.length ? tas[tas.length - 1] : null;
+    }
+
+    // ===== 1) CAPTURA NO MODAL (roda antes do handler original) =====
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('button') : null;
+        if (!btn) return;
+        var txt = (btn.textContent || '').trim();
+        if (!/adicionar\s+ao\s+carrinho/i.test(txt)) return;
+
+        var container = null;
+        var el = btn.parentNode;
+        for (var k = 0; k < 8 && el && el !== document.body; k++) {
+            if (el.querySelector && el.querySelector('textarea')) { container = el; break; }
+            el = el.parentNode;
+        }
+        if (!container) return;
+
+        var ta = acharTextareaObs(container);
+        var obs = (ta && ta.value) ? ta.value.trim() : '';
+        if (!obs) return;
+
+        var carr = getCarrinho();
+        var lenAntes = carr ? carr.length : null;
+        if (lenAntes === null) return;
+
+        var t0 = Date.now();
+        setTimeout(function tentarAnexar() {
+            var c = getCarrinho();
+            if (!c) return;
+            if (c.length > lenAntes) {
+                for (var i = lenAntes; i < c.length; i++) {
+                    if (c[i] && !c[i].obsItem) c[i].obsItem = obs;
+                }
+                return;
+            }
+            if (Date.now() - t0 < 1500) setTimeout(tentarAnexar, 100);
+        }, 60);
+    }, true);
+
+    // ===== 2) INJEÇÃO NO ENVIO DO PEDIDO (coluna observacao) =====
+    var origFetch = window.fetch;
+    window.fetch = function () {
+        var args = arguments;
+        var url = (typeof args[0] === 'string') ? args[0] : ((args[0] && args[0].url) || '');
+        var opts = args[1];
+        if (url.indexOf('/api/pedidos') !== -1 && opts && opts.method === 'POST' && opts.body) {
+            try {
+                var body = JSON.parse(opts.body);
+                if (Array.isArray(body.itens)) {
+                    var carr = getCarrinho() || [];
+                    body.itens.forEach(function (it) {
+                        if (it.observacao) return;
+                        if (it.obsItem) { it.observacao = it.obsItem; return; }
+                        if (it.obs) { it.observacao = it.obs; return; }
+                        var match = carr.find(function (c) {
+                            return c && c.obsItem
+                                && String(c.id) === String(it.product_id || it.id)
+                                && String(c.nome || '') === String(it.nome || '');
+                        });
+                        if (match) it.observacao = match.obsItem;
+                    });
+                    opts.body = JSON.stringify(body);
+                }
+            } catch (e) {}
+        }
+        return origFetch.apply(this, args);
+    };
+})();
+/* ============================================================
+   VALOR MÍNIMO POR TIPO DE LOGÍSTICA — bloqueia a confirmação
+   Mínimos lidos do backend (/api/config); fallback fixo
+   ============================================================ */
+(function () {
+    if (window.__valorMinimoAtivo) return;
+    window.__valorMinimoAtivo = true;
+
+    // Fallback caso /api/config não responda (mantenha igual ao .env)
+    var MIN_ENTREGA = 100;
+    var MIN_RETIRADA = 0;
+ alert(data)
+    // Busca os valores reais do backend
+    fetch('/api/config')
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+            if (j.success && j.data) {
+                var e = parseFloat(j.data.min_pedido_entrega);
+                var r = parseFloat(j.data.min_pedido_retirada);
+                if (!isNaN(e)) MIN_ENTREGA = e;
+                if (!isNaN(r)) MIN_RETIRADA = r;
+               
+            }
+        })
+        .catch(function () {});
+
+    function fmt(v) { return 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ','); }
+
+    function tipoEhRetirada() {
+        var selects = document.querySelectorAll('select');
+        for (var i = 0; i < selects.length; i++) {
+            var opts = Array.prototype.slice.call(selects[i].options)
+                .map(function (o) { return (o.textContent || '').trim(); });
+            var temEntrega = opts.some(function (t) { return /entrega/i.test(t); });
+            var temRetirada = opts.some(function (t) { return /retirada/i.test(t); });
+            if (temEntrega && temRetirada) {
+                var opt = selects[i].options[selects[i].selectedIndex];
+                return !!(opt && /retirada/i.test(opt.textContent || ''));
+            }
+        }
+        return false;
+    }
+
+    function totalDoPedido() {
+        try {
+            var carr = (typeof carrinho !== 'undefined' && Array.isArray(carrinho))
+                ? carrinho : (window.carrinho || null);
+            if (carr && carr.length > 0) {
+                var subtotal = 0;
+                carr.forEach(function (it) {
+                    if (!it) return;
+                    if (it.porQuilo) {
+                        subtotal += parseFloat(it.preco_total)
+                            || (parseFloat(it.preco) || 0) * (parseFloat(it.quantidade_kg) || 0);
+                    } else {
+                        subtotal += (parseFloat(it.preco) || 0) * (parseFloat(it.qtd) || 0);
+                    }
+                });
+                var frete = 0;
+                try {
+                    if (!tipoEhRetirada() && typeof custoEntrega !== 'undefined') {
+                        frete = parseFloat(custoEntrega) || 0;
+                    }
+                } catch (e) {}
+                return subtotal + frete;
+            }
+        } catch (e) {}
+        var els = document.querySelectorAll('b, span, div, strong');
+        for (var i = els.length - 1; i >= 0; i--) {
+            var t = (els[i].textContent || '').trim();
+            var m = t.match(/^Total\s*R\$\s*([\d.,]+)$/i);
+            if (m) {
+                var num = m[1].replace(/\./g, '').replace(',', '.');
+                var v = parseFloat(num);
+                if (!isNaN(v)) return v;
+            }
+        }
+        return null;
+    }
+
+    function avisarMinimo(minimo, total) {
+        var msg = '⚠️ Pedido mínimo de ' + fmt(minimo) + ' para '
+            + (tipoEhRetirada() ? 'retirada' : 'entrega')
+            + '. Seu pedido está em ' + fmt(total) + '.';
+        if (typeof mostrarToast === 'function') mostrarToast(msg, 'error');
+        else alert(msg);
+    }
+
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('button, a') : null;
+        if (!btn) return;
+        var txt = (btn.textContent || '').trim();
+        var ehConfirmar = /confirmar\s+pedido/i.test(txt)
+            || /confirmar\s+via\s+c[oó]digo/i.test(txt)
+            || /entrar\s+para\s+pedir/i.test(txt);
+        if (!ehConfirmar) return;
+
+        var minimo = tipoEhRetirada() ? MIN_RETIRADA : MIN_ENTREGA;
+        if (!minimo || minimo <= 0) return;
+
+        var total = totalDoPedido();
+        if (total === null) return;
+
+        if (total < minimo - 0.009) {
+            e.preventDefault();
+            e.stopPropagation();
+            avisarMinimo(minimo, total);
         }
     }, true);
 })();

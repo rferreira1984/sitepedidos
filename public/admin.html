@@ -376,23 +376,7 @@
             if (cat.includes('salgado')) return 'salgado';
             return 'outro';
         }
-        function linhasItensAgrupados(itens, grupos) {
-            const agrupados = { doce: [], salgado: [], outro: [] };
-            itens.forEach(i => agrupados[classificarItem(i)].push(i));
-            const rotulos = { doce: 'DOCES', salgado: 'SALGADOS', outro: 'OUTROS' };
-            let html = '';
-            grupos.forEach(g => {
-                if (!agrupados[g] || agrupados[g].length === 0) return;
-                html += '<div class="area-title">' + rotulos[g] + '</div>';
-                agrupados[g].forEach(i => {
-                    const qtdTxt = qtdComKg(i.quantidade, i.quantidade_kg);
-                    const desc = i.descricao || i.product_name || 'Item';
-                    const label = i.label ? ' (' + i.label + ')' : '';
-                    html += '<div class="linha-item"><span>' + esc(desc + label) + '</span><span class="qtd">' + qtdTxt + '</span></div>';
-                });
-            });
-            return html;
-        }
+        
         // ===== ÁREAS DE PRODUÇÃO: normalização, presença e itens por área =====
         function normArea(s) {
             return String(s || '').trim().toUpperCase().replace(/\s+/g, '');
@@ -421,114 +405,6 @@
                 });
             });
             return resultado;
-        }
-        function imprimirPedido(tipo) {
-            const p = pedidoAtual;
-            if (!p) { mostrarToast('Abra um pedido primeiro', 'error'); return; }
-            const itens = pedidoAtualItens || [];
-            const agora = new Date().toLocaleString('pt-BR');
-            const numPedido = '#' + String(p.id).padStart(3, '0');
-            const dataEntrega = p.data_entrega ? new Date(p.data_entrega).toLocaleDateString('pt-BR') : '-';
-            const horaEntrega = p.hora_entrega || '-';
-            const logistica = p.tipo_logistica || '-';
-            const pagamento = p.forma_pagamento || '-';
-            const taxaEntrega = parseFloat(p.taxa_entrega || 0);
-            const valorTotal = parseFloat(p.valor_total || 0);
-            const valorProdutos = Math.max(0, valorTotal - taxaEntrega);
-            const endereco = p.tipo_logistica === 'Retirada'
-                ? 'Salgados & Cia — Rua Espinelo, 123 - Esmeralda'
-                : [p.endereco_rua || '', p.endereco_numero ? ', ' + p.endereco_numero : '', p.endereco_bairro ? ' - ' + p.endereco_bairro : '', p.endereco_cep ? ' - CEP: ' + p.endereco_cep : ''].join('') || '-';
-            let corpo = '';
-            if (tipo === 'cozinha') {
-                corpo = '<div class="area-title">COZINHA</div>' + linhasItensAgrupados(itens, ['doce','salgado','outro']);
-            } else if (tipo === 'doces') {
-                corpo = '<div class="area-title">COZINHA - DOCES</div>' + linhasItensAgrupados(itens, ['doce']);
-            } else if (tipo === 'salgados') {
-                corpo = '<div class="area-title">COZINHA - SALGADOS</div>' + linhasItensAgrupados(itens, ['salgado','outro']);
-            } else if (tipo === 'entrega') {
-                corpo = '<table class="info">'
-                    + '<tr><td><b>Cliente:</b></td><td class="r">' + esc(p.nome_cliente || '-') + '</td></tr>'
-                    + '<tr><td><b>Telefone:</b></td><td class="r">' + esc(p.telefone || '-') + '</td></tr>'
-                    + '<tr><td><b>Endereço:</b></td><td class="r">' + esc(endereco) + '</td></tr>'
-                    + '<tr><td><b>Pagamento:</b></td><td class="r">' + esc(pagamento) + '</td></tr>'
-                    + '</table>'
-                    + '<div class="divider"></div>'
-                    + '<div class="area-title">ITENS</div>'
-                    + linhasItensAgrupados(itens, ['doce','salgado','outro'])
-                    + '<div class="divider"></div>'
-                    + '<table class="info">'
-                    + '<tr><td>Valor Produtos:</td><td class="r">R$ ' + valorProdutos.toFixed(2).replace('.', ',') + '</td></tr>'
-                    + '<tr><td>Taxa Entrega:</td><td class="r">R$ ' + taxaEntrega.toFixed(2).replace('.', ',') + '</td></tr>'
-                    + '<tr><td><b>TOTAL:</b></td><td class="r"><b>R$ ' + valorTotal.toFixed(2).replace('.', ',') + '</b></td></tr>'
-                    + '</table>';
-            } else if (tipo === 'geral') {
-                corpo = '<table class="info">'
-                    + '<tr><td><b>Cliente:</b></td><td class="r">' + esc(p.nome_cliente || '-') + '</td></tr>'
-                    + '<tr><td><b>Telefone:</b></td><td class="r">' + esc(p.telefone || '-') + '</td></tr>'
-                    + '<tr><td><b>Logística:</b></td><td class="r">' + esc(logistica) + '</td></tr>'
-                    + '<tr><td><b>Endereço:</b></td><td class="r">' + esc(endereco) + '</td></tr>'
-                    + '<tr><td><b>Pagamento:</b></td><td class="r">' + esc(pagamento) + '</td></tr>'
-                    + '</table>'
-                    + '<div class="divider"></div>'
-                    + linhasItensAgrupados(itens, ['doce','salgado','outro'])
-                    + '<div class="divider"></div>'
-                    + '<table class="info">'
-                    + '<tr><td>Valor Produtos:</td><td class="r">R$ ' + valorProdutos.toFixed(2).replace('.', ',') + '</td></tr>'
-                    + '<tr><td>Taxa Entrega:</td><td class="r">R$ ' + taxaEntrega.toFixed(2).replace('.', ',') + '</td></tr>'
-                    + '<tr><td><b>TOTAL:</b></td><td class="r"><b>R$ ' + valorTotal.toFixed(2).replace('.', ',') + '</b></td></tr>'
-                    + '</table>';
-            } else {
-                // Área de produção (local_producao)
-                const lista = itensPorArea(tipo);
-                corpo = '<div class="area-title">' + esc(tipo) + '</div>';
-                if (lista.length === 0) {
-                    corpo += '<div class="linha-item"><span>Nenhum item para esta área</span></div>';
-                } else {
-                    lista.forEach(l => {
-                        const origem = l.origem ? '<div style="font-size:9px;color:#555;">(' + esc(l.origem) + ')</div>' : '';
-                        const qtdTxt = qtdComKg(l.qtd, l.kg);
-                        corpo += '<div class="linha-item"><span>' + esc(l.nome) + origem + '</span><span class="qtd">' + qtdTxt + '</span></div>';
-                    });
-                }
-            }
-            const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Pedido ' + numPedido + '</title>'
-                + '<style>'
-                + '@page { size: 80mm auto; margin: 0; }'
-                + '* { margin:0; padding:0; box-sizing:border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }'
-                + 'body { width: 80mm; font-family: "Courier New", monospace; font-size: 11px; color:#000; padding: 4mm 4mm 6mm; }'
-                + '.header { text-align:center; margin-bottom: 3mm; }'
-                + '.header h1 { font-size: 15px; letter-spacing: 1px; }'
-                + '.header .sub { font-size: 10px; }'
-                + '.num-pedido { text-align:center; font-size: 50px; font-weight: bold; margin: 2mm 0; }'
-                + '.info { width:100%; font-size: 11px; }'
-                + '.info td { padding: 1px 0; vertical-align: top; }'
-                + '.info .r { text-align: right; }'
-                + '.divider { border-top: 1px dashed #000; margin: 3mm 0; }'
-                + '.area-title { text-align:center; font-weight: bold; background:#eee; padding: 2px 0; margin: 2mm 0 1mm; font-size: 12px; }'
-                + '.linha-item { display:flex; justify-content:space-between; font-size: 11px; padding: 1px 0; }'
-                + '.linha-item .qtd { font-weight: bold; white-space: nowrap; }'
-                + '.obs { margin-top: 2mm; font-size: 10px; }'
-                + '.footer { text-align:center; font-size: 9px; margin-top: 4mm; border-top: 1px dashed #000; padding-top: 2mm; }'
-                + '@media print { body { width: 80mm; } }'
-                + '</style></head><body>'
-                + '<div class="header"><h1>SALGADOS & CIA</h1><div class="sub">' + esc(logistica) + ' • ' + dataEntrega + ' ' + horaEntrega + '</div></div>'
-                + '<div class="num-pedido">' + numPedido + '</div>'
-                + '<table class="info">'
-                + '<tr><td>Pedido:</td><td class="r">' + agora + '</td></tr>'
-                + '<tr><td>Entrega/Retirada:</td><td class="r">' + dataEntrega + ' às ' + horaEntrega + '</td></tr>'
-                + '</table>'
-                + '<div class="divider"></div>'
-                + corpo
-                + (p.observacoes ? '<div class="obs"><b>Obs:</b> ' + esc(p.observacoes) + '</div>' : '')
-                + '<div class="footer">Impresso em ' + agora + '</div>'
-                + '</body></html>';
-            const w = window.open('', '_blank', 'width=420,height=600');
-            if (!w) { mostrarToast('Permita pop-ups para imprimir', 'error'); return; }
-            w.document.open();
-            w.document.write(html);
-            w.document.close();
-            w.focus();
-            setTimeout(function() { w.print(); }, 400);
         }
         async function fazerLogin(e) {
             e.preventDefault();
@@ -795,10 +671,14 @@ if (imagensPedido.length > 0) {
                         ${p.observacoes ? '<div class="detail-item full"><label>Observações</label><span>' + p.observacoes + '</span></div>' : ''}
                          <ul class="historico-list">${imagensHtml}</ul>
                     </div>
-                    <div class="section-title">Alterar Status</div>
+                    <div class="section-title">Observaçoes dos Itens</div>
+                    <div class="section-title">Controle Pagamento</div>
+                    <div class="section-title">Status do Pedido</div>
                     <div class="status-actions">${statusBtns}</div>
                     <textarea class="observacao-input" id="obsInput" placeholder="Observação..." rows="2"></textarea>
+                     
                     <div class="section-title">🖨️ Imprimir Pedido</div>
+
                     <div class="print-actions">
                         <button class="btn-print btn-print-cozinha" onclick="imprimirPedido('cozinha')"><i class="fas fa-utensils"></i> Cozinha</button>
                         <button class="btn-print btn-print-entrega" onclick="imprimirPedido('entrega')"><i class="fas fa-truck"></i> Entrega</button>
@@ -892,7 +772,8 @@ if (imagensPedido.length > 0) {
             html += '.item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 15px; font-weight: bold}';
             html += '.item .desc { flex: 1; padding-right: 4px; word-break: break-word; }';
             html += '.item .qtd { font-weight: bold; white-space: nowrap; }';
-            html += '.obs { font-size: 11px; margin-top: 4px; }';
+            html += '.obsItem { font-size: 15px;font-weight: bold; font-style: italic; padding: 1px 0 1px 8px; word-break: break-word; }';
+            html += '.obs { font-size: 15px;font-weight: bold; margin-top: 4px; }';
             html += '.rodape { text-align: center; font-size: 10px; margin-top: 8px; }';
             html += '@media print { .no-print { display: none; } }';
             html += '</style></head><body>';
@@ -914,7 +795,7 @@ if (imagensPedido.length > 0) {
                     // ===== LINHA DO ITEM DO PEDIDO (pedido_itens) =====
                     var labelItem = i.label || '';
                     var linhaItem = String(i.product_id || '') + ' - ' + (i.product_name || 'Item');
-                    if (labelItem) linhaItem += ' - ' + labelItem ;
+                    
                     html += '<div class="itemPai">' + linhaItem + '</div>';
 
                     // ===== COMPOSIÇÃO AGRUPADA POR ÁREA =====
@@ -941,14 +822,19 @@ if (imagensPedido.length > 0) {
                         html += '<div class="area">' + areaSimples + '</div>';
                         html += '<div class="item"><span class="desc">' + (i.product_name || 'Item') + (labelItem ? ' (' + labelItem + ')' : '') + '</span><span class="qtd">' + qtd + '</span></div>';
                     }
-                    html += '<div class="linha"></div>';
+
+                    if (i.observacao) {
+                       html += '<div class="linha"></div>';
+                        html += '<div class="obsItem"><b>Obs do Item:**</b> ' + esc(i.observacao) + '</div>';
+                         
+                    }
+                   
                     
                 });
             }
-
             if (p.observacoes) {
                 html += '<div class="linha"></div>';
-                html += '<div class="obs"><b>OBS:</b> ' + p.observacoes + '</div>';
+                html += '<div class="obs"><b>OBS Pedido:*</b> ' + p.observacoes + '</div>';
             }
 
             /*html += '<div class="linha"></div>';*/
@@ -1041,7 +927,8 @@ if (imagensPedido.length > 0) {
             html += '.item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 15px; font-weight: bold}';
             html += '.item .desc { flex: 1; padding-right: 4px; word-break: break-word; }';
             html += '.item .qtd { font-weight: bold; white-space: nowrap; }';
-            html += '.obs { font-size: 11px; margin-top: 4px; }';
+            html += '.obsItem { font-size: 15px;font-weight: bold; font-style: italic; padding: 1px 0 1px 8px; word-break: break-word; }';
+            html += '.obs { font-size: 15px;font-weight: bold; margin-top: 4px; }';
             html += '.rodape { text-align: center; font-size: 10px; margin-top: 8px; }';
             html += '@media print { .no-print { display: none; } }';
             html += '</style></head><body>';
@@ -1063,8 +950,8 @@ if (imagensPedido.length > 0) {
             var temConteudo = false;
             itens.forEach(function (i) {
                 var labelItem = i.label || '';
-                var linhaItem = String(i.id || '') + ' - ' + (i.product_name || 'Item');
-                if (labelItem) linhaItem += ' - ' + labelItem + ' (' + labelItem + ')';
+                var linhaItem = String(i.product_id || '') + ' - ' + (i.product_name || 'Item');
+                //if (labelItem) linhaItem += ' - ' + labelItem + ' (' + labelItem + ')';
 
                 if (i.composicao && i.composicao.length > 0) {
                     // Só as entradas de composição desta área
@@ -1084,6 +971,11 @@ if (imagensPedido.length > 0) {
                     var qtd = i.quantidade_kg ? fmtQtdLocal(i.quantidade_kg) + 'kg' : fmtQtdLocal(i.quantidade) + 'un';
                     html += '<div class="item"><span class="desc">' + (i.product_name || 'Item') + (labelItem ? ' (' + labelItem + ')' : '') + '</span><span class="qtd">' + qtd + '</span></div>';
                 }
+                 if (i.observacao) {
+                     html += '<div class="linha"></div>';
+                        html += '<div class="obsItem"><b>Obs do Item:**</b> ' + esc(i.observacao) + '</div>';
+                    }
+                   
             });
 
             if (!temConteudo) {
@@ -1092,7 +984,7 @@ if (imagensPedido.length > 0) {
 
             if (p.observacoes) {
                 html += '<div class="linha"></div>';
-                html += '<div class="obs"><b>OBS:</b> ' + p.observacoes + '</div>';
+                html += '<div class="obs"><b>OBS Pedido:*</b> ' + p.observacoes + '</div>';
             }
 
             html += '<div class="linha"></div>';
@@ -1207,9 +1099,10 @@ if (imagensPedido.length > 0) {
             html += '.item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }';
             html += '.item .desc { flex: 1; padding-right: 4px; word-break: break-word; }';
             html += '.item .qtd { font-weight: bold; white-space: nowrap; }';
-            html += '.totais { margin-top: 6px; font-size: 12px; }';
+            html += '.totais { margin-top: 6px; font-size: 14px; }';
             html += '.totais .linhaTotal { display: flex; justify-content: space-between; padding: 2px 0; }';
             html += '.totais .total { font-size: 14px; font-weight: bold; border-top: 1px solid #000; margin-top: 3px; padding-top: 3px; }';
+            html += '.obsItem { font-size: 15px;font-weight: bold; font-style: italic; padding: 1px 0 1px 8px; word-break: break-word; }'
             html += '.obs { font-size: 11px; margin-top: 4px; }';
             html += '.rodape { text-align: center; font-size: 10px; margin-top: 8px; }';
             html += '@media print { .no-print { display: none; } }';
@@ -1236,8 +1129,8 @@ if (imagensPedido.length > 0) {
             } else {
                 itens.forEach(function (i) {
                     var labelItem = i.label || '';
-                    var linhaItem = String(i.id || '') + ' - ' + (i.product_name || 'Item');
-                    if (labelItem) linhaItem += ' - ' + labelItem + ' (' + labelItem + ')';
+                    var linhaItem = String(i.product_id || '') + ' - ' + (i.product_name || 'Item');
+                    
                     html += '<div class="itemPai">' + linhaItem + '</div>';
 
                     if (i.composicao && i.composicao.length > 0) {
@@ -1262,6 +1155,10 @@ if (imagensPedido.length > 0) {
                         html += '<div class="area">' + areaSimples + '</div>';
                         html += '<div class="item"><span class="desc">' + (i.product_name || 'Item') + (labelItem ? ' (' + labelItem + ')' : '') + '</span><span class="qtd">' + qtd + '</span></div>';
                     }
+                    if (i.observacao) {
+                     html += '<div class="linha"></div>';
+                        html += '<div class="obsItem"><b>Obs do Item:**</b> ' + esc(i.observacao) + '</div>';
+                    }
                 });
             }
 
@@ -1276,7 +1173,7 @@ if (imagensPedido.length > 0) {
 
             if (p.observacoes) {
                 html += '<div class="linha"></div>';
-                html += '<div class="obs"><b>OBS:</b> ' + p.observacoes + '</div>';
+                html += '<div class="obs"><b>Obs Pedido:*</b> ' + p.observacoes + '</div>';
             }
 
             html += '<div class="linha"></div>';
@@ -1438,9 +1335,8 @@ if (imagensPedido.length > 0) {
     var editandoId = null;
 
     function getToken() {
-        return localStorage.getItem('adminToken') || localStorage.getItem('token')
-            || localStorage.getItem('authToken') || localStorage.getItem('admin_token')
-            || localStorage.getItem('jwt') || '';
+        return localStorage.getItem('token')
+;
     }
     function toast(msg, tipo) {
         if (typeof mostrarToast === 'function') mostrarToast(msg, tipo || 'info');
@@ -1675,117 +1571,7 @@ if (imagensPedido.length > 0) {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
     else iniciar();
 })();
-/* ============================================================
-   STATUS DE PAGAMENTO (separado) + PIX TOTAL/PARCIAL
-   Status: Não Pago | Pago Parcialmente | Pago Total | Receber na Entrega
-   ============================================================ */
-(function () {
-    var STATUS_PAG = ['Não Pago', 'Pago Parcialmente', 'Pago Total', 'Receber na Entrega'];
 
-    function fmt(v) { return 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ','); }
-    function getToken() {
-        return  localStorage.getItem('token')
-            ;
-    }
-    function getPedido() {
-        return (typeof pedidoAtual !== 'undefined') ? pedidoAtual : (window.pedidoAtual || {});
-    }
-    function toast(msg, tipo) {
-        if (typeof mostrarToast === 'function') mostrarToast(msg, tipo || 'info');
-        else alert(msg);
-    }
-
-   
-
-    function enviarPix(p, valor) {
-        var token = getToken();
-        if (!token) { toast('Sessão expirada. Faça login novamente.', 'error'); return; }
-        fetch('/api/pedidos/' + p.id + '/enviar-pix', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-            body: JSON.stringify({ valor: valor })
-        })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-            if (data.success) toast('💰 PIX de ' + fmt(valor) + ' enviado ao cliente!', 'success');
-            else toast(data.message || 'Erro ao enviar PIX.', 'error');
-        })
-        .catch(function () { toast('Erro de conexão ao enviar PIX.', 'error'); });
-    }
-
-    // ===== 2) SEÇÃO STATUS DE PAGAMENTO NO MODAL =====
-    function secaoHtml(p) {
-        var total = parseFloat(p.valor_total || 0);
-        var pago = parseFloat(p.valor_pago || 0);
-        var saldo = Math.max(total - pago, 0);
-        var atual = p.status_pagamento || 'Não Pago';
-        var html = '<div id="secaoStatusPagamento" style="border:1px dashed #9ca3af;border-radius:8px;padding:10px;margin:10px 0;background:#f9fafb;">';
-        html += '<div style="font-weight:bold;margin-bottom:6px;">💳 Status do Pagamento: <span style="color:#1d4ed8;">' + atual + '</span></div>';
-        html += '<div style="font-size:13px;">Total: <b>' + fmt(total) + '</b> &nbsp;|&nbsp; Pago: <b>' + fmt(pago) + '</b> &nbsp;|&nbsp; Saldo: <b style="color:' + (saldo > 0 ? '#dc2626' : '#16a34a') + '">' + fmt(saldo) + '</b></div>';
-        html += '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">';
-        STATUS_PAG.forEach(function (s) {
-            var cor = s === 'Pago Total' ? '#16a34a' : s === 'Pago Parcialmente' ? '#f59e0b' : s === 'Receber na Entrega' ? '#6366f1' : '#6b7280';
-            html += '<button class="btn-status-pag" data-status="' + s + '" style="padding:6px 10px;border:none;border-radius:6px;background:' + cor + ';color:#fff;cursor:pointer;font-size:12px;">' + s + '</button>';
-        });
-        html += '</div></div>';
-        return html;
-    }
-
-    function injetar() {
-        var body = document.getElementById('modalBody');
-        if (!body || body.querySelector('#secaoStatusPagamento')) return;
-        var p = getPedido();
-        if (!p || !p.id) return;
-        body.insertAdjacentHTML('beforeend', secaoHtml(p));
-        ligarBotoes();
-    }
-
-    function ligarBotoes() {
-        document.querySelectorAll('.btn-status-pag').forEach(function (btn) {
-            btn.onclick = function () {
-                var p = getPedido();
-                var status = btn.getAttribute('data-status');
-                var bodyPayload = { status_pagamento: status };
-
-                if (status === 'Pago Parcialmente') {
-                    var total = parseFloat(p.valor_total || 0);
-                    var entrada = prompt('Valor pago pelo cliente (total do pedido: ' + fmt(total) + '):', '');
-                    if (entrada === null) return;
-                    var vp = parseFloat(String(entrada).replace(',', '.'));
-                    if (!vp || vp <= 0) { toast('Valor inválido.', 'error'); return; }
-                    bodyPayload.valor_pago = vp;
-                }
-
-                fetch('/api/pedidos/' + p.id + '/status-pagamento', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
-                    body: JSON.stringify(bodyPayload)
-                })
-                .then(function (r) { return r.json(); })
-                .then(function (data) {
-                    if (data.success) {
-                        p.status_pagamento = data.status_pagamento;
-                        p.valor_pago = data.valor_pago;
-                        toast('💳 ' + data.message, 'success');
-                        var sec = document.getElementById('secaoStatusPagamento');
-                        if (sec) sec.outerHTML = secaoHtml(p);
-                        ligarBotoes();
-                    } else toast(data.message || 'Erro ao atualizar.', 'error');
-                })
-                .catch(function () { toast('Erro de conexão.', 'error'); });
-            };
-        });
-    }
-
-    // Reinjeta sempre que o modal re-renderizar
-    var obs = new MutationObserver(function () { setTimeout(injetar, 50); });
-    function iniciar() {
-        obs.observe(document.body, { childList: true, subtree: true });
-        injetar();
-    }
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
-    else iniciar();
-})();
 /* ============================================================
    NOTIFICAÇÃO DE STATUS — pergunta antes de enviar mensagem
    Botões: Confirmado, Aguardando Retirada, Saiu Para Entrega, Entregue
@@ -1803,11 +1589,8 @@ if (imagensPedido.length > 0) {
     }
 
     function enviarNotificacao(p, tipomsg) {
-        var token = localStorage.getItem('adminToken')
-            || localStorage.getItem('token')
-            || localStorage.getItem('authToken')
-            || localStorage.getItem('admin_token')
-            || localStorage.getItem('jwt');
+        var token = localStorage.getItem('token')
+;
         if (!token) {
             if (typeof mostrarToast === 'function') mostrarToast('Sessão expirada. Faça login novamente.', 'error');
             else alert('Sessão expirada. Faça login novamente.');
@@ -1872,9 +1655,7 @@ if (imagensPedido.length > 0) {
     };
 
     function getToken() {
-        return localStorage.getItem('adminToken') || localStorage.getItem('token')
-            || localStorage.getItem('authToken') || localStorage.getItem('admin_token')
-            || localStorage.getItem('jwt') || '';
+        return localStorage.getItem('token');
     }
 
     // Captura as respostas da listagem de pedidos
@@ -1964,7 +1745,8 @@ if (imagensPedido.length > 0) {
     else iniciar();
 })();
 /* ============================================================
-   STATUS DE PAGAMENTO v2 — seção no modal do pedido
+   STATUS DE PAGAMENTO v4 — seção no modal do pedido
+   POSIÇÃO: DENTRO da div "Controle Pagamento"
    Não Pago | Pago Parcialmente | Pago Total | Receber na Entrega
    + botão "Enviar PIX do Saldo"
    ============================================================ */
@@ -1976,9 +1758,7 @@ if (imagensPedido.length > 0) {
 
     function fmt(v) { return 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ','); }
     function getToken() {
-        return localStorage.getItem('adminToken') || localStorage.getItem('token')
-            || localStorage.getItem('authToken') || localStorage.getItem('admin_token')
-            || localStorage.getItem('jwt') || '';
+        return localStorage.getItem('token');
     }
     function getPedido() {
         return (typeof pedidoAtual !== 'undefined') ? pedidoAtual : (window.pedidoAtual || {});
@@ -1999,8 +1779,8 @@ if (imagensPedido.length > 0) {
         var pago = parseFloat(p.valor_pago || 0);
         var saldo = Math.max(total - pago, 0);
         var atual = p.status_pagamento || 'Não Pago';
-        var html = '<div id="secaoStatusPagamento" data-pedido-id="' + p.id + '" style="border:1px dashed #9ca3af;border-radius:8px;padding:10px;margin:10px 0;background:#f9fafb;">';
-        html += '<div style="font-weight:bold;margin-bottom:6px;">💳 Status do Pagamento: <span style="color:#1d4ed8;">' + atual + '</span></div>';
+        var html = '<div id="secaoStatusPagamento" data-pedido-id="' + p.id + '" style="border:1px dashed #9ca3af;border-radius:8px;padding:10px;margin:10px 0;background:#3b5075;">';
+        html += '<div style="font-weight:bold;margin-bottom:6px;">💳 Status do Pagamento: <span style="color:#ffe72e;">' + atual + '</span></div>';
         html += '<div style="font-size:13px;">Total: <b>' + fmt(total) + '</b> &nbsp;|&nbsp; Pago: <b>' + fmt(pago) + '</b> &nbsp;|&nbsp; Saldo: <b style="color:' + (saldo > 0 ? '#dc2626' : '#16a34a') + '">' + fmt(saldo) + '</b></div>';
         html += '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">';
         STATUS_PAG.forEach(function (s) {
@@ -2010,6 +1790,47 @@ if (imagensPedido.length > 0) {
         html += '<button id="btnPixSaldo" style="padding:6px 10px;border:none;border-radius:6px;background:#0ea5e9;color:#fff;cursor:pointer;font-size:12px;">📤 Enviar PIX do Saldo</button>';
         html += '</div></div>';
         return html;
+    }
+
+    // Localiza a div "Controle Pagamento" no modal
+    function acharDivControlePagamento(body) {
+        // 1) Tenta por id/classe com nomes comuns
+        var porSeletor = body.querySelector(
+            '[id*="controlePagamento"], [id*="controle-pagamento"],' +
+            '[class*="controlePagamento"], [class*="controle-pagamento"]'
+        );
+        if (porSeletor) return porSeletor;
+        // 2) Localiza pelo texto do título e sobe até o contêiner (div)
+        var todos = body.querySelectorAll('*');
+        var menor = null;
+        for (var i = 0; i < todos.length; i++) {
+            var t = todos[i].textContent || '';
+            if (/controle\s*pagamento/i.test(t)) {
+                if (!menor || t.length < (menor.textContent || '').length) menor = todos[i];
+            }
+        }
+        if (!menor) return null;
+        var blocos = { DIV: 1, SECTION: 1, FIELDSET: 1 };
+        var alvo = menor;
+        while (alvo && alvo !== body && !blocos[alvo.tagName]) alvo = alvo.parentNode;
+        return (alvo && alvo !== body) ? alvo : null;
+    }
+
+    // Fallback: seção "Alterar Status" (comportamento anterior)
+    function acharSecaoAlterarStatus(body) {
+        var todos = body.querySelectorAll('*');
+        var menor = null;
+        for (var i = 0; i < todos.length; i++) {
+            var t = todos[i].textContent || '';
+            if (/alterar\s*status/i.test(t)) {
+                if (!menor || t.length < (menor.textContent || '').length) menor = todos[i];
+            }
+        }
+        if (!menor) return null;
+        var blocos = { DIV: 1, SECTION: 1, FIELDSET: 1, H1: 1, H2: 1, H3: 1, H4: 1, H5: 1, H6: 1, P: 1, TABLE: 1, UL: 1 };
+        var alvo = menor;
+        while (alvo && alvo !== body && !blocos[alvo.tagName]) alvo = alvo.parentNode;
+        return (alvo && alvo !== body) ? alvo : null;
     }
 
     function enviarPixSaldo() {
@@ -2047,7 +1868,15 @@ if (imagensPedido.length > 0) {
             }
             return;
         }
-        body.insertAdjacentHTML('beforeend', secaoHtml(p));
+        // Insere DENTRO da div "Controle Pagamento"; fallbacks abaixo
+        var divPag = acharDivControlePagamento(body);
+        if (divPag) {
+            divPag.insertAdjacentHTML('beforeend', secaoHtml(p));
+        } else {
+            var alt = acharSecaoAlterarStatus(body);
+            if (alt) alt.insertAdjacentHTML('beforebegin', secaoHtml(p));
+            else body.insertAdjacentHTML('beforeend', secaoHtml(p));
+        }
         ligarBotoes();
     }
 
@@ -2099,7 +1928,81 @@ if (imagensPedido.length > 0) {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
     else iniciar();
 })();
+/* ============================================================
+   OBSERVAÇÕES DOS ITENS — seção no modal do admin
+   "#ID - Produto: observação" abaixo da lista de produtos
+   ============================================================ */
+(function () {
+    if (window.__obsItensModalAtivo) return;
+    window.__obsItensModalAtivo = true;
 
+    function esc(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    function getPedido() {
+        return (typeof pedidoAtual !== 'undefined') ? pedidoAtual : (window.pedidoAtual || {});
+    }
+    function getItens() {
+        return (typeof pedidoAtualItens !== 'undefined' && Array.isArray(pedidoAtualItens))
+            ? pedidoAtualItens : (window.pedidoAtualItens || []);
+    }
+
+    function secaoHtml(itens, pedidoId) {
+        var comObs = itens.filter(function (i) { return i.observacao; });
+        if (comObs.length === 0) return '';
+        var html = '<div id="secaoObsItens" data-pedido-id="' + pedidoId + '" style="border:1px dashed #3b5075;border-radius:8px;padding:10px;margin:10px 0;background:#3b5075;">';
+        //html += '<div style="font-weight:bold;margin-bottom:6px;">📝 Observações dos Itens</div>';
+        comObs.forEach(function (i) {
+            html += '<div style="font-size:13px;padding:2px 0;"><b>#' + i.product_id + '</b> - ' + esc(i.product_name) + ': <span style="color:#ffe72e;">' + esc(i.observacao) + '</span></div>';
+        }); 
+        html += '</div>';
+        return html;
+    }
+
+    function acharSecaoAlterarStatus(body) {
+        var todos = body.querySelectorAll('*');
+        var menor = null;
+        for (var i = 0; i < todos.length; i++) {
+            var t = todos[i].textContent || '';
+            if (/Controle\s*Pagamento/i.test(t)) {
+                if (!menor || t.length < (menor.textContent || '').length) menor = todos[i];
+            }
+        }
+        if (!menor) return null;
+        var blocos = { DIV: 1, SECTION: 1, FIELDSET: 1, H1: 1, H2: 1, H3: 1, H4: 1, H5: 1, H6: 1, P: 1, TABLE: 1, UL: 1 };
+        var alvo = menor;
+        while (alvo && alvo !== body && !blocos[alvo.tagName]) alvo = alvo.parentNode;
+        return (alvo && alvo !== body) ? alvo : null;
+    }
+
+    function injetar() {
+        var body = document.getElementById('modalBody');
+        if (!body) return;
+        var p = getPedido();
+        if (!p || !p.id) return;
+        var html = secaoHtml(getItens(), p.id);
+        var sec = body.querySelector('#secaoObsItens');
+
+        if (!html) { if (sec) sec.remove(); return; }
+
+        if (sec && sec.getAttribute('data-pedido-id') === String(p.id)) return;
+
+        if (sec) sec.outerHTML = html;
+        else {
+            var alvo = acharSecaoAlterarStatus(body);
+            if (alvo) alvo.insertAdjacentHTML('beforebegin', html);
+            else body.insertAdjacentHTML('beforeend', html);
+        }
+    }
+
+    var obs = new MutationObserver(function () { setTimeout(injetar, 50); });
+    function iniciar() {
+        obs.observe(document.body, { childList: true, subtree: true });
+        injetar();
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
+    else iniciar();
+})();
 
     </script>
 </body>
