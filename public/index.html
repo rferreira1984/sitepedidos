@@ -3037,10 +3037,10 @@ function ehBoloCaseiroAtual() {
     }
 
     function avisarMinimo(minimo, total) {
-        var msg = '⚠️ Pedido mínimo de ' + fmt(minimo) + ' para '
+        var msg = 'Pedido mínimo de ' + fmt(minimo) + ' para '
             + (tipoEhRetirada() ? 'retirada' : 'entrega')
             + '. Seu pedido está em ' + fmt(total) + '.';
-        if (typeof mostrarToast === 'function') mostrarToast(msg, 'error');
+        if (typeof mostrarToast === 'function') mostrarToast(msg);
         else alert(msg);
     }
 
@@ -3064,6 +3064,80 @@ function ehBoloCaseiroAtual() {
             e.stopPropagation();
             avisarMinimo(minimo, total);
         }
+    }, true);
+})();
+/* ============================================================
+   BLOQUEIO DE FRETE — exige frete calculado para Entrega
+   Impede confirmar o pedido se o tipo for Entrega e o frete
+   não tiver sido calculado (Retirada não exige frete)
+   ============================================================ */
+(function () {
+    if (window.__bloqueioFreteAtivo) return;
+    window.__bloqueioFreteAtivo = true;
+
+    function tipoEhRetirada() {
+        var selects = document.querySelectorAll('select');
+        for (var i = 0; i < selects.length; i++) {
+            var opts = Array.prototype.slice.call(selects[i].options)
+                .map(function (o) { return (o.textContent || '').trim(); });
+            var temEntrega = opts.some(function (t) { return /entrega/i.test(t); });
+            var temRetirada = opts.some(function (t) { return /retirada/i.test(t); });
+            if (temEntrega && temRetirada) {
+                var opt = selects[i].options[selects[i].selectedIndex];
+                return !!(opt && /retirada/i.test(opt.textContent || ''));
+            }
+        }
+        return false;
+    }
+
+    function freteFoiCalculado() {
+        // 1) Variável global usada pelo cálculo de frete
+        try {
+            if (typeof custoEntrega !== 'undefined' && custoEntrega !== null) {
+                var v = parseFloat(custoEntrega);
+                if (!isNaN(v) && v > 0) return true;
+            }
+        } catch (e) {}
+        // 2) Flag alternativa, se existir
+        try {
+            if (typeof freteCalculado !== 'undefined' && freteCalculado) return true;
+        } catch (e) {}
+        // 3) Fallback: valor de frete exibido no resumo do checkout
+        var els = document.querySelectorAll('b, span, div, strong, small');
+        for (var i = 0; i < els.length; i++) {
+            var t = (els[i].textContent || '').trim();
+            if (/frete/i.test(t)) {
+                var m = t.match(/R\$\s*([\d.,]+)/);
+                if (m) {
+                    var num = parseFloat(m[1].replace(/\./g, '').replace(',', '.'));
+                    if (!isNaN(num) && num > 0) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    function avisarFrete() {
+        var msg = '⚠️ Calcule o frete antes de confirmar o pedido.\nPreencha o endereço e clique em "Calcular frete".';
+        if (typeof mostrarToast === 'function') mostrarToast(msg, 'error');
+        else alert(msg);
+    }
+
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('button, a') : null;
+        if (!btn) return;
+        var txt = (btn.textContent || '').trim();
+        var ehConfirmar = /confirmar\s+pedido/i.test(txt)
+            || /confirmar\s+via\s+c[oó]digo/i.test(txt)
+            || /entrar\s+para\s+pedir/i.test(txt);
+        if (!ehConfirmar) return;
+
+        if (tipoEhRetirada()) return;      // Retirada não exige frete
+        if (freteFoiCalculado()) return;   // Frete ok, deixa passar
+
+        e.preventDefault();
+        e.stopPropagation();
+        avisarFrete();
     }, true);
 })();
     </script>
