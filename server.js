@@ -21,9 +21,11 @@
     const PICSUR_URL = process.env.PICSUR_URL || 'https://site-picsur.hjs9cn.easypanel.host';
     const PICSUR_API_KEY = process.env.PICSUR_API_KEY || 'IZh8ytuqAmEIK34SQlsaBFtVdvjBR47F';
     const WEBHOOK_PIX = process.env.WEBHOOK_PIX || 'https://n8n-salgadoscia-n8n.hjs9cn.easypanel.host/webhook/f141aed9-c772-4bce-87ab-43f4c80173dc';
-const PIX_CHAVE = process.env.PIX_CHAVE || '00368540006';
-const PIX_NOME = process.env.PIX_NOME || 'RENATO LUIS FERREIRA';
-const PIX_CIDADE = process.env.PIX_CIDADE || 'CASCAVEL';
+    const PIX_CHAVE = process.env.PIX_CHAVE || '00368540006';
+    const PIX_NOME = process.env.PIX_NOME || 'RENATO LUIS FERREIRA';
+    const PIX_CIDADE = process.env.PIX_CIDADE || 'CASCAVEL';
+    const MIN_PEDIDO_ENTREGA = parseFloat(process.env.MIN_PEDIDO_ENTREGA || '70');
+    const MIN_PEDIDO_RETIRADA = parseFloat(process.env.MIN_PEDIDO_RETIRADA || '0');
 
 
     class Pix {
@@ -376,6 +378,18 @@ const PIX_CIDADE = process.env.PIX_CIDADE || 'CASCAVEL';
             res.status(500).json({ success: false, message: 'Erro ao buscar categorias' });
         }
     });
+    app.get('/api/config', async (req, res) => {
+        res.json({
+        success: true,
+        data: {
+            min_pedido_entrega: MIN_PEDIDO_ENTREGA,
+            min_pedido_retirada: MIN_PEDIDO_RETIRADA
+        }
+        
+        });
+         console.error('configaaaaaaaaaaaaa', res);
+    });
+
     app.get('/api/produtos', async (req, res) => {
         try {
             const { categoria } = req.query;
@@ -434,6 +448,18 @@ const PIX_CIDADE = process.env.PIX_CIDADE || 'CASCAVEL';
             if (!validacao.ok) {
                 return res.status(400).json({ success: false, message: validacao.msg });
             }
+            const ehRetirada = String(tipo_logistica || '').toLowerCase().includes('retirada');
+            const minPedido = ehRetirada ? MIN_PEDIDO_RETIRADA : MIN_PEDIDO_ENTREGA;
+            const valorTotalNum = parseFloat(valor_total) || 0;
+            if (minPedido > 0 && valorTotalNum < minPedido - 0.009) {
+                const tipoTxt = ehRetirada ? 'retirada' : 'entrega';
+                return res.status(400).json({
+                    success: false,
+                    message: 'Pedido mínimo de R$ ' + minPedido.toFixed(2).replace('.', ',')
+                        + ' para ' + tipoTxt + '. Seu pedido está em R$ '
+                        + valorTotalNum.toFixed(2).replace('.', ',') + '.'
+                });
+            }
             // TODO PEDIDO INICIA COMO PENDENTE (conforme fluxo)
             const statusInicial = 'Pendente';
             const result = await pool.query(
@@ -454,20 +480,21 @@ const PIX_CIDADE = process.env.PIX_CIDADE || 'CASCAVEL';
                 ? kgBruto
                 : null;
             const itemRes = await pool.query(
-                `INSERT INTO pedido_itens (pedido_id, product_id, product_name, label, quantidade, quantidade_kg, preco_unitario, preco_total, descricao)
-                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
-                [
-                    pedido.id,
-                    item.product_id || null,
-                    item.nome || '',
-                    item.label || '',
-                    quantidade,
-                    quantidade_kg,
-                    parseFloat(item.preco_unitario) || 0,
-                    parseFloat(item.preco_total) || 0,
-                    item.descricao || null
-                ]
-            );
+    `INSERT INTO pedido_itens (pedido_id, product_id, product_name, label, quantidade, quantidade_kg, preco_unitario, preco_total, descricao, observacao)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+    [
+        pedido.id,
+        item.product_id || null,
+        item.nome || '',
+        item.label || '',
+        quantidade,
+        quantidade_kg,
+        parseFloat(item.preco_unitario) || 0,
+        parseFloat(item.preco_total) || 0,
+        item.descricao || null,
+        item.observacao || null
+    ]
+);
                     const pedidoItemId = itemRes.rows[0].id;
                     // ===== COMPOSIÇÃO (kits e centos): grava cada item escolhido com id e quantidade =====
                     const composicao = Array.isArray(item.composicao_itens) ? item.composicao_itens : [];
@@ -1345,6 +1372,8 @@ app.post('/api/pedidos/:id/notificar', authMiddleware, async (req, res) => {
     app.get('*', (req, res) => {
         res.sendFile(path.join(__dirname, 'public', 'index.html'));
     });
+        
+
     // ==================== INICIAR ====================
     async function start() {
         const connected = await testConnection();
