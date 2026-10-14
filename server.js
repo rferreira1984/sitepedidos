@@ -387,7 +387,7 @@
         }
         
         });
-         console.error('configaaaaaaaaaaaaa', res);
+         console.error('config', res);
     });
 
     app.get('/api/produtos', async (req, res) => {
@@ -958,6 +958,30 @@
     app.get('/recuperar.html', (req, res) => {
         res.sendFile(path.join(__dirname, 'public', 'recuperar.html'));
     });
+       // ==================== GESTÃO DE PRODUTOS (ADMIN) ====================
+    // Lista TODOS os produtos (ativos e inativos) com todos os preços
+    app.get('/api/produtos-admin', authMiddleware, async (req, res) => {
+        try {
+            const products = await pool.query(
+                `SELECT p.*, c.name AS categoria_nome, c.display_order AS cat_order
+                FROM s_products p
+                JOIN s_categories c ON c.id = p.category_id
+                ORDER BY c.display_order, p.display_order, p.name`
+            );
+            const result = [];
+            for (const p of products.rows) {
+                const prices = await pool.query(
+                    'SELECT * FROM s_product_prices WHERE product_id = $1 ORDER BY price_type, quantity',
+                    [p.id]
+                );
+                result.push({ ...p, prices: prices.rows });
+            }
+            res.json({ success: true, data: result });
+        } catch (err) {
+            console.error('Erro ao listar produtos (admin):', err);
+            res.status(500).json({ success: false, message: 'Erro ao listar produtos' });
+        }
+    });
     // ==================== ROTAS ADMIN (PROTEGIDAS) ====================
     app.get('/api/pedidos', authMiddleware, async (req, res) => {
         try {
@@ -1290,23 +1314,46 @@ app.post('/api/pedidos/:id/notificar', authMiddleware, async (req, res) => {
             res.status(500).json({ success: false, message: 'Erro ao remover usuário' });
         }
     });
-    // CRUD Produtos (admin)
     app.post('/api/produtos', authMiddleware, async (req, res) => {
         try {
             const { name, description, category_id, icone, is_active, display_order } = req.body;
-            const result = await pool.query('INSERT INTO s_products (name, description, category_id, is_active, display_order) VALUES ($1,$2,$3,$4,$5) RETURNING *', [name, description, category_id, is_active !== false, display_order || 0]);
+            let result;
+            try {
+                result = await pool.query(
+                    'INSERT INTO s_products (name, description, category_id, icone, is_active, display_order) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+                    [name, description, category_id, icone || '', is_active !== false, display_order || 0]
+                );
+            } catch (e) {
+                result = await pool.query(
+                    'INSERT INTO s_products (name, description, category_id, is_active, display_order) VALUES ($1,$2,$3,$4,$5) RETURNING *',
+                    [name, description, category_id, is_active !== false, display_order || 0]
+                );
+            }
             res.status(201).json({ success: true, data: result.rows[0] });
         } catch (err) {
+            console.error('Erro ao criar produto:', err);
             res.status(500).json({ success: false, message: 'Erro ao criar produto' });
         }
     });
     app.put('/api/produtos/:id', authMiddleware, async (req, res) => {
         try {
-            const { name, description, category_id, is_active, display_order } = req.body;
-            const result = await pool.query('UPDATE s_products SET name=$1, description=$2, category_id=$3, is_active=$4, display_order=$5 WHERE id=$6 RETURNING *', [name, description, category_id, is_active, display_order, req.params.id]);
+            const { name, description, category_id, icone, is_active, display_order } = req.body;
+            let result;
+            try {
+                result = await pool.query(
+                    'UPDATE s_products SET name=$1, description=$2, category_id=$3, icone=$4, is_active=$5, display_order=$6 WHERE id=$7 RETURNING *',
+                    [name, description, category_id, icone || '', is_active, display_order, req.params.id]
+                );
+            } catch (e) {
+                result = await pool.query(
+                    'UPDATE s_products SET name=$1, description=$2, category_id=$3, is_active=$4, display_order=$5 WHERE id=$6 RETURNING *',
+                    [name, description, category_id, is_active, display_order, req.params.id]
+                );
+            }
             if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Produto não encontrado' });
             res.json({ success: true, data: result.rows[0] });
         } catch (err) {
+            console.error('Erro ao atualizar produto:', err);
             res.status(500).json({ success: false, message: 'Erro ao atualizar produto' });
         }
     });

@@ -2003,7 +2003,700 @@ if (imagensPedido.length > 0) {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
     else iniciar();
 })();
+/* ============================================================
+   GESTÃO DE PRODUTOS — aba Produtos (v3)
+   - Aba própria (clone da original, mesmo estilo) com clique direto
+   - Interceptação reforçada + botão flutuante de fallback
+   - Tela em posição fixa garantida
+   ============================================================ */
+(function () {
+    if (window.__gpV3Ativo) return;
+    window.__gpV3Ativo = true;
 
+    var produtosCache = [];
+    var categoriasCache = [];
+    var produtoEditando = null;
+    var produtoPrecos = null;
+    var precoEditando = null;
+
+    function getToken() {
+        return localStorage.getItem('token')
+           ;
+    }
+    function toast(msg, tipo) {
+        if (typeof mostrarToast === 'function') mostrarToast(msg, tipo || 'info');
+        else alert(msg);
+    }
+    function esc(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    function fmt(v) { return 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ','); }
+    function authHeaders() {
+        return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() };
+    }
+
+    function injectCSS() {
+        if (document.getElementById('css-gestao-produtos-v3')) return;
+        var st = document.createElement('style');
+        st.id = 'css-gestao-produtos-v3';
+        st.textContent = [
+            '#overlayProdutos { position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100vw !important; height: 100vh !important; background: #f3f4f6; z-index: 99999; display: none; overflow-y: auto; margin: 0 !important; padding: 0 !important; }',
+            '#overlayProdutos .gp-header { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 2; }',
+            '#overlayProdutos .gp-header h1 { font-size: 20px; margin: 0; }',
+            '#overlayProdutos .gp-corpo { max-width: 1100px; margin: 24px auto; padding: 0 16px; }',
+            '#overlayProdutos .gp-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 20px; }',
+            '#overlayProdutos .gp-card h2 { font-size: 16px; margin: 0 0 14px 0; }',
+            '#overlayProdutos .gp-form { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }',
+            '#overlayProdutos .gp-form input, #overlayProdutos .gp-form select, #overlayProdutos textarea { flex: 1; min-width: 160px; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; box-sizing: border-box; }',
+            '#overlayProdutos textarea { width: 100%; min-height: 60px; resize: vertical; }',
+            '#overlayProdutos input:focus, #overlayProdutos select:focus, #overlayProdutos textarea:focus { outline: 2px solid #16a34a; border-color: #16a34a; }',
+            '#overlayProdutos label.gp-check { display: flex; align-items: center; gap: 6px; font-size: 14px; padding: 8px 0; }',
+            '#overlayProdutos table { width: 100%; border-collapse: collapse; font-size: 13px; }',
+            '#overlayProdutos th { text-align: left; padding: 8px 6px; border-bottom: 2px solid #e5e7eb; color: #6b7280; font-size: 11px; text-transform: uppercase; }',
+            '#overlayProdutos td { padding: 8px 6px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }',
+            '#overlayProdutos .gp-btn { padding: 10px 18px; border: none; border-radius: 8px; background: #16a34a; color: #fff; font-weight: bold; cursor: pointer; font-size: 14px; }',
+            '#overlayProdutos .gp-btn-sec { background: #6b7280; }',
+            '#overlayProdutos .gp-btn-exc { background: #dc2626; padding: 5px 10px; font-size: 12px; }',
+            '#overlayProdutos .gp-btn-edt { background: #2563eb; padding: 5px 10px; font-size: 12px; }',
+            '#overlayProdutos .gp-btn-pre { background: #f59e0b; padding: 5px 10px; font-size: 12px; }',
+            '#overlayProdutos .gp-btn-off { background: #6b7280; padding: 5px 10px; font-size: 12px; }',
+            '#overlayProdutos .gp-toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }',
+            '#overlayProdutos .gp-toolbar input, #overlayProdutos .gp-toolbar select { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; }',
+            '#overlayProdutos .gp-badge-on { background: #dcfce7; color: #166534; padding: 2px 10px; border-radius: 10px; font-size: 12px; }',
+            '#overlayProdutos .gp-badge-off { background: #f3f4f6; color: #6b7280; padding: 2px 10px; border-radius: 10px; font-size: 12px; }',
+            '#overlayProdutos .gp-vazio { text-align: center; color: #6b7280; padding: 24px 0; }',
+            '#overlayProdutos details { margin: 10px 0; }',
+            '#overlayProdutos summary { cursor: pointer; font-size: 13px; color: #6b7280; }'
+        ].join('\n');
+        document.head.appendChild(st);
+    }
+
+    function criarOverlay() {
+        if (document.getElementById('overlayProdutos')) return;
+        var ov = document.createElement('div');
+        ov.id = 'overlayProdutos';
+        ov.innerHTML =
+            '<div class="gp-header">' +
+                '<h1>🍽️ Gestão de Produtos</h1>' +
+                '<button type="button" class="gp-btn gp-btn-sec" id="gpFechar">✕ Fechar</button>' +
+            '</div>' +
+            '<div class="gp-corpo">' +
+
+                '<div class="gp-card" id="gpFormProdutoCard" style="display:none;">' +
+                    '<h2 id="gpFormTitulo">➕ Novo Produto</h2>' +
+                    '<div class="gp-form">' +
+                        '<input type="text" id="gpNome" placeholder="Nome do produto *" />' +
+                        '<select id="gpCategoria"></select>' +
+                        '<input type="text" id="gpIcone" placeholder="Ícone/emoji (ex.: 🥟)" style="max-width:180px;" />' +
+                        '<input type="number" id="gpOrdem" placeholder="Ordem" style="max-width:120px;" />' +
+                    '</div>' +
+                    '<textarea id="gpDescricao" placeholder="Descrição do produto (aparece no cardápio)"></textarea>' +
+                    '<label class="gp-check"><input type="checkbox" id="gpAtivo" checked /> Ativo (visível no cardápio)</label>' +
+                    '<div style="margin-top:10px;">' +
+                        '<button type="button" class="gp-btn" id="gpSalvarProduto">Salvar Produto</button>' +
+                        '<button type="button" class="gp-btn gp-btn-sec" id="gpCancelarProduto" style="margin-left:8px;">Cancelar</button>' +
+                    '</div>' +
+                '</div>' +
+
+                '<div class="gp-card" id="gpPainelPrecos" style="display:none;">' +
+                    '<h2 id="gpPrecosTitulo">💰 Preços</h2>' +
+                    '<div id="gpListaPrecos"></div>' +
+                    '<div id="gpFormPrecoCard" style="border-top:1px solid #e5e7eb;margin-top:14px;padding-top:14px;">' +
+                        '<h3 id="gpFormPrecoTitulo" style="margin:0 0 10px 0;font-size:14px;">➕ Novo Preço</h3>' +
+                        '<div class="gp-form">' +
+                            '<input type="text" id="gpPrecoLabel" placeholder="Rótulo do botão (ex.: 100 unidades) *" />' +
+                            '<input type="number" step="0.01" id="gpPrecoValor" placeholder="Preço R$ *" style="max-width:140px;" />' +
+                            '<input type="text" id="gpPrecoTipo" placeholder="Tipo (ex.: unidade)" style="max-width:150px;" />' +
+                            '<input type="number" id="gpPrecoQtd" placeholder="Quantidade" style="max-width:130px;" />' +
+                            '<input type="text" id="gpPrecoUnidade" placeholder="Unidade (un, kg...)" style="max-width:150px;" />' +
+                        '</div>' +
+                        '<div class="gp-form">' +
+                            '<label class="gp-check"><input type="checkbox" id="gpPrecoBoloKit" /> Bolo de kit (bolo_kit)</label>' +
+                            '<label class="gp-check"><input type="checkbox" id="gpPrecoAtivo" checked /> Ativo</label>' +
+                        '</div>' +
+                        '<details><summary>Campos avançados (opcional)</summary>' +
+                            '<div class="gp-form" style="margin-top:8px;">' +
+                                '<input type="text" id="gpPrecoOpcoes" placeholder="opcoes" />' +
+                                '<input type="text" id="gpPrecoComposicao" placeholder="composicao" />' +
+                                '<input type="text" id="gpPrecoRegras" placeholder="regras" />' +
+                                '<input type="text" id="gpPrecoRegrasQtd" placeholder="regras_quantidades (JSON)" />' +
+                                '<input type="number" id="gpPrecoTotalDoces" placeholder="total_doces" style="max-width:140px;" />' +
+                                '<input type="number" id="gpPrecoTotalSalgados" placeholder="total_salgados" style="max-width:150px;" />' +
+                            '</div>' +
+                        '</details>' +
+                        '<button type="button" class="gp-btn" id="gpSalvarPreco">Salvar Preço</button>' +
+                        '<button type="button" class="gp-btn gp-btn-sec" id="gpCancelarPreco" style="margin-left:8px;">Cancelar</button>' +
+                    '</div>' +
+                '</div>' +
+
+                '<div class="gp-card">' +
+                    '<div class="gp-toolbar">' +
+                        '<select id="gpFiltroCategoria"></select>' +
+                        '<input type="text" id="gpBusca" placeholder="Buscar por nome..." />' +
+                        '<button type="button" class="gp-btn" id="gpNovoProduto">➕ Novo Produto</button>' +
+                    '</div>' +
+                    '<div id="gpLista" class="gp-vazio">Carregando...</div>' +
+                '</div>' +
+
+            '</div>';
+        document.body.appendChild(ov);
+
+        document.getElementById('gpFechar').onclick = fechar;
+        document.getElementById('gpNovoProduto').onclick = function () { abrirFormProduto(null); };
+        document.getElementById('gpSalvarProduto').onclick = salvarProduto;
+        document.getElementById('gpCancelarProduto').onclick = limparFormProduto;
+        document.getElementById('gpSalvarPreco').onclick = salvarPreco;
+        document.getElementById('gpCancelarPreco').onclick = limparFormPreco;
+        document.getElementById('gpFiltroCategoria').onchange = renderTabela;
+        document.getElementById('gpBusca').oninput = renderTabela;
+    }
+
+    function abrir() {
+        criarOverlay();
+        document.getElementById('overlayProdutos').style.display = 'block';
+        document.body.style.overflow = 'hidden';
+        limparFormProduto();
+        limparFormPreco();
+        document.getElementById('gpPainelPrecos').style.display = 'none';
+        carregarCategorias();
+        carregarProdutos();
+    }
+    function fechar() {
+        var ov = document.getElementById('overlayProdutos');
+        if (ov) ov.style.display = 'none';
+        document.body.style.overflow = '';
+    }
+
+    function carregarCategorias() {
+        fetch('/api/categorias')
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+                if (!j.success) return;
+                categoriasCache = j.data || [];
+                var opts = '<option value="">Selecione a categoria *</option>';
+                categoriasCache.forEach(function (c) {
+                    opts += '<option value="' + c.id + '">' + esc(c.name) + '</option>';
+                });
+                document.getElementById('gpCategoria').innerHTML = opts;
+                var filtro = document.getElementById('gpFiltroCategoria');
+                filtro.innerHTML = '<option value="">Todas as categorias</option>' +
+                    categoriasCache.map(function (c) {
+                        return '<option value="' + c.id + '">' + esc(c.name) + '</option>';
+                    }).join('');
+            })
+            .catch(function () {});
+    }
+
+    function carregarProdutos() {
+        var box = document.getElementById('gpLista');
+        if (!box) return;
+        box.innerHTML = '<div class="gp-vazio">Carregando...</div>';
+        fetch('/api/produtos-admin', { headers: authHeaders() })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+                if (!j.success || !Array.isArray(j.data)) {
+                    box.innerHTML = '<div class="gp-vazio">' + esc(j.message || 'Erro ao carregar produtos') + '</div>';
+                    return;
+                }
+                produtosCache = j.data;
+                renderTabela();
+                if (produtoPrecos) {
+                    var atual = produtosCache.find(function (x) { return String(x.id) === String(produtoPrecos.id); });
+                    if (atual) { produtoPrecos = atual; renderPrecos(); }
+                }
+            })
+            .catch(function () {
+                box.innerHTML = '<div class="gp-vazio">Erro de conexão ao carregar produtos.</div>';
+            });
+    }
+
+    function renderTabela() {
+        var box = document.getElementById('gpLista');
+        if (!box) return;
+        var filtro = document.getElementById('gpFiltroCategoria').value;
+        var busca = (document.getElementById('gpBusca').value || '').toLowerCase();
+        var lista = produtosCache.filter(function (p) {
+            if (filtro && String(p.category_id) !== String(filtro)) return false;
+            if (busca && String(p.name || '').toLowerCase().indexOf(busca) === -1) return false;
+            return true;
+        });
+
+        if (lista.length === 0) {
+            box.innerHTML = '<div class="gp-vazio">Nenhum produto encontrado.</div>';
+            box.classList.add('gp-vazio');
+            return;
+        }
+        box.classList.remove('gp-vazio');
+
+        var html = '<table><thead><tr><th>ID</th><th>Ícone</th><th>Nome</th><th>Categoria</th><th>Ordem</th><th>Status</th><th>Preços</th><th>Ações</th></tr></thead><tbody>';
+        lista.forEach(function (p) {
+            var precosAtivos = (p.prices || []).filter(function (pr) { return pr.is_active; }).length;
+            html += '<tr>' +
+                '<td>#' + p.id + '</td>' +
+                '<td>' + esc(p.icone || '—') + '</td>' +
+                '<td><b>' + esc(p.name) + '</b></td>' +
+                '<td>' + esc(p.categoria_nome || '—') + '</td>' +
+                '<td>' + (p.display_order || 0) + '</td>' +
+                '<td>' + (p.is_active ? '<span class="gp-badge-on">Ativo</span>' : '<span class="gp-badge-off">Inativo</span>') + '</td>' +
+                '<td>' + precosAtivos + ' ativo(s)</td>' +
+                '<td style="white-space:nowrap;">' +
+                    '<button type="button" class="gp-btn gp-btn-pre" data-acao="precos" data-id="' + p.id + '">💰 Preços</button> ' +
+                    '<button type="button" class="gp-btn gp-btn-edt" data-acao="editar" data-id="' + p.id + '">✏️</button> ' +
+                    '<button type="button" class="gp-btn gp-btn-off" data-acao="alternar" data-id="' + p.id + '">' + (p.is_active ? 'Desativar' : 'Ativar') + '</button> ' +
+                    '<button type="button" class="gp-btn gp-btn-exc" data-acao="excluir" data-id="' + p.id + '">🗑️</button>' +
+                '</td>' +
+            '</tr>';
+        });
+        html += '</tbody></table>';
+        box.innerHTML = html;
+
+        box.querySelectorAll('button[data-acao]').forEach(function (b) {
+            var p = produtosCache.find(function (x) { return String(x.id) === b.getAttribute('data-id'); });
+            if (!p) return;
+            var acao = b.getAttribute('data-acao');
+            if (acao === 'precos') b.onclick = function () { abrirPrecos(p); };
+            if (acao === 'editar') b.onclick = function () { abrirFormProduto(p); };
+            if (acao === 'alternar') b.onclick = function () { alternarAtivo(p); };
+            if (acao === 'excluir') b.onclick = function () { excluirProduto(p); };
+        });
+    }
+
+    // ===== FORMULÁRIO DE PRODUTO =====
+    function abrirFormProduto(p) {
+        produtoEditando = p;
+        document.getElementById('gpFormProdutoCard').style.display = 'block';
+        document.getElementById('gpFormTitulo').textContent = p ? '✏️ Editando: ' + p.name : '➕ Novo Produto';
+        document.getElementById('gpNome').value = p ? (p.name || '') : '';
+        document.getElementById('gpCategoria').value = p ? String(p.category_id) : '';
+        document.getElementById('gpIcone').value = p ? (p.icone || '') : '';
+        document.getElementById('gpOrdem').value = p ? (p.display_order || 0) : 0;
+        document.getElementById('gpDescricao').value = p ? (p.description || '') : '';
+        document.getElementById('gpAtivo').checked = p ? !!p.is_active : true;
+        document.getElementById('gpFormProdutoCard').scrollIntoView({ behavior: 'smooth' });
+    }
+    function limparFormProduto() {
+        produtoEditando = null;
+        var card = document.getElementById('gpFormProdutoCard');
+        if (card) card.style.display = 'none';
+    }
+    function salvarProduto() {
+        var nome = (document.getElementById('gpNome').value || '').trim();
+        var cat = document.getElementById('gpCategoria').value;
+        if (!nome) { toast('Informe o nome do produto.', 'error'); return; }
+        if (!cat) { toast('Selecione a categoria.', 'error'); return; }
+        var body = {
+            name: nome,
+            description: document.getElementById('gpDescricao').value || '',
+            category_id: parseInt(cat),
+            icone: document.getElementById('gpIcone').value || '',
+            display_order: parseInt(document.getElementById('gpOrdem').value) || 0,
+            is_active: document.getElementById('gpAtivo').checked
+        };
+        var url = produtoEditando ? '/api/produtos/' + produtoEditando.id : '/api/produtos';
+        fetch(url, { method: produtoEditando ? 'PUT' : 'POST', headers: authHeaders(), body: JSON.stringify(body) })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+                if (j.success) {
+                    toast('✅ ' + (produtoEditando ? 'Produto atualizado!' : 'Produto criado!'), 'success');
+                    limparFormProduto();
+                    carregarProdutos();
+                } else toast(j.message || 'Erro ao salvar produto.', 'error');
+            })
+            .catch(function () { toast('Erro de conexão.', 'error'); });
+    }
+
+    function alternarAtivo(p) {
+        fetch('/api/produtos/' + p.id, {
+            method: 'PUT', headers: authHeaders(),
+            body: JSON.stringify({
+                name: p.name, description: p.description, category_id: p.category_id,
+                icone: p.icone || '', is_active: !p.is_active, display_order: p.display_order || 0
+            })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+            if (j.success) { toast(p.is_active ? 'Produto desativado (saiu do cardápio).' : 'Produto ativado!', 'success'); carregarProdutos(); }
+            else toast(j.message || 'Erro ao atualizar.', 'error');
+        })
+        .catch(function () { toast('Erro de conexão.', 'error'); });
+    }
+
+    function excluirProduto(p) {
+        if (!confirm('Excluir o produto "' + p.name + '" e TODOS os seus preços?\nEsta ação não pode ser desfeita.\n\nDica: use "Desativar" para apenas tirar do cardápio.')) return;
+        fetch('/api/produtos/' + p.id, { method: 'DELETE', headers: authHeaders() })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+                if (j.success) { toast('🗑️ Produto removido.', 'success'); carregarProdutos(); }
+                else toast(j.message || 'Erro ao excluir.', 'error');
+            })
+            .catch(function () { toast('Erro de conexão.', 'error'); });
+    }
+
+    // ===== PAINEL DE PREÇOS =====
+    function abrirPrecos(p) {
+        produtoPrecos = p;
+        precoEditando = null;
+        document.getElementById('gpPainelPrecos').style.display = 'block';
+        document.getElementById('gpPrecosTitulo').textContent = '💰 Preços — ' + p.name;
+        limparFormPreco();
+        renderPrecos();
+        document.getElementById('gpPainelPrecos').scrollIntoView({ behavior: 'smooth' });
+    }
+    function renderPrecos() {
+        var box = document.getElementById('gpListaPrecos');
+        var precos = (produtoPrecos && produtoPrecos.prices) || [];
+        if (precos.length === 0) {
+            box.innerHTML = '<div class="gp-vazio">Nenhum preço cadastrado. Adicione o primeiro abaixo.</div>';
+            return;
+        }
+        var html = '<table><thead><tr><th>ID</th><th>Rótulo</th><th>Tipo</th><th>Qtd</th><th>Un.</th><th>Preço</th><th>Bolo Kit</th><th>Status</th><th>Ações</th></tr></thead><tbody>';
+        precos.forEach(function (pr) {
+            html += '<tr>' +
+                '<td>#' + pr.id + '</td>' +
+                '<td><b>' + esc(pr.label || '—') + '</b></td>' +
+                '<td>' + esc(pr.price_type || '—') + '</td>' +
+                '<td>' + (pr.quantity != null ? pr.quantity : '—') + '</td>' +
+                '<td>' + esc(pr.unit_label || '—') + '</td>' +
+                '<td><b>' + fmt(pr.price) + '</b></td>' +
+                '<td>' + (pr.bolo_kit ? 'Sim' : '—') + '</td>' +
+                '<td>' + (pr.is_active ? '<span class="gp-badge-on">Ativo</span>' : '<span class="gp-badge-off">Inativo</span>') + '</td>' +
+                '<td style="white-space:nowrap;">' +
+                    '<button type="button" class="gp-btn gp-btn-edt" data-preco="' + pr.id + '">✏️</button> ' +
+                    '<button type="button" class="gp-btn gp-btn-exc" data-preco-exc="' + pr.id + '">🗑️</button>' +
+                '</td>' +
+            '</tr>';
+        });
+        html += '</tbody></table>';
+        box.innerHTML = html;
+
+        box.querySelectorAll('button[data-preco]').forEach(function (b) {
+            b.onclick = function () {
+                var pr = precos.find(function (x) { return String(x.id) === b.getAttribute('data-preco'); });
+                if (pr) abrirFormPreco(pr);
+            };
+        });
+        box.querySelectorAll('button[data-preco-exc]').forEach(function (b) {
+            b.onclick = function () {
+                var pr = precos.find(function (x) { return String(x.id) === b.getAttribute('data-preco-exc'); });
+                if (!pr) return;
+                if (!confirm('Excluir o preço "' + (pr.label || pr.id) + '"?')) return;
+                fetch('/api/precos/' + pr.id, { method: 'DELETE', headers: authHeaders() })
+                    .then(function (r) { return r.json(); })
+                    .then(function (j) {
+                        if (j.success) { toast('🗑️ Preço removido.', 'success'); carregarProdutos(); }
+                        else toast(j.message || 'Erro ao excluir preço.', 'error');
+                    })
+                    .catch(function () { toast('Erro de conexão.', 'error'); });
+            };
+        });
+    }
+    function abrirFormPreco(pr) {
+        precoEditando = pr;
+        document.getElementById('gpFormPrecoTitulo').textContent = '✏️ Editando preço #' + pr.id;
+        document.getElementById('gpPrecoLabel').value = pr.label || '';
+        document.getElementById('gpPrecoValor').value = pr.price != null ? pr.price : '';
+        document.getElementById('gpPrecoTipo').value = pr.price_type || '';
+        document.getElementById('gpPrecoQtd').value = pr.quantity != null ? pr.quantity : '';
+        document.getElementById('gpPrecoUnidade').value = pr.unit_label || '';
+        document.getElementById('gpPrecoBoloKit').checked = !!pr.bolo_kit;
+        document.getElementById('gpPrecoAtivo').checked = pr.is_active !== false;
+        document.getElementById('gpPrecoOpcoes').value = pr.opcoes || '';
+        document.getElementById('gpPrecoComposicao').value = pr.composicao || '';
+        document.getElementById('gpPrecoRegras').value = pr.regras || '';
+        document.getElementById('gpPrecoRegrasQtd').value = pr.regras_quantidades || '';
+        document.getElementById('gpPrecoTotalDoces').value = pr.total_doces != null ? pr.total_doces : '';
+        document.getElementById('gpPrecoTotalSalgados').value = pr.total_salgados != null ? pr.total_salgados : '';
+    }
+    function limparFormPreco() {
+        precoEditando = null;
+        var t = document.getElementById('gpFormPrecoTitulo');
+        if (t) t.textContent = '➕ Novo Preço';
+        ['gpPrecoLabel', 'gpPrecoValor', 'gpPrecoTipo', 'gpPrecoQtd', 'gpPrecoUnidade',
+         'gpPrecoOpcoes', 'gpPrecoComposicao', 'gpPrecoRegras', 'gpPrecoRegrasQtd',
+         'gpPrecoTotalDoces', 'gpPrecoTotalSalgados'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        var bk = document.getElementById('gpPrecoBoloKit');
+        if (bk) bk.checked = false;
+        var at = document.getElementById('gpPrecoAtivo');
+        if (at) at.checked = true;
+    }
+    function salvarPreco() {
+        if (!produtoPrecos) return;
+        var label = (document.getElementById('gpPrecoLabel').value || '').trim();
+        var price = parseFloat(document.getElementById('gpPrecoValor').value);
+        if (!label) { toast('Informe o rótulo do preço.', 'error'); return; }
+        if (isNaN(price) || price <= 0) { toast('Informe um preço válido.', 'error'); return; }
+        var qtd = document.getElementById('gpPrecoQtd').value;
+        var body = {
+            product_id: produtoPrecos.id,
+            label: label,
+            price: price,
+            price_type: document.getElementById('gpPrecoTipo').value || '',
+            quantity: qtd !== '' ? parseFloat(qtd) : null,
+            unit_label: document.getElementById('gpPrecoUnidade').value || '',
+            bolo_kit: document.getElementById('gpPrecoBoloKit').checked,
+            is_active: document.getElementById('gpPrecoAtivo').checked,
+            opcoes: document.getElementById('gpPrecoOpcoes').value || '',
+            composicao: document.getElementById('gpPrecoComposicao').value || '',
+            regras: document.getElementById('gpPrecoRegras').value || '',
+            regras_quantidades: document.getElementById('gpPrecoRegrasQtd').value || null,
+            total_doces: document.getElementById('gpPrecoTotalDoces').value || null,
+            total_salgados: document.getElementById('gpPrecoTotalSalgados').value || null
+        };
+        var url = precoEditando ? '/api/precos/' + precoEditando.id : '/api/precos';
+        fetch(url, { method: precoEditando ? 'PUT' : 'POST', headers: authHeaders(), body: JSON.stringify(body) })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+                if (j.success) {
+                    toast('✅ Preço salvo!', 'success');
+                    limparFormPreco();
+                    carregarProdutos();
+                } else toast(j.message || 'Erro ao salvar preço.', 'error');
+            })
+            .catch(function () { toast('Erro de conexão.', 'error'); });
+    }
+
+    // ===== ABA PRÓPRIA (padrão que funciona na aba Usuários) =====
+    function ehTextoAbaProdutos(txt) {
+        if (!txt || txt.length >= 30) return false;
+        if (!/produtos/i.test(txt)) return false;
+        if (/novo|salvar|editar|excluir|ativar|desativar|preç|preco/i.test(txt)) return false;
+        return true;
+    }
+    function acharAbaOriginal() {
+        var els = document.querySelectorAll('button, a');
+        for (var i = 0; i < els.length; i++) {
+            if (els[i].id === 'abaProdutosV3') continue;
+            var t = (els[i].textContent || '').trim();
+            if (ehTextoAbaProdutos(t)) return els[i];
+        }
+        return null;
+    }
+     function criarClone(original) {
+        // Cria o botão do zero (mesmo padrão da aba Usuários, que funciona).
+        // O cloneNode(false) antigo copiava só a tag, SEM o texto —
+        // o botão nascia vazio e sumia visualmente.
+        var clone = document.createElement('button');
+        clone.type = 'button';
+        clone.id = 'abaProdutosV3';
+        clone.className = original.className || '';
+        clone.textContent = (original.textContent || '').trim() || '🍽️ Produtos';
+        clone.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            abrir();
+        });
+        original.parentNode.insertBefore(clone, original.nextSibling);
+        return clone;
+    }
+    
+    function criarBotaoFlutuante() {
+        var fb = document.createElement('button');
+        fb.type = 'button';
+        fb.id = 'abaProdutosV3';
+        fb.textContent = '🍽️ Produtos';
+        fb.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:99998;padding:12px 18px;border:none;border-radius:30px;background:#16a34a;color:#fff;font-weight:bold;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.25);font-size:14px;';
+        fb.addEventListener('click', function (e) { e.preventDefault(); abrir(); });
+        document.body.appendChild(fb);
+    }
+    function instalarAba() {
+        var clone = document.getElementById('abaProdutosV3');
+        var original = acharAbaOriginal();
+        if (original) {
+            original.style.display = 'none'; // neutraliza a aba original
+            if (!clone) criarClone(original);
+        } else if (!clone) {
+            criarBotaoFlutuante(); // fallback: sempre há como abrir
+        }
+    }
+
+    // Backup: intercepta clique em qualquer elemento "Produtos" fora do overlay
+    document.addEventListener('click', function (e) {
+        if (e.target.closest && (e.target.closest('#overlayProdutos') || e.target.closest('#abaProdutosV3'))) return;
+        var el = e.target;
+        for (var i = 0; i < 5 && el && el !== document.body; i++) {
+            if (ehTextoAbaProdutos((el.textContent || '').trim())) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                abrir();
+                return;
+            }
+            el = el.parentNode;
+        }
+    }, true);
+
+    // Fecha a tela ao clicar em Pedidos ou Sair
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('button, a') : null;
+        if (!btn || btn.closest('#overlayProdutos')) return;
+        var txt = (btn.textContent || '').trim();
+        if ((/pedidos/i.test(txt) && txt.length < 20) || /sair/i.test(txt)) fechar();
+    }, true);
+
+    var obs = new MutationObserver(function () { setTimeout(instalarAba, 80); });
+    function iniciar() {
+        injectCSS();
+        obs.observe(document.body, { childList: true, subtree: true });
+        instalarAba();
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
+    else iniciar();
+})();
+/* ============================================================
+   TEMA UNIFICADO — Produtos e Usuários com o padrão de cores
+   da página de Pedidos
+   Lê as cores reais dos elementos do painel (botões, cards,
+   header, tabela, inputs, fonte) e aplica aos dois overlays
+   ============================================================ */
+(function () {
+    if (window.__temaUnificadoAtivo) return;
+    window.__temaUnificadoAtivo = true;
+
+    function prop(el, nome) {
+        try { return getComputedStyle(el).getPropertyValue(nome) || null; } catch (e) { return null; }
+    }
+    function porTexto(seletor, regex, maxLen) {
+        var els = document.querySelectorAll(seletor);
+        for (var i = 0; i < els.length; i++) {
+            var t = (els[i].textContent || '').trim();
+            if (regex.test(t) && t.length <= (maxLen || 30)) return els[i];
+        }
+        return null;
+    }
+    // Sobe na árvore até achar um contêiner com fundo/borda visíveis
+    function subirAteCard(el) {
+        var x = el;
+        for (var i = 0; i < 6 && x && x !== document.body; i++) {
+            var bg = prop(x, 'background-color');
+            var radius = prop(x, 'border-radius');
+            if (bg && bg !== 'rgba(0, 0, 0, 0)' && radius && radius !== '0px') return x;
+            x = x.parentNode;
+        }
+        return el;
+    }
+
+    function extrairTema() {
+        var tema = {};
+
+        // Botão primário: "Buscar" da página de pedidos
+        var btnBuscar = porTexto('button', /^🔍?\s*buscar$/i, 20)
+            || porTexto('button', /buscar/i, 20);
+        if (btnBuscar) {
+            tema.btnBg = prop(btnBuscar, 'background-color');
+            tema.btnBgImg = prop(btnBuscar, 'background-image');
+            tema.btnCor = prop(btnBuscar, 'color');
+            tema.btnRadius = prop(btnBuscar, 'border-radius');
+            tema.btnFonte = prop(btnBuscar, 'font-family');
+            tema.btnPeso = prop(btnBuscar, 'font-weight');
+        }
+
+        // Botão secundário: "Limpar"
+        var btnLimpar = porTexto('button', /limpar/i, 20);
+        if (btnLimpar) tema.btnSecBg = prop(btnLimpar, 'background-color');
+
+        // Card de estatística: sobe a partir de "Pendentes"
+        var stat = porTexto('*', /^pendentes$/i, 12);
+        if (stat) {
+            var card = subirAteCard(stat);
+            tema.cardBg = prop(card, 'background-color');
+            tema.cardBorda = prop(card, 'border') || prop(card, 'border-color');
+            tema.cardRadius = prop(card, 'border-radius');
+            tema.cardSombra = prop(card, 'box-shadow');
+        }
+
+        // Header do painel: ancestral do título "Painel de Pedidos"
+        var titulo = porTexto('h1, h2, div, span', /painel de pedidos/i, 40);
+        if (titulo) {
+            var hdr = titulo;
+            for (var k = 0; k < 5 && hdr && hdr !== document.body; k++) {
+                var bgH = prop(hdr, 'background-color');
+                if (bgH && bgH !== 'rgba(0, 0, 0, 0)') break;
+                hdr = hdr.parentNode;
+            }
+            if (hdr && hdr !== document.body) {
+                tema.hdrBg = prop(hdr, 'background-color');
+                tema.hdrBgImg = prop(hdr, 'background-image');
+                tema.hdrCor = prop(hdr, 'color');
+            }
+        }
+
+        // Cabeçalho de tabela (th) e linhas
+        var th = document.querySelector('table th');
+        if (th) {
+            tema.thCor = prop(th, 'color');
+            tema.thBorda = prop(th, 'border-bottom-color');
+            tema.thFonte = prop(th, 'font-family');
+        }
+        var td = document.querySelector('table td');
+        if (td) tema.tdBorda = prop(td, 'border-bottom-color');
+
+        // Input de busca
+        var input = document.querySelector('input[placeholder*="Buscar"], input[placeholder*="buscar"]');
+        if (input) {
+            tema.inputBorda = prop(input, 'border-color');
+            tema.inputRadius = prop(input, 'border-radius');
+        }
+
+        // Fonte e cor de texto globais
+        tema.fonte = prop(document.body, 'font-family');
+        tema.corTexto = prop(document.body, 'color');
+
+        return tema;
+    }
+
+    function aplicarTema() {
+        var antigo = document.getElementById('css-tema-unificado');
+        if (antigo) antigo.remove();
+
+        var t = extrairTema();
+        var r = [];
+
+        if (t.fonte) {
+            r.push('#overlayProdutos, #overlayUsuarios { font-family: ' + t.fonte + ' !important; }');
+        }
+        if (t.hdrBg || t.hdrBgImg) {
+            r.push('#overlayProdutos .gp-header, #overlayUsuarios .gu-header { background: ' + (t.hdrBg || '#fff') + ' !important; background-image: ' + (t.hdrBgImg || 'none') + ' !important; color: ' + (t.hdrCor || '#111827') + ' !important; }');
+            r.push('#overlayProdutos .gp-header h1, #overlayUsuarios .gu-header h1 { color: ' + (t.hdrCor || '#111827') + ' !important; }');
+        }
+        if (t.cardBg) {
+            r.push('#overlayProdutos .gp-card, #overlayUsuarios .gu-card { background: ' + t.cardBg + ' !important; border: 1px solid ' + (t.cardBorda || '#e5e7eb') + ' !important; border-radius: ' + (t.cardRadius || '12px') + ' !important; box-shadow: ' + (t.cardSombra || 'none') + ' !important; }');
+            r.push('#overlayProdutos .gp-card h2, #overlayUsuarios .gu-card h2 { color: ' + (t.corTexto || '#111827') + ' !important; }');
+        }
+        if (t.btnBg || t.btnBgImg) {
+            r.push('#overlayProdutos .gp-btn, #overlayUsuarios .gu-btn { background: ' + (t.btnBg || '#16a34a') + ' !important; background-image: ' + (t.btnBgImg || 'none') + ' !important; color: ' + (t.btnCor || '#fff') + ' !important; border-radius: ' + (t.btnRadius || '8px') + ' !important; font-family: ' + (t.btnFonte || t.fonte || 'inherit') + ' !important; font-weight: ' + (t.btnPeso || 'bold') + ' !important; }');
+        }
+        if (t.btnSecBg) {
+            r.push('#overlayProdutos .gp-btn-sec, #overlayUsuarios .gu-btn-sec { background: ' + t.btnSecBg + ' !important; }');
+        }
+        if (t.thCor) {
+            r.push('#overlayProdutos th, #overlayUsuarios th { color: ' + t.thCor + ' !important; border-bottom: 2px solid ' + (t.thBorda || '#e5e7eb') + ' !important; font-family: ' + (t.thFonte || t.fonte || 'inherit') + ' !important; }');
+        }
+        if (t.tdBorda) {
+            r.push('#overlayProdutos td, #overlayUsuarios td { border-bottom: 1px solid ' + t.tdBorda + ' !important; }');
+        }
+        if (t.inputBorda) {
+            r.push('#overlayProdutos input, #overlayProdutos select, #overlayProdutos textarea, #overlayUsuarios input { border: 1px solid ' + t.inputBorda + ' !important; border-radius: ' + (t.inputRadius || '8px') + ' !important; font-family: ' + (t.fonte || 'inherit') + ' !important; }');
+        }
+
+        if (r.length === 0) return;
+        var st = document.createElement('style');
+        st.id = 'css-tema-unificado';
+        st.textContent = r.join('\n');
+        document.head.appendChild(st);
+    }
+
+    // Aplica após o painel carregar e reaplica se o DOM mudar
+    function iniciar() { setTimeout(aplicarTema, 600); }
+    var obs = new MutationObserver(function () { setTimeout(aplicarTema, 300); });
+    function boot() {
+        obs.observe(document.body, { childList: true, subtree: true });
+        iniciar();
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+    else boot();
+})();
     </script>
 </body>
 </html>
