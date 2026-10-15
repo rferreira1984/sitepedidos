@@ -2697,6 +2697,256 @@ if (imagensPedido.length > 0) {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
     else boot();
 })();
+/* ============================================================
+   NOTIFICAÇÃO DE NOVOS PEDIDOS v4 — toque de telefone analógico
+   - "Dring-dring" metálico: 2 tons + martelinho (mod. 25Hz)
+   - Loop a cada 3s até o usuário clicar na página
+   - Fallback WAV também com som de campainha antiga
+   ============================================================ */
+(function () {
+    if (window.__notificaPedidosAtivo) return;
+    window.__notificaPedidosAtivo = true;
+
+    var INTERVALO = 20000;     // verificação a cada 20 segundos
+    var INTERVALO_LOOP = 3000; // toque se repete a cada 3 segundos
+    var URL_PEDIDOS = '/api/pedidos'; // ajuste se o endpoint for outro
+    var ultimoMaxId = null;
+    var tituloOriginal = document.title;
+    var piscando = null;
+    var loopTimer = null;
+
+    function getToken() {
+        return localStorage.getItem('token');
+    }
+    function toast(msg, tipo) {
+        if (typeof mostrarToast === 'function') { try { mostrarToast(msg, tipo || 'info'); } catch (e) {} }
+    }
+
+    // ===== ÁUDIO — desbloqueio (base das versões anteriores) =====
+    var ctxAudio = null;
+    var audioDesbloqueado = false;
+
+    function garantirAudio() {
+        try {
+            if (!ctxAudio) ctxAudio = new (window.AudioContext || window.webkitAudioContext)();
+            if (ctxAudio.state === 'suspended') ctxAudio.resume();
+            if (ctxAudio.state === 'running') audioDesbloqueado = true;
+        } catch (e) {}
+    }
+    function desbloquearAudio() {
+        garantirAudio();
+        if (!ctxAudio || audioDesbloqueado) return;
+        try {
+            var buf = ctxAudio.createBuffer(1, 1, 22050);
+            var src = ctxAudio.createBufferSource();
+            src.buffer = buf;
+            src.connect(ctxAudio.destination);
+            src.start(0);
+            audioDesbloqueado = true;
+        } catch (e) {}
+    }
+    ['click', 'keydown', 'touchstart'].forEach(function (ev) {
+        document.addEventListener(ev, desbloquearAudio, { passive: true });
+    });
+
+    // ===== TOQUE DE TELEFONE ANALÓGICO =====
+    // Dois tons metálicos (950Hz + 1250Hz) com modulação de 25Hz
+    // (martelinho do sino), em dois pulsos: dring... dring...
+    function tocarViaWebAudio() {
+        if (!ctxAudio || ctxAudio.state !== 'running') return false;
+        try {
+            var agora = ctxAudio.currentTime;
+            [0, 0.8].forEach(function (inicio) { // pulso 1 e pulso 2
+                var dur = 0.55;
+                var t0 = agora + inicio;
+                var t1 = t0 + dur;
+
+                var osc1 = ctxAudio.createOscillator();
+                var osc2 = ctxAudio.createOscillator();
+                osc1.type = 'sine'; osc2.type = 'sine';
+                osc1.frequency.value = 950;   // campainha metálica 1
+                osc2.frequency.value = 1250;  // campainha metálica 2
+
+                var gain = ctxAudio.createGain();
+                gain.gain.setValueAtTime(0.0001, t0);
+                gain.gain.linearRampToValueAtTime(0.35, t0 + 0.02);
+                gain.gain.setValueAtTime(0.35, t1 - 0.03);
+                gain.gain.linearRampToValueAtTime(0.0001, t1);
+
+                // Martelinho: oscila o volume 25 vezes por segundo
+                var mod = ctxAudio.createOscillator();
+                mod.type = 'sine';
+                mod.frequency.value = 25;
+                var modGain = ctxAudio.createGain();
+                modGain.gain.value = 0.25;
+                mod.connect(modGain);
+                modGain.connect(gain.gain);
+
+                osc1.connect(gain);
+                osc2.connect(gain);
+                gain.connect(ctxAudio.destination);
+
+                osc1.start(t0); osc1.stop(t1);
+                osc2.start(t0); osc2.stop(t1);
+                mod.start(t0); mod.stop(t1);
+            });
+            return true;
+        } catch (e) { return false; }
+    }
+
+    // Fallback: WAV gerado em runtime com o mesmo timbre de campainha
+    function gerarCampainhaWav() {
+        var taxa = 44100;
+        var duracao = 1.4;
+        var n = Math.floor(taxa * duracao);
+        var buffer = new ArrayBuffer(44 + n * 2);
+        var view = new DataView(buffer);
+        function str(offset, s) { for (var i = 0; i < s.length; i++) view.setUint8(offset + i, s.charCodeAt(i)); }
+        str(0, 'RIFF'); view.setUint32(4, 36 + n * 2, true); str(8, 'WAVE');
+        str(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+        view.setUint16(22, 1, true); view.setUint32(24, taxa, true);
+        view.setUint32(28, taxa * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+        str(36, 'data'); view.setUint32(40, n * 2, true);
+        for (var i = 0; i < n; i++) {
+            var t = i / taxa;
+            var ativo = (t < 0.55) || (t >= 0.8 && t < 1.35); // dois pulsos
+            var v = 0;
+            if (ativo) {
+                var portadora = (Math.sin(2 * Math.PI * 950 * t) + Math.sin(2 * Math.PI * 1250 * t)) / 2;
+                var martelo = 0.6 + 0.4 * Math.sin(2 * Math.PI * 25 * t);
+                v = portadora * martelo * 0.7;
+            }
+            view.setInt16(44 + i * 2, Math.max(-1, Math.min(1, v)) * 32767, true);
+        }
+        return new Blob([buffer], { type: 'audio/wav' });
+    }
+    var urlToqueCache = null;
+    function urlToque() {
+        if (!urlToqueCache) urlToqueCache = URL.createObjectURL(gerarCampainhaWav());
+        return urlToqueCache;
+    }
+    function tocarViaElemento() {
+        try {
+            var a = new Audio(urlToque());
+            a.volume = 1;
+            var p = a.play();
+            if (p && p.catch) {
+                p.catch(function () {
+                    try { new Audio(urlToque()).play().catch(function () {}); } catch (e) {}
+                });
+            }
+            return true;
+        } catch (e) { return false; }
+    }
+    function tocarAlerta() {
+        garantirAudio();
+        if (!tocarViaWebAudio()) tocarViaElemento();
+    }
+
+    // ===== LOOP DO TOQUE — repete até o clique =====
+    function iniciarLoopAlerta() {
+        if (loopTimer) return; // já está tocando: não empilha
+        tocarAlerta();
+        loopTimer = setInterval(tocarAlerta, INTERVALO_LOOP);
+    }
+    function pararLoopAlerta() {
+        if (loopTimer) {
+            clearInterval(loopTimer);
+            loopTimer = null;
+        }
+    }
+
+    // Botão 🔊 flutuante: testa o toque e desbloqueia o áudio
+    function criarBotaoSom() {
+        if (document.getElementById('btnTesteSom')) return;
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.id = 'btnTesteSom';
+        b.textContent = '🔊';
+        b.title = 'Testar toque de novo pedido';
+        b.style.cssText = 'position:fixed;left:18px;bottom:18px;z-index:99998;width:46px;height:46px;border:none;border-radius:50%;background:#16a34a;color:#fff;font-size:20px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.25);';
+        b.onclick = function () { desbloquearAudio(); tocarAlerta(); };
+        document.body.appendChild(b);
+    }
+
+    // ===== TÍTULO PISCANDO — até o clique =====
+    function piscarTitulo() {
+        if (piscando) return;
+        var alternar = false;
+        piscando = setInterval(function () {
+            document.title = alternar ? '🔔 NOVO PEDIDO!' : tituloOriginal;
+            alternar = !alternar;
+        }, 1000);
+    }
+    function pararTitulo() {
+        if (piscando) clearInterval(piscando);
+        piscando = null;
+        document.title = tituloOriginal;
+    }
+    function pararAlertas() {
+        pararLoopAlerta();
+        pararTitulo();
+    }
+    ['click', 'touchstart'].forEach(function (ev) {
+        document.addEventListener(ev, pararAlertas, { passive: true });
+    });
+
+    // ===== ATUALIZA A LISTAGEM EXISTENTE =====
+    function atualizarLista() {
+        try {
+            if (typeof carregarPedidos === 'function') { carregarPedidos(); return; }
+            if (typeof loadPedidos === 'function') loadPedidos();
+        } catch (e) {}
+    }
+
+    // ===== VERIFICAÇÃO DE NOVOS PEDIDOS =====
+    function verificarNovosPedidos() {
+        var token = getToken();
+        if (!token) return;
+        fetch(URL_PEDIDOS, { headers: { 'Authorization': 'Bearer ' + token } })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+                var lista = (j && j.success && Array.isArray(j.data)) ? j.data : (Array.isArray(j) ? j : null);
+                if (!lista) return;
+                var maxId = 0, novos = 0;
+                lista.forEach(function (p) {
+                    var id = parseInt(p.id) || 0;
+                    if (id > maxId) maxId = id;
+                });
+                if (ultimoMaxId === null) { ultimoMaxId = maxId; return; }
+                if (maxId > ultimoMaxId) {
+                    lista.forEach(function (p) {
+                        if ((parseInt(p.id) || 0) > ultimoMaxId) novos++;
+                    });
+                    ultimoMaxId = maxId;
+                    iniciarLoopAlerta();
+                    toast('🔔 ' + novos + ' novo(s) pedido(s) recebido(s)! Clique na página para parar o toque.', 'success');
+                    atualizarLista();
+                    piscarTitulo();
+                }
+            })
+            .catch(function () {});
+    }
+
+    // Timer em Worker: não é retardado com a aba em segundo plano
+    function iniciarTimer() {
+        try {
+            var codigo = 'setInterval(function(){ postMessage(0); }, ' + INTERVALO + ');';
+            var worker = new Worker(URL.createObjectURL(new Blob([codigo], { type: 'application/javascript' })));
+            worker.onmessage = verificarNovosPedidos;
+        } catch (e) {
+            setInterval(verificarNovosPedidos, INTERVALO);
+        }
+    }
+
+    function iniciar() {
+        criarBotaoSom();
+        iniciarTimer();
+        verificarNovosPedidos();
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
+    else iniciar();
+})();
     </script>
 </body>
 </html>

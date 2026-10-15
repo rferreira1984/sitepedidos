@@ -299,7 +299,7 @@
                 `SELECT DISTINCT p.name FROM s_products p
                 JOIN s_categories c ON c.id = p.category_id
                 WHERE p.is_active = true
-                AND (c.slug IN ('salgados-fritos', 'salgados-assados')
+                AND (c.slug IN ('salgados-fritos', 'salgados-assados-tradicionais', 'salgados-assados-especiais')
                         OR c.name ILIKE '%salgado%')
                 ORDER BY p.name`
             );
