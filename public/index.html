@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Salgados & Cia - Cardápio Digital</title>
+    <title>Salgados & Cia Cascavel</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -54,7 +54,7 @@
         </div>
         <div class="cart-footer" id="cartFooter" style="display:none;">
             <div class="cart-total"><span>Total</span><span id="cartTotal">R$ 0,00</span></div>
-            <button class="btn-checkout" onclick="abrirCheckout()"><i class="fas fa-check-circle"></i> Fechar Pedido</button>
+            <button class="btn-checkout" onclick="abrirCheckout()"><i class="fas fa-check-circle"></i> Finalizar seu Pedido</button>
         </div>
     </div>
     <div class="checkout-overlay" id="checkoutOverlay">
@@ -200,7 +200,7 @@
                 <div class="km-chips" id="kmDocesChips"></div>
             </div>
             <div class="km-section" id="kmSalgadosSection">
-                <label>🥟 Salgados</label>
+                <label></label>
                 <div class="km-info" style="font-size:11px;color:#9ca3af;margin-bottom:6px;" id="kmSalgadosInfo"></div>
                 <div class="km-chips" id="kmSalgadosChips"></div>
             </div>
@@ -2488,7 +2488,6 @@ function ehBoloCaseiroAtual() {
     // Fallback caso /api/config não responda (mantenha igual ao .env)
     var MIN_ENTREGA = 100;
     var MIN_RETIRADA = 0;
- alert(data)
     // Busca os valores reais do backend
     fetch('/api/config')
         .then(function (r) { return r.json(); })
@@ -2660,6 +2659,337 @@ function ehBoloCaseiroAtual() {
         e.stopPropagation();
         avisarFrete();
     }, true);
+})();
+(function () {
+    'use strict';
+
+    /* ============ CONFIGURAÇÃO — PREENCHA COM OS DADOS REAIS ============ */
+    var WHATSAPP_NUMERO  = '5545974007279';              // só dígitos: 55 + DDD + número
+    var TELEFONE_EXIBIR  = '(45) 97400-7279';            // como aparece no rodapé
+    var WHATSAPP_MENSAGEM = 'Olá! Vim pelo cardápio online e gostaria de tirar uma dúvida.';
+    var INSTAGRAM_URL    = 'https://www.instagram.com/salgadoseciacascavel/';
+    var ENDERECO_LOJA    = 'Rua Espinelo, 123 — Esmeralda, Cascavel/PR';
+    var HORARIO_LOJA     = 'Entrega Seg a Sex: 8:30h às 18h · Sáb: 8:30h às 14:30h \nRetirada Seg a Sex: 8h às 19h · Sáb: 8h às 14:30h';
+    var PRAZO_MIN_DIAS   = 2;
+    /* ==================================================================== */
+
+    function fmtV(v) { return (parseFloat(v) || 0).toFixed(2).replace('.', ','); }
+    function getProdutos() {
+        try { if (typeof produtosData !== 'undefined' && Array.isArray(produtosData)) return produtosData; } catch (e) {}
+        return [];
+    }
+    function precoKgDe(p) {
+        var precos = (p && p.prices ? p.prices : []).filter(function (pr) { return pr.is_active !== false; });
+        if (!precos.length) return 0;
+        return Math.max.apply(null, precos.map(function (pr) { return parseFloat(pr.price) || 0; }));
+    }
+    function tipoCentoDe(nome) {
+        var n = String(nome || '').toLowerCase();
+        if (n.indexOf('especia') !== -1) return 'Salgados Assados Especiais';
+        if (n.indexOf('assado') !== -1) return 'Salgados Assados Tradicionais';
+        if (n.indexOf('frito') !== -1) return 'Salgados Fritos';
+        if (n.indexOf('gourmet') !== -1) return 'Doces Gourmet';
+        if (n.indexOf('doce') !== -1 || n.indexOf('tradicion') !== -1) return 'Doces Tradicionais';
+        return 'Salgados Fritos';
+    }
+    function rotuloPorCategoria(cat) {
+        var c = String(cat || '').toLowerCase();
+        if (c.indexOf('bolo') !== -1) return '🎂 Sabor do bolo';
+        if (c.indexOf('doce') !== -1) return '🍩 Doces';
+        if (c.indexOf('salgad') !== -1 || c.indexOf('cento') !== -1) return '🥟 Salgados';
+        return '🍽️ Sabor';
+    }
+
+    /* ==================== 3) LABELS DE SABORES ==================== */
+    function corrigirLabelsModal() {
+        var lB = document.querySelector('#kmBoloSection label');
+        if (lB) lB.textContent = '🎂 Sabor do bolo';
+        var lD = document.querySelector('#kmDocesSection label');
+        if (lD) lD.textContent = '🍩 Doces';
+        var lR = document.querySelector('#kmRefriSection label');
+        if (lR) lR.textContent = '🥤 Refrigerante';
+        var lS = document.querySelector('#kmSalgadosSection label');
+        if (lS) {
+            var rot = '🥟 Salgados';
+            try {
+                if (typeof modoCento !== 'undefined' && modoCento &&
+                    typeof centoAtual !== 'undefined' && centoAtual != null) {
+                    var p = getProdutos().find(function (x) { return x.id === centoAtual; });
+                    var tipo = tipoCentoDe(p ? p.name : '');
+                    rot = /doce/i.test(tipo) ? '🍩 Doces' : '🥟 Salgados';
+                }
+            } catch (e) {}
+            lS.textContent = rot;
+        }
+    }
+
+    var _abrirCentoModal = window.abrirCentoModal;
+    if (typeof _abrirCentoModal === 'function') {
+        window.abrirCentoModal = function (produtoId) {
+            var r = _abrirCentoModal.apply(this, arguments);
+            setTimeout(corrigirLabelsModal, 0);
+            return r;
+        };
+    }
+    var _montarSecaoDoces = window.montarSecaoDoces;
+    if (typeof _montarSecaoDoces === 'function') {
+        window.montarSecaoDoces = function () {
+            var r = _montarSecaoDoces.apply(this, arguments);
+            var l = document.querySelector('#kmDocesSection label');
+            if (l) l.textContent = '🍩 Doces';
+            return r;
+        };
+    }
+    var _montarSecaoSalgados = window.montarSecaoSalgados;
+    if (typeof _montarSecaoSalgados === 'function') {
+        window.montarSecaoSalgados = function () {
+            var r = _montarSecaoSalgados.apply(this, arguments);
+            corrigirLabelsModal();
+            return r;
+        };
+    }
+    var _montarSecaoBolo = window.montarSecaoBolo;
+    if (typeof _montarSecaoBolo === 'function') {
+        window.montarSecaoBolo = function () {
+            var r = _montarSecaoBolo.apply(this, arguments);
+            var l = document.querySelector('#kmBoloSection label');
+            if (l) l.textContent = '🎂 Sabor do bolo';
+            return r;
+        };
+    }
+
+    /* ==================== 5.2 / 6) AVISOS NOS MODAIS ==================== */
+    function inserirAvisoPrazo() {
+        ['kitModalOverlay', 'quiloModalOverlay'].forEach(function (idOverlay) {
+            var overlay = document.getElementById(idOverlay);
+            if (!overlay) return;
+            var modal = overlay.querySelector('.kit-modal');
+            if (!modal || modal.querySelector('.aviso-prazo')) return;
+            var aviso = document.createElement('div');
+            aviso.className = 'aviso-prazo';
+            aviso.innerHTML = '<i class="fas fa-clock"></i> <strong>Prazo mínimo de ' + PRAZO_MIN_DIAS +
+                ' dias.</strong> Escolha uma data com pelo menos ' + PRAZO_MIN_DIAS +
+                ' dias de antecedência antes de personalizar.';
+            var sub = modal.querySelector('.km-subtitle');
+            if (sub && sub.parentNode === modal) modal.insertBefore(aviso, sub.nextSibling);
+            else modal.insertBefore(aviso, modal.firstChild);
+        });
+    }
+
+    function inserirInstrucoesUpload() {
+        [['kmDecoracaoFile', 'esta decoração'], ['quiloDecoracaoFile', 'esta decoração']].forEach(function (par) {
+            var input = document.getElementById(par[0]);
+            if (!input || input.getAttribute('data-instrucoes')) return;
+            input.setAttribute('data-instrucoes', '1');
+            input.setAttribute('accept', 'image/jpeg,image/png');
+            var info = document.createElement('div');
+            info.className = 'km-info upload-info';
+            info.innerHTML =
+                'Envie uma <strong>referência visual</strong> da decoração desejada — usamos a imagem como inspiração para produzir o bolo/kit.' +
+                '<br>Formatos aceitos: <strong>JPG ou PNG</strong> · Tamanho máximo: <strong>5 MB</strong>.';
+            input.parentNode.insertBefore(info, input);
+        });
+    }
+
+    /* ==================== 4) WHATSAPP + RODAPÉ ==================== */
+    function injetarEstilos() {
+        if (document.getElementById('css-ajustes-cardapio')) return;
+        var st = document.createElement('style');
+        st.id = 'css-ajustes-cardapio';
+        st.textContent = [
+            '#loja-whatsapp{position:fixed;right:16px;bottom:120px;width:56px;height:56px;border-radius:50%;background:#25D366;color:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;box-shadow:0 6px 18px rgba(0,0,0,.28);z-index:450;text-decoration:none;transition:transform .15s;}',
+            '#loja-whatsapp:hover{transform:scale(1.06);}',
+            '#loja-rodape{position:fixed;left:0;right:0;bottom:0;background:#680102;color:#fff;font-size:12px;line-height:1.6;padding:9px 14px;z-index:400;display:flex;flex-wrap:wrap;gap:4px 18px;justify-content:center;align-items:center;box-shadow:0 -2px 12px rgba(0,0,0,.18);}',
+            '#loja-rodape a{color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:5px;font-size:12px;}',
+            '#loja-rodape a:hover{text-decoration:underline;}',
+            '.preco-a-partir{font-size:12px;font-weight:700;color:#680102;margin:4px 0 6px;}',
+            '.aviso-prazo{background:#fff7ed;border:1px solid #fdba74;color:#9a3412;border-radius:10px;padding:9px 12px;font-size:12px;line-height:1.5;margin:8px 0 12px;}',
+            '.upload-info{background:#f9fafb;border:1px dashed #d1d5db;border-radius:8px;padding:8px 10px;margin-bottom:8px;line-height:1.5 !important;}',
+            '@media (max-width:600px){#loja-rodape{font-size:11px;padding:8px 10px;gap:2px 12px;}#loja-whatsapp{width:52px;height:52px;font-size:27px;}}'
+        ].join('\n');
+        document.head.appendChild(st);
+    }
+
+    function injetarContato() {
+        injetarEstilos();
+
+        if (!document.getElementById('loja-whatsapp')) {
+            var zap = document.createElement('a');
+            zap.id = 'loja-whatsapp';
+            zap.href = 'https://wa.me/' + WHATSAPP_NUMERO + '?text=' + encodeURIComponent(WHATSAPP_MENSAGEM);
+            zap.target = '_blank';
+            zap.rel = 'noopener';
+            zap.setAttribute('aria-label', 'Falar no WhatsApp');
+            zap.innerHTML = '<i class="fab fa-whatsapp"></i>';
+            document.body.appendChild(zap);
+        }
+
+        if (!document.getElementById('loja-rodape')) {
+            var ft = document.createElement('footer');
+            ft.id = 'loja-rodape';
+            ft.innerHTML =
+                '<span>📍 ' + ENDERECO_LOJA + '</span>' +
+                '<span>🕐 ' + HORARIO_LOJA + '</span>' +
+                '<a href="https://wa.me/' + WHATSAPP_NUMERO + '?text=' + encodeURIComponent(WHATSAPP_MENSAGEM) + '" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> ' + TELEFONE_EXIBIR + '</a>' +
+                '<a href="' + INSTAGRAM_URL + '" target="_blank" rel="noopener"><i class="fab fa-instagram"></i> Instagram</a>';
+            document.body.appendChild(ft);
+        }
+        ajustarEspacos();
+    }
+
+    function ajustarEspacos() {
+        var ft = document.getElementById('loja-rodape');
+        var h = ft ? ft.offsetHeight : 0;
+        document.body.style.paddingBottom = (h + 24) + 'px';
+        var zap = document.getElementById('loja-whatsapp');
+        if (zap) zap.style.bottom = (h + 16) + 'px';
+    }
+
+    /* ==================== 5.1) "A PARTIR DE R$" ==================== */
+    function marcarPrecosAPartir() {
+        // Kits Festa
+        document.querySelectorAll('.kit-card').forEach(function (card) {
+            if (card.querySelector('.preco-a-partir')) return;
+            var btn = card.querySelector('[id^="btnAddKit-"]');
+            if (!btn) return;
+            var id = parseInt(String(btn.id).replace('btnAddKit-', ''), 10);
+            var p = getProdutos().find(function (x) { return x.id === id; });
+            if (!p) return;
+            var tiers = (p.prices || []).filter(function (pr) { return pr.price_type === 'tier'; });
+            if (!tiers.length) return;
+            var min = Math.min.apply(null, tiers.map(function (t) { return parseFloat(t.price) || 0; }));
+            if (!min) return;
+            var el = document.createElement('div');
+            el.className = 'preco-a-partir';
+            el.textContent = 'A partir de R$ ' + fmtV(min);
+            var ref = card.querySelector('.kit-opcoes') || card.querySelector('.kit-footer');
+            if (ref) card.insertBefore(el, ref); else card.appendChild(el);
+        });
+
+        // Bolos vendidos por quilo
+        document.querySelectorAll('.produto-card').forEach(function (card) {
+            if (card.classList.contains('card-unificado-salgados')) return;
+            if (card.querySelector('.preco-a-partir')) return;
+            var btn = card.querySelector('.btn-add-cart[onclick*="abrirQuiloModal"]');
+            if (!btn) return;
+            var m = String(btn.getAttribute('onclick')).match(/abrirQuiloModal\((\d+)/);
+            if (!m) return;
+            var p = getProdutos().find(function (x) { return x.id === parseInt(m[1], 10); });
+            if (!p) return;
+            var kg = precoKgDe(p);
+            if (!kg) return;
+            var el = document.createElement('div');
+            el.className = 'preco-a-partir';
+            el.textContent = 'A partir de R$ ' + fmtV(kg * 0.5) + ' (500g)';
+            var ref = card.querySelector('.produto-footer');
+            if (ref) card.insertBefore(el, ref); else card.appendChild(el);
+        });
+    }
+
+    /* ==================== ORQUESTRAÇÃO ==================== */
+    function rodarTudo() {
+        injetarContato();
+        inserirAvisoPrazo();
+        inserirInstrucoesUpload();
+        marcarPrecosAPartir();
+        corrigirLabelsModal();
+    }
+
+    function iniciar() {
+        rodarTudo();
+        var grid = document.getElementById('produtosGrid');
+        if (grid) {
+            new MutationObserver(function () { marcarPrecosAPartir(); })
+                .observe(grid, { childList: true, subtree: true });
+        }
+        ['kitModalOverlay', 'quiloModalOverlay'].forEach(function (id) {
+            var ov = document.getElementById(id);
+            if (!ov) return;
+            new MutationObserver(function () {
+                inserirAvisoPrazo();
+                inserirInstrucoesUpload();
+                corrigirLabelsModal();
+            }).observe(ov, { attributes: true, attributeFilter: ['class'] });
+        });
+        window.addEventListener('resize', ajustarEspacos);
+        setTimeout(rodarTudo, 900);
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
+    else iniciar();
+})();
+(function () {
+    if (window.__fixSobreposicao) return;
+    window.__fixSobreposicao = true;
+
+    function injetarCSS() {
+        if (document.getElementById('css-fix-sobreposicao')) return;
+        var st = document.createElement('style');
+        st.id = 'css-fix-sobreposicao';
+        st.textContent = [
+            /* Rodapé sempre atrás dos botões */
+            '#loja-rodape { z-index: 900 !important; }',
+            /* WhatsApp: canto esquerdo, acima do rodapé */
+            '#loja-whatsapp { left: 16px !important; right: auto !important; bottom: calc(var(--rodape-h, 56px) + 18px) !important; z-index: 1002 !important; }',
+            /* Carrinho: acima do rodapé */
+            '#btnCarrinho, #carrinhoBtn, #carrinho-fixo, .carrinho-flutuante, .carrinho-btn, .cart-float, .btn-carrinho { z-index: 1001 !important; bottom: calc(var(--rodape-h, 56px) + 18px) !important; }',
+            '@media (max-width: 600px) { #loja-whatsapp { width: 52px !important; height: 52px !important; font-size: 27px !important; } }'
+        ].join('\n');
+        document.head.appendChild(st);
+    }
+
+    function medirRodape() {
+        var ft = document.getElementById('loja-rodape');
+        var h = ft ? Math.round(ft.getBoundingClientRect().height) : 0;
+        document.documentElement.style.setProperty('--rodape-h', h + 'px');
+        document.body.style.paddingBottom = (h + 100) + 'px';
+        return h;
+    }
+
+    // Detecta qualquer botão fixo com cara de carrinho
+    function ehCarrinho(el) {
+        if (!el || el.nodeType !== 1) return false;
+        if (el.id === 'loja-whatsapp' || el.id === 'loja-rodape') return false;
+        var r = el.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) return false;
+        if (getComputedStyle(el).position !== 'fixed') return false;
+        var onclick = (el.getAttribute && el.getAttribute('onclick') || '').toLowerCase();
+        if (/carrinho|cart/.test(onclick)) return true;
+        if (el.querySelector && el.querySelector('.fa-shopping-cart, .fa-cart-shopping, .fa-shopping-basket')) return true;
+        if (/🛒/.test(el.textContent || '')) return true;
+        return false;
+    }
+
+    function ajustarCarrinho(h) {
+        var els = document.querySelectorAll('button, a, div');
+        for (var i = 0; i < els.length; i++) {
+            var el = els[i];
+            if (!ehCarrinho(el)) continue;
+            el.style.setProperty('z-index', '1001', 'important');
+            el.style.setProperty('bottom', (h + 18) + 'px', 'important');
+        }
+    }
+
+    function aplicar() {
+        injetarCSS();
+        var h = medirRodape();
+        ajustarCarrinho(h);
+    }
+
+    function iniciar() {
+        aplicar();
+        var ft = document.getElementById('loja-rodape');
+        if (ft && window.ResizeObserver) {
+            new ResizeObserver(function () { aplicar(); }).observe(ft);
+        }
+        window.addEventListener('resize', aplicar);
+        window.addEventListener('orientationchange', aplicar);
+        setTimeout(aplicar, 400);
+        setTimeout(aplicar, 1200);
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
+    else iniciar();
 })();
     </script>
 </body>
