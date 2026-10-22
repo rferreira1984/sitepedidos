@@ -2918,35 +2918,33 @@ function ehBoloCaseiroAtual() {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
     else iniciar();
 })();
+/* ============================================================
+   RODAPÉ NO FIM DA PÁGINA
+   - Rodapé sai do modo fixo e passa a ficar no fim do conteúdo
+   - WhatsApp flutuante à esquerda, carrinho à direita
+   - Zera o espaçamento extra que o rodapé fixo exigia
+   ============================================================ */
 (function () {
-    if (window.__fixSobreposicao) return;
-    window.__fixSobreposicao = true;
+    if (window.__rodapeNoFim) return;
+    window.__rodapeNoFim = true;
 
     function injetarCSS() {
-        if (document.getElementById('css-fix-sobreposicao')) return;
+        if (document.getElementById('css-rodape-fim')) return;
         var st = document.createElement('style');
-        st.id = 'css-fix-sobreposicao';
+        st.id = 'css-rodape-fim';
         st.textContent = [
-            /* Rodapé sempre atrás dos botões */
-            '#loja-rodape { z-index: 900 !important; }',
-            /* WhatsApp: canto esquerdo, acima do rodapé */
-            '#loja-whatsapp { left: 16px !important; right: auto !important; bottom: calc(var(--rodape-h, 56px) + 18px) !important; z-index: 1002 !important; }',
-            /* Carrinho: acima do rodapé */
-            '#btnCarrinho, #carrinhoBtn, #carrinho-fixo, .carrinho-flutuante, .carrinho-btn, .cart-float, .btn-carrinho { z-index: 1001 !important; bottom: calc(var(--rodape-h, 56px) + 18px) !important; }',
-            '@media (max-width: 600px) { #loja-whatsapp { width: 52px !important; height: 52px !important; font-size: 27px !important; } }'
+            /* Rodapé no fluxo normal, ao final do conteúdo */
+            '#loja-rodape{position:static !important;left:auto !important;right:auto !important;bottom:auto !important;width:100% !important;margin:32px 0 0 0 !important;padding:18px 16px !important;border-radius:0 !important;box-shadow:none !important;z-index:1 !important;}',
+            /* WhatsApp flutuante no canto esquerdo */
+            '#loja-whatsapp{position:fixed !important;left:16px !important;right:auto !important;bottom:18px !important;z-index:1002 !important;}',
+            /* Carrinho flutuante no canto direito */
+            '#btnCarrinho,#carrinhoBtn,#carrinho-fixo,.carrinho-flutuante,.carrinho-btn,.cart-float,.btn-carrinho{z-index:1001 !important;bottom:18px !important;}',
+            /* Sem espaço reservado para rodapé fixo */
+            'body{padding-bottom:0 !important;}'
         ].join('\n');
         document.head.appendChild(st);
     }
 
-    function medirRodape() {
-        var ft = document.getElementById('loja-rodape');
-        var h = ft ? Math.round(ft.getBoundingClientRect().height) : 0;
-        document.documentElement.style.setProperty('--rodape-h', h + 'px');
-        document.body.style.paddingBottom = (h + 100) + 'px';
-        return h;
-    }
-
-    // Detecta qualquer botão fixo com cara de carrinho
     function ehCarrinho(el) {
         if (!el || el.nodeType !== 1) return false;
         if (el.id === 'loja-whatsapp' || el.id === 'loja-rodape') return false;
@@ -2956,36 +2954,43 @@ function ehBoloCaseiroAtual() {
         var onclick = (el.getAttribute && el.getAttribute('onclick') || '').toLowerCase();
         if (/carrinho|cart/.test(onclick)) return true;
         if (el.querySelector && el.querySelector('.fa-shopping-cart, .fa-cart-shopping, .fa-shopping-basket')) return true;
-        if (/🛒/.test(el.textContent || '')) return true;
-        return false;
-    }
-
-    function ajustarCarrinho(h) {
-        var els = document.querySelectorAll('button, a, div');
-        for (var i = 0; i < els.length; i++) {
-            var el = els[i];
-            if (!ehCarrinho(el)) continue;
-            el.style.setProperty('z-index', '1001', 'important');
-            el.style.setProperty('bottom', (h + 18) + 'px', 'important');
-        }
+        return /🛒/.test(el.textContent || '');
     }
 
     function aplicar() {
         injetarCSS();
-        var h = medirRodape();
-        ajustarCarrinho(h);
+        document.documentElement.style.setProperty('--rodape-h', '0px');
+        document.body.style.paddingBottom = '0px';
+
+        // Garante o rodapé no fim do documento
+        var ft = document.getElementById('loja-rodape');
+        if (ft && ft.parentNode !== document.body) document.body.appendChild(ft);
+
+        // WhatsApp: canto esquerdo, posição fixa simples
+        var zap = document.getElementById('loja-whatsapp');
+        if (zap) {
+            zap.style.setProperty('left', '16px', 'important');
+            zap.style.setProperty('right', 'auto', 'important');
+            zap.style.setProperty('bottom', '18px', 'important');
+        }
+
+        // Carrinho: limpa qualquer bottom herdado
+        var els = document.querySelectorAll('button, a, div');
+        for (var i = 0; i < els.length; i++) {
+            if (!ehCarrinho(els[i])) continue;
+            els[i].style.setProperty('bottom', '18px', 'important');
+            els[i].style.setProperty('z-index', '1001', 'important');
+        }
     }
 
     function iniciar() {
         aplicar();
-        var ft = document.getElementById('loja-rodape');
-        if (ft && window.ResizeObserver) {
-            new ResizeObserver(function () { aplicar(); }).observe(ft);
-        }
         window.addEventListener('resize', aplicar);
         window.addEventListener('orientationchange', aplicar);
-        setTimeout(aplicar, 400);
-        setTimeout(aplicar, 1200);
+        setTimeout(aplicar, 500);
+        setTimeout(aplicar, 1500);
+        var grid = document.getElementById('produtosGrid');
+        if (grid) new MutationObserver(aplicar).observe(grid, { childList: true, subtree: true });
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
