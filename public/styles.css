@@ -8,7 +8,7 @@
         .header-cliente h1 span { font-weight: 300; }
         .header-cliente .subtitle { color: #bbf7d0; font-size: 12px; }
         .header-logo { display: flex; align-items: center; gap: 20px; }
-        .header-logo img { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; background: #fff; padding: 2px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); flex-shrink: 0; }
+        .header-logo img { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; background: #680102; padding: 2px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); flex-shrink: 0; }
         .header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .btn-cart { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 8px 14px; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: all 0.2s; position: relative; }
         .btn-cart:hover { background: rgba(255,255,255,0.25); }      
@@ -192,7 +192,7 @@
         .consulta-row { display: flex; gap: 8px; }
         .consulta-row input { flex: 1; padding: 13px 14px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 15px; outline: none; font-family: 'Inter', sans-serif; }
         .consulta-row input:focus { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,0.15); }
-        .btn-consultar { padding: 13px 20px; background: linear-gradient(135deg, #16a34a, #15803d); border: none; border-radius: 10px; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; }
+        .btn-consultar { padding: 13px 20px; background: linear-gradient(135deg, #680102, #680102); border: none; border-radius: 10px; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; }
         .btn-consultar:hover { box-shadow: 0 8px 25px rgba(22,163,74,0.3); }
         .btn-consultar:disabled { opacity: 0.5; cursor: not-allowed; }
         .msg { font-size: 13px; padding: 10px 12px; border-radius: 8px; margin-top: 12px; display: none; text-align: center; }
