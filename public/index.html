@@ -2238,7 +2238,7 @@ function ehBoloCaseiroAtual() {
    ============================================================ */
 (function () {
     if (typeof adicionarAoCarrinho !== 'function') return;
-
+// '.carrossel{position:relative;width:250px;aspect-ratio:4/3;max-height:250px;border-radius:12px;overflow:hidden;background:#f3f4f6;margin-bottom:10px;}' +
     // ===== Estilos =====
     var styleEl = document.createElement('style');
     styleEl.textContent =
@@ -2246,7 +2246,8 @@ function ehBoloCaseiroAtual() {
         '.sabor-chip{padding:8px 12px;border:1.5px solid #d1d5db;border-radius:20px;background:#fff;font-size:13px;cursor:pointer;transition:all .15s;}' +
         '.sabor-chip.selected{background:#680102;color:#fff;border-color:#680102;}' +
         '.sabores-chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;}' +
-        '.carrossel{position:relative;width:250px;aspect-ratio:4/3;max-height:250px;border-radius:12px;overflow:hidden;background:#f3f4f6;margin-bottom:10px;}' +
+        '.carrossel{position:relative;width:250px;aspect-ratio:4/3;max-height:250px;border-radius:12px;overflow:hidden;background:#f3f4f6;margin:0 auto 10px auto;}' +
+       
         '.carrossel .slide{position:absolute;inset:0;opacity:0;transition:opacity .4s;display:flex;align-items:center;justify-content:center;}' +
         '.carrossel .slide.ativo{opacity:1;}' +
         '.carrossel .slide img{width:100%;height:100%;object-fit:cover;}' +
