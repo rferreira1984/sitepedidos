@@ -2695,7 +2695,6 @@ function ehBoloCaseiroAtual() {
     // Fallback caso /api/config não responda (mantenha igual ao .env)
     var MIN_ENTREGA = 100;
     var MIN_RETIRADA = 0;
- alert(data)
     // Busca os valores reais do backend
     fetch('/api/config')
         .then(function (r) { return r.json(); })
@@ -2867,6 +2866,693 @@ function ehBoloCaseiroAtual() {
         e.stopPropagation();
         avisarFrete();
     }, true);
+})();
+/* ============================================================
+   BOLOS POR KG / BOLOS CASEIROS — card único com carrossel
+   - Um card por categoria, com carrossel e chips de sabor
+   - Cada sabor mantém seu próprio preço por kg
+   - Ao adicionar, abre o modal de quantidade/observação/imagem
+   ============================================================ */
+(function () {
+    if (window.__bolosUnificados) return;
+    window.__bolosUnificados = true;
+
+    /* ===== CONFIGURAÇÃO ===== */
+    var LARGURA_CARROSSEL = 250;   // largura do carrossel em px
+    var ALTURA_CARROSSEL  = 250;   // altura máxima em px
+    var PROPORCAO         = '4 / 3'; // '1 / 1', '4 / 3', '16 / 9'
+    var AJUSTE_IMAGEM     = 'cover'; // 'cover' preenche | 'contain' mostra inteira
+    /* ======================== */
+
+    function fmtV(v) { return (parseFloat(v) || 0).toFixed(2).replace('.', ','); }
+    function getProdutos() {
+        try { if (typeof produtosData !== 'undefined' && Array.isArray(produtosData)) return produtosData; } catch (e) {}
+        return [];
+    }
+    function precoKgDe(p) {
+        var precos = (p && p.prices ? p.prices : []).filter(function (pr) { return pr.is_active !== false; });
+        if (!precos.length) return 0;
+        return Math.max.apply(null, precos.map(function (pr) { return parseFloat(pr.price) || 0; }));
+    }
+    function ehCategoriaBolo(cat) {
+        var c = String(cat || '').toLowerCase();
+        return c.indexOf('bolo') !== -1 && (c.indexOf('kg') !== -1 || c.indexOf('quilo') !== -1 || c.indexOf('caseiro') !== -1);
+    }
+
+    function injetarCSS() {
+        if (document.getElementById('css-bolos-unificados')) return;
+        var st = document.createElement('style');
+        st.id = 'css-bolos-unificados';
+        st.textContent = [
+            '.card-unificado-bolos{grid-column:1 / -1 !important;width:100% !important;display:flex !important;flex-direction:column !important;align-items:center !important;}',
+            '.card-unificado-bolos > .produto-nome,',
+            '.card-unificado-bolos > .produto-desc,',
+            '.card-unificado-bolos > .produto-opcoes,',
+            '.card-unificado-bolos > .sabores-chips,',
+            '.card-unificado-bolos > .produto-footer{width:100% !important;}',
+            '.card-unificado-bolos .carrossel{position:relative;width:100%;max-width:' + LARGURA_CARROSSEL + 'px;aspect-ratio:' + PROPORCAO + ';max-height:' + ALTURA_CARROSSEL + 'px;border-radius:12px;overflow:hidden;background:#f3f4f6;margin:0 auto 10px auto;}',
+            '.card-unificado-bolos .carrossel .slide{position:absolute;inset:0;opacity:0;transition:opacity .4s;display:flex;align-items:center;justify-content:center;}',
+            '.card-unificado-bolos .carrossel .slide.ativo{opacity:1;}',
+            '.card-unificado-bolos .carrossel .slide img{width:100%;height:100%;object-fit:' + AJUSTE_IMAGEM + ';}',
+            '.card-unificado-bolos .carrossel .sem-foto{font-size:48px;color:#9ca3af;}',
+            '.card-unificado-bolos .carrossel .car-prev,.card-unificado-bolos .carrossel .car-next{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.45);color:#fff;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:14px;z-index:2;}',
+            '.card-unificado-bolos .carrossel .car-prev{left:8px;}.card-unificado-bolos .carrossel .car-next{right:8px;}',
+            '.card-unificado-bolos .carrossel .car-dots{position:absolute;bottom:8px;left:0;right:0;display:flex;justify-content:center;gap:6px;z-index:2;}',
+            '.card-unificado-bolos .carrossel .car-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.5);border:none;cursor:pointer;padding:0;}',
+            '.card-unificado-bolos .carrossel .car-dot.ativo{background:#fff;}',
+            '.card-unificado-bolos .carrossel .car-legenda{position:absolute;bottom:24px;left:0;right:0;text-align:center;color:#fff;font-size:12px;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,.8);z-index:2;pointer-events:none;}',
+            '.card-unificado-bolos .sabor-chip{padding:8px 12px;border:1.5px solid #d1d5db;border-radius:20px;background:#fff;font-size:13px;cursor:pointer;transition:all .15s;}',
+            '.card-unificado-bolos .sabor-chip.selected{background:#680102;color:#fff;border-color:#680102;}',
+            '.card-unificado-bolos .sabores-chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;}',
+            '.card-unificado-bolos .preco-sabor{font-size:12px;color:#6b7280;margin-top:2px;}',
+            '@media (max-width:768px){.card-unificado-bolos .carrossel{max-width:100%;max-height:' + Math.round(ALTURA_CARROSSEL * 0.7) + 'px;}}'
+        ].join('\n');
+        document.head.appendChild(st);
+    }
+
+    function processarSecao(sec) {
+        if (sec.querySelector('.card-unificado-bolos')) return;
+        var cat = sec.getAttribute('data-cat') || '';
+        if (!ehCategoriaBolo(cat)) return;
+        var grid = sec.querySelector('.produtos-grid');
+        if (!grid) return;
+
+        // Coleta os cards individuais de bolo
+        var sabores = [];
+        Array.prototype.slice.call(grid.querySelectorAll(':scope > .produto-card')).forEach(function (cardEl) {
+            var nomeEl = cardEl.querySelector('.produto-nome');
+            var addBtn = cardEl.querySelector('.btn-add-cart');
+            if (!nomeEl || !addBtn) return;
+            var m = (addBtn.getAttribute('onclick') || '').match(/abrirQuiloModal\((\d+)/);
+            if (!m) return;
+            var pid = parseInt(m[1], 10);
+            var p = getProdutos().find(function (x) { return x.id === pid; });
+            if (!p) return;
+            sabores.push({
+                id: pid,
+                nome: nomeEl.textContent.trim(),
+                card: cardEl,
+                imagem: p.imagem || '',
+                precoKg: precoKgDe(p)
+            });
+        });
+        if (sabores.length === 0) return;
+
+        // Esconde os cards individuais
+        sabores.forEach(function (s) { s.card.style.display = 'none'; });
+
+        var card = document.createElement('div');
+        card.className = 'produto-card card-unificado-bolos';
+
+        var slidesHtml = sabores.map(function (s, i) {
+            var inner = s.imagem
+                ? '<img src="' + s.imagem + '" alt="' + s.nome.replace(/"/g, '&quot;') + '" loading="lazy" onerror="this.style.display=\'none\';this.parentNode.querySelector(\'.sem-foto\').style.display=\'flex\';">'
+                : '';
+            inner += '<div class="sem-foto" style="display:' + (s.imagem ? 'none' : 'flex') + ';">🎂</div>';
+            return '<div class="slide' + (i === 0 ? ' ativo' : '') + '" data-idx="' + i + '">' + inner + '</div>';
+        }).join('');
+
+        var dotsHtml = sabores.map(function (s, i) {
+            return '<button type="button" class="car-dot' + (i === 0 ? ' ativo' : '') + '" data-idx="' + i + '"></button>';
+        }).join('');
+
+        var chipsHtml = sabores.map(function (s) {
+            return '<button type="button" class="sabor-chip" data-sabor-id="' + s.id + '">' + s.nome +'</button>';
+        }).join('');
+
+        card.innerHTML =
+            '<div class="carrossel">' +
+                slidesHtml +
+                '<button type="button" class="car-prev">‹</button>' +
+                '<button type="button" class="car-next">›</button>' +
+                '<div class="car-legenda"></div>' +
+                '<div class="car-dots">' + dotsHtml + '</div>' +
+            '</div>' +
+            '<div class="produto-nome">' + cat + '</div>' +
+            '<div class="produto-desc">Escolha o sabor e a quantidade desejada</div>' +
+            '<div class="sabores-chips">' + chipsHtml + '</div>' +
+            '<div class="produto-footer">' +
+                '<div class="produto-preco preco-unificado">R$ ' + fmtV(sabores[0].precoKg) + ' <span style="font-size:11px;font-weight:400;color:#6b7280;">/kg</span></div>' +
+                '<button class="btn-add-cart btn-add-unificado" title="Escolher quantidade"><i class="fas fa-plus"></i></button>' +
+            '</div>';
+
+        grid.insertBefore(card, grid.firstChild);
+
+        // ===== Carrossel =====
+        var car = card.querySelector('.carrossel');
+        var slides = car.querySelectorAll('.slide');
+        var dots = car.querySelectorAll('.car-dot');
+        var legenda = car.querySelector('.car-legenda');
+        var idxAtual = 0;
+        var timer = null;
+
+        function mostrar(i) {
+            idxAtual = (i + slides.length) % slides.length;
+            slides.forEach(function (s, k) { s.classList.toggle('ativo', k === idxAtual); });
+            dots.forEach(function (d, k) { d.classList.toggle('ativo', k === idxAtual); });
+            legenda.textContent = sabores[idxAtual].nome;
+        }
+        function auto() {
+            if (timer) clearInterval(timer);
+            timer = setInterval(function () { mostrar(idxAtual + 1); }, 4000);
+        }
+        car.querySelector('.car-prev').addEventListener('click', function () { mostrar(idxAtual - 1); auto(); });
+        car.querySelector('.car-next').addEventListener('click', function () { mostrar(idxAtual + 1); auto(); });
+        dots.forEach(function (d) {
+            d.addEventListener('click', function () { mostrar(parseInt(d.getAttribute('data-idx'), 10)); auto(); });
+        });
+        mostrar(0);
+        auto();
+
+        // ===== Seleção de sabor (única) =====
+        var chipSelecionado = null;
+        card.querySelectorAll('.sabor-chip').forEach(function (chip) {
+            chip.addEventListener('click', function () {
+                var jaEra = chip.classList.contains('selected');
+                card.querySelectorAll('.sabor-chip').forEach(function (c) { c.classList.remove('selected'); });
+                if (jaEra) {
+                    chipSelecionado = null;
+                } else {
+                    chip.classList.add('selected');
+                    chipSelecionado = parseInt(chip.getAttribute('data-sabor-id'), 10);
+                    var i = sabores.findIndex(function (s) { return s.id === chipSelecionado; });
+                    if (i !== -1) {
+                        mostrar(i);
+                        auto();
+                        card.querySelector('.preco-unificado').innerHTML =
+                            'R$ ' + fmtV(sabores[i].precoKg) + ' <span style="font-size:11px;font-weight:400;color:#6b7280;">/kg</span>';
+                    }
+                }
+            });
+        });
+
+        // ===== Adicionar: abre o modal de quilo com o sabor escolhido =====
+        card.querySelector('.btn-add-unificado').addEventListener('click', function () {
+            if (!chipSelecionado) {
+                if (typeof mostrarToast === 'function') mostrarToast('Selecione um sabor do bolo.', 'error');
+                else alert('Selecione um sabor do bolo.');
+                return;
+            }
+            var s = sabores.find(function (x) { return x.id === chipSelecionado; });
+            if (!s) return;
+            if (typeof abrirQuiloModal === 'function') abrirQuiloModal(s.id, s.nome);
+        });
+    }
+
+    function processarTudo() {
+        document.querySelectorAll('section.categoria-secao').forEach(processarSecao);
+    }
+
+    function iniciar() {
+        injetarCSS();
+        var grid = document.getElementById('produtosGrid');
+        if (grid) {
+            new MutationObserver(function () { setTimeout(processarTudo, 60); })
+                .observe(grid, { childList: true, subtree: true });
+        }
+        setTimeout(processarTudo, 900);
+        setTimeout(processarTudo, 1800);
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
+    else iniciar();
+})();
+/* ============================================================
+   AJUSTES DO CARDÁPIO
+   3) Labels de sabores corretos (Doces / Salgados / Sabor do bolo)
+   4) WhatsApp flutuante + rodapé fixo com dados da loja
+   5) "A partir de R$" nos cards de Kit e Bolo + aviso de 2 dias
+   6) Instruções claras no upload de imagem da decoração
+   ============================================================ */
+(function () {
+    'use strict';
+
+    /* ============ CONFIGURAÇÃO — PREENCHA COM OS DADOS REAIS ============ */
+    var WHATSAPP_NUMERO  = '5545974007279';              // só dígitos: 55 + DDD + número
+    var TELEFONE_EXIBIR  = '(45) 97400-7279';            // como aparece no rodapé
+    var WHATSAPP_MENSAGEM = 'Olá! Vim pelo cardápio online e gostaria de tirar uma dúvida.';
+    var INSTAGRAM_URL    = 'https://www.instagram.com/salgadoseciacascavel/';
+    var ENDERECO_LOJA    = 'Rua Espinelo, 123 — Esmeralda, Cascavel/PR';
+    var HORARIO_LOJA     = 'Seg a Sex: 8h às 19h · Sáb: 8h às 17h';
+    var PRAZO_MIN_DIAS   = 2;
+    /* ==================================================================== */
+
+    function fmtV(v) { return (parseFloat(v) || 0).toFixed(2).replace('.', ','); }
+    function getProdutos() {
+        try { if (typeof produtosData !== 'undefined' && Array.isArray(produtosData)) return produtosData; } catch (e) {}
+        return [];
+    }
+    function precoKgDe(p) {
+        var precos = (p && p.prices ? p.prices : []).filter(function (pr) { return pr.is_active !== false; });
+        if (!precos.length) return 0;
+        return Math.max.apply(null, precos.map(function (pr) { return parseFloat(pr.price) || 0; }));
+    }
+    function tipoCentoDe(nome) {
+        var n = String(nome || '').toLowerCase();
+        if (n.indexOf('especia') !== -1) return 'Salgados Assados Especiais';
+        if (n.indexOf('assado') !== -1) return 'Salgados Assados Tradicionais';
+        if (n.indexOf('frito') !== -1) return 'Salgados Fritos';
+        if (n.indexOf('gourmet') !== -1) return 'Doces Gourmet';
+        if (n.indexOf('doce') !== -1 || n.indexOf('tradicion') !== -1) return 'Doces Tradicionais';
+        return 'Salgados Fritos';
+    }
+    function rotuloPorCategoria(cat) {
+        var c = String(cat || '').toLowerCase();
+        if (c.indexOf('bolo') !== -1) return '🎂 Sabor do bolo';
+        if (c.indexOf('doce') !== -1) return '🍩 Doces';
+        if (c.indexOf('salgad') !== -1 || c.indexOf('cento') !== -1) return '🥟 Salgados';
+        return '🍽️ Sabor';
+    }
+
+    /* ==================== 3) LABELS DE SABORES ==================== */
+    function corrigirLabelsModal() {
+        var lB = document.querySelector('#kmBoloSection label');
+        if (lB) lB.textContent = '🎂 Sabor do bolo';
+        var lD = document.querySelector('#kmDocesSection label');
+        if (lD) lD.textContent = '🍩 Doces';
+        var lR = document.querySelector('#kmRefriSection label');
+        if (lR) lR.textContent = '🥤 Refrigerante';
+        var lS = document.querySelector('#kmSalgadosSection label');
+        if (lS) {
+            var rot = '🥟 Salgados';
+            try {
+                if (typeof modoCento !== 'undefined' && modoCento &&
+                    typeof centoAtual !== 'undefined' && centoAtual != null) {
+                    var p = getProdutos().find(function (x) { return x.id === centoAtual; });
+                    var tipo = tipoCentoDe(p ? p.name : '');
+                    rot = /doce/i.test(tipo) ? '🍩 Doces' : '🥟 Salgados';
+                }
+            } catch (e) {}
+            lS.textContent = rot;
+        }
+    }
+
+    var _abrirCentoModal = window.abrirCentoModal;
+    if (typeof _abrirCentoModal === 'function') {
+        window.abrirCentoModal = function (produtoId) {
+            var r = _abrirCentoModal.apply(this, arguments);
+            setTimeout(corrigirLabelsModal, 0);
+            return r;
+        };
+    }
+    var _montarSecaoDoces = window.montarSecaoDoces;
+    if (typeof _montarSecaoDoces === 'function') {
+        window.montarSecaoDoces = function () {
+            var r = _montarSecaoDoces.apply(this, arguments);
+            var l = document.querySelector('#kmDocesSection label');
+            if (l) l.textContent = '🍩 Doces';
+            return r;
+        };
+    }
+    var _montarSecaoSalgados = window.montarSecaoSalgados;
+    if (typeof _montarSecaoSalgados === 'function') {
+        window.montarSecaoSalgados = function () {
+            var r = _montarSecaoSalgados.apply(this, arguments);
+            corrigirLabelsModal();
+            return r;
+        };
+    }
+    var _montarSecaoBolo = window.montarSecaoBolo;
+    if (typeof _montarSecaoBolo === 'function') {
+        window.montarSecaoBolo = function () {
+            var r = _montarSecaoBolo.apply(this, arguments);
+            var l = document.querySelector('#kmBoloSection label');
+            if (l) l.textContent = '🎂 Sabor do bolo';
+            return r;
+        };
+    }
+
+    /* ==================== 5.2 / 6) AVISOS NOS MODAIS ==================== */
+    function inserirAvisoPrazo() {
+        ['kitModalOverlay', 'quiloModalOverlay'].forEach(function (idOverlay) {
+            var overlay = document.getElementById(idOverlay);
+            if (!overlay) return;
+            var modal = overlay.querySelector('.kit-modal');
+            if (!modal || modal.querySelector('.aviso-prazo')) return;
+            var aviso = document.createElement('div');
+            aviso.className = 'aviso-prazo';
+            aviso.innerHTML = '<i class="fas fa-clock"></i> <strong>Prazo mínimo de ' + PRAZO_MIN_DIAS +
+                ' dias.</strong> Escolha uma data com pelo menos ' + PRAZO_MIN_DIAS +
+                ' dias de antecedência antes de personalizar.';
+            var sub = modal.querySelector('.km-subtitle');
+            if (sub && sub.parentNode === modal) modal.insertBefore(aviso, sub.nextSibling);
+            else modal.insertBefore(aviso, modal.firstChild);
+        });
+    }
+
+    function inserirInstrucoesUpload() {
+        [['kmDecoracaoFile', 'esta decoração'], ['quiloDecoracaoFile', 'esta decoração']].forEach(function (par) {
+            var input = document.getElementById(par[0]);
+            if (!input || input.getAttribute('data-instrucoes')) return;
+            input.setAttribute('data-instrucoes', '1');
+            input.setAttribute('accept', 'image/jpeg,image/png');
+            var info = document.createElement('div');
+            info.className = 'km-info upload-info';
+            info.innerHTML =
+                'Envie uma <strong>referência visual</strong> da decoração desejada — usamos a imagem como inspiração para produzir o bolo/kit.' +
+                '<br>Formatos aceitos: <strong>JPG ou PNG</strong> · Tamanho máximo: <strong>5 MB</strong>.';
+            input.parentNode.insertBefore(info, input);
+        });
+    }
+
+    /* ==================== 4) WHATSAPP + RODAPÉ ==================== */
+    function injetarEstilos() {
+        if (document.getElementById('css-ajustes-cardapio')) return;
+        var st = document.createElement('style');
+        st.id = 'css-ajustes-cardapio';
+        st.textContent = [
+            '#loja-whatsapp{position:fixed;right:16px;bottom:120px;width:56px;height:56px;border-radius:50%;background:#25D366;color:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;box-shadow:0 6px 18px rgba(0,0,0,.28);z-index:450;text-decoration:none;transition:transform .15s;}',
+            '#loja-whatsapp:hover{transform:scale(1.06);}',
+            '#loja-rodape{position:fixed;left:0;right:0;bottom:0;background:#680102;color:#fff;font-size:12px;line-height:1.6;padding:9px 14px;z-index:400;display:flex;flex-wrap:wrap;gap:4px 18px;justify-content:center;align-items:center;box-shadow:0 -2px 12px rgba(0,0,0,.18);}',
+            '#loja-rodape a{color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:5px;font-size:12px;}',
+            '#loja-rodape a:hover{text-decoration:underline;}',
+            '.preco-a-partir{font-size:12px;font-weight:700;color:#680102;margin:4px 0 6px;}',
+            '.aviso-prazo{background:#fff7ed;border:1px solid #fdba74;color:#9a3412;border-radius:10px;padding:9px 12px;font-size:12px;line-height:1.5;margin:8px 0 12px;}',
+            '.upload-info{background:#f9fafb;border:1px dashed #d1d5db;border-radius:8px;padding:8px 10px;margin-bottom:8px;line-height:1.5 !important;}',
+            '@media (max-width:600px){#loja-rodape{font-size:11px;padding:8px 10px;gap:2px 12px;}#loja-whatsapp{width:52px;height:52px;font-size:27px;}}'
+        ].join('\n');
+        document.head.appendChild(st);
+    }
+
+    function injetarContato() {
+        injetarEstilos();
+
+        if (!document.getElementById('loja-whatsapp')) {
+            var zap = document.createElement('a');
+            zap.id = 'loja-whatsapp';
+            zap.href = 'https://wa.me/' + WHATSAPP_NUMERO + '?text=' + encodeURIComponent(WHATSAPP_MENSAGEM);
+            zap.target = '_blank';
+            zap.rel = 'noopener';
+            zap.setAttribute('aria-label', 'Falar no WhatsApp');
+            zap.innerHTML = '<i class="fab fa-whatsapp"></i>';
+            document.body.appendChild(zap);
+        }
+
+        if (!document.getElementById('loja-rodape')) {
+            var ft = document.createElement('footer');
+            ft.id = 'loja-rodape';
+            ft.innerHTML =
+                '<span>📍 ' + ENDERECO_LOJA + '</span>' +
+                '<span>🕐 ' + HORARIO_LOJA + '</span>' +
+                '<a href="https://wa.me/' + WHATSAPP_NUMERO + '?text=' + encodeURIComponent(WHATSAPP_MENSAGEM) + '" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> ' + TELEFONE_EXIBIR + '</a>' +
+                '<a href="' + INSTAGRAM_URL + '" target="_blank" rel="noopener"><i class="fab fa-instagram"></i> Instagram</a>';
+            document.body.appendChild(ft);
+        }
+        ajustarEspacos();
+    }
+
+    function ajustarEspacos() {
+        var ft = document.getElementById('loja-rodape');
+        var h = ft ? ft.offsetHeight : 0;
+        document.body.style.paddingBottom = (h + 24) + 'px';
+        var zap = document.getElementById('loja-whatsapp');
+        if (zap) zap.style.bottom = (h + 16) + 'px';
+    }
+
+    /* ==================== 5.1) "A PARTIR DE R$" ==================== */
+    function marcarPrecosAPartir() {
+        // Kits Festa
+        document.querySelectorAll('.kit-card').forEach(function (card) {
+            if (card.querySelector('.preco-a-partir')) return;
+            var btn = card.querySelector('[id^="btnAddKit-"]');
+            if (!btn) return;
+            var id = parseInt(String(btn.id).replace('btnAddKit-', ''), 10);
+            var p = getProdutos().find(function (x) { return x.id === id; });
+            if (!p) return;
+            var tiers = (p.prices || []).filter(function (pr) { return pr.price_type === 'tier'; });
+            if (!tiers.length) return;
+            var min = Math.min.apply(null, tiers.map(function (t) { return parseFloat(t.price) || 0; }));
+            if (!min) return;
+            var el = document.createElement('div');
+            el.className = 'preco-a-partir';
+            el.textContent = 'A partir de R$ ' + fmtV(min);
+            var ref = card.querySelector('.kit-opcoes') || card.querySelector('.kit-footer');
+            if (ref) card.insertBefore(el, ref); else card.appendChild(el);
+        });
+
+        // Bolos vendidos por quilo
+        document.querySelectorAll('.produto-card').forEach(function (card) {
+            if (card.classList.contains('card-unificado-salgados')) return;
+            if (card.querySelector('.preco-a-partir')) return;
+            var btn = card.querySelector('.btn-add-cart[onclick*="abrirQuiloModal"]');
+            if (!btn) return;
+            var m = String(btn.getAttribute('onclick')).match(/abrirQuiloModal\((\d+)/);
+            if (!m) return;
+            var p = getProdutos().find(function (x) { return x.id === parseInt(m[1], 10); });
+            if (!p) return;
+            var kg = precoKgDe(p);
+            if (!kg) return;
+            var el = document.createElement('div');
+            el.className = 'preco-a-partir';
+            el.textContent = 'A partir de R$ ' + fmtV(kg * 0.5) + ' (500g)';
+            var ref = card.querySelector('.produto-footer');
+            if (ref) card.insertBefore(el, ref); else card.appendChild(el);
+        });
+    }
+
+    /* ==================== ORQUESTRAÇÃO ==================== */
+    function rodarTudo() {
+        injetarContato();
+        inserirAvisoPrazo();
+        inserirInstrucoesUpload();
+        marcarPrecosAPartir();
+        corrigirLabelsModal();
+    }
+
+    function iniciar() {
+        rodarTudo();
+        var grid = document.getElementById('produtosGrid');
+        if (grid) {
+            new MutationObserver(function () { marcarPrecosAPartir(); })
+                .observe(grid, { childList: true, subtree: true });
+        }
+        ['kitModalOverlay', 'quiloModalOverlay'].forEach(function (id) {
+            var ov = document.getElementById(id);
+            if (!ov) return;
+            new MutationObserver(function () {
+                inserirAvisoPrazo();
+                inserirInstrucoesUpload();
+                corrigirLabelsModal();
+            }).observe(ov, { attributes: true, attributeFilter: ['class'] });
+        });
+        window.addEventListener('resize', ajustarEspacos);
+        setTimeout(rodarTudo, 900);
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
+    else iniciar();
+})();
+/* ============================================================
+   CORREÇÃO DE SOBREPOSIÇÃO — rodapé × WhatsApp × carrinho
+   - Rodapé fica atrás dos botões flutuantes (z-index 900)
+   - Carrinho sobe para acima do rodapé (altura medida na hora)
+   - WhatsApp vai para a esquerda, liberando o canto direito
+   ============================================================ */
+(function () {
+    if (window.__fixSobreposicao) return;
+    window.__fixSobreposicao = true;
+
+    function injetarCSS() {
+        if (document.getElementById('css-fix-sobreposicao')) return;
+        var st = document.createElement('style');
+        st.id = 'css-fix-sobreposicao';
+        st.textContent = [
+            /* Rodapé sempre atrás dos botões */
+            '#loja-rodape { z-index: 900 !important; }',
+            /* WhatsApp: canto esquerdo, acima do rodapé */
+            '#loja-whatsapp { left: 16px !important; right: auto !important; bottom: calc(var(--rodape-h, 56px) + 18px) !important; z-index: 1002 !important; }',
+            /* Carrinho: acima do rodapé */
+            '#btnCarrinho, #carrinhoBtn, #carrinho-fixo, .carrinho-flutuante, .carrinho-btn, .cart-float, .btn-carrinho { z-index: 1001 !important; bottom: calc(var(--rodape-h, 56px) + 18px) !important; }',
+            '@media (max-width: 600px) { #loja-whatsapp { width: 52px !important; height: 52px !important; font-size: 27px !important; } }'
+        ].join('\n');
+        document.head.appendChild(st);
+    }
+
+    function medirRodape() {
+        var ft = document.getElementById('loja-rodape');
+        var h = ft ? Math.round(ft.getBoundingClientRect().height) : 0;
+        document.documentElement.style.setProperty('--rodape-h', h + 'px');
+        document.body.style.paddingBottom = (h + 100) + 'px';
+        return h;
+    }
+
+    // Detecta qualquer botão fixo com cara de carrinho
+    function ehCarrinho(el) {
+        if (!el || el.nodeType !== 1) return false;
+        if (el.id === 'loja-whatsapp' || el.id === 'loja-rodape') return false;
+        var r = el.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) return false;
+        if (getComputedStyle(el).position !== 'fixed') return false;
+        var onclick = (el.getAttribute && el.getAttribute('onclick') || '').toLowerCase();
+        if (/carrinho|cart/.test(onclick)) return true;
+        if (el.querySelector && el.querySelector('.fa-shopping-cart, .fa-cart-shopping, .fa-shopping-basket')) return true;
+        if (/🛒/.test(el.textContent || '')) return true;
+        return false;
+    }
+
+    function ajustarCarrinho(h) {
+        var els = document.querySelectorAll('button, a, div');
+        for (var i = 0; i < els.length; i++) {
+            var el = els[i];
+            if (!ehCarrinho(el)) continue;
+            el.style.setProperty('z-index', '1001', 'important');
+            el.style.setProperty('bottom', (h + 18) + 'px', 'important');
+        }
+    }
+
+    function aplicar() {
+        injetarCSS();
+        var h = medirRodape();
+        ajustarCarrinho(h);
+    }
+
+    function iniciar() {
+        aplicar();
+        var ft = document.getElementById('loja-rodape');
+        if (ft && window.ResizeObserver) {
+            new ResizeObserver(function () { aplicar(); }).observe(ft);
+        }
+        window.addEventListener('resize', aplicar);
+        window.addEventListener('orientationchange', aplicar);
+        setTimeout(aplicar, 400);
+        setTimeout(aplicar, 1200);
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
+    else iniciar();
+})();
+/* ============================================================
+   RODAPÉ NO FIM DA PÁGINA
+   - Rodapé sai do modo fixo e passa a ficar no fim do conteúdo
+   - WhatsApp flutuante à esquerda, carrinho à direita
+   - Zera o espaçamento extra que o rodapé fixo exigia
+   ============================================================ */
+(function () {
+    if (window.__rodapeNoFim) return;
+    window.__rodapeNoFim = true;
+
+    function injetarCSS() {
+        if (document.getElementById('css-rodape-fim')) return;
+        var st = document.createElement('style');
+        st.id = 'css-rodape-fim';
+        st.textContent = [
+            /* Rodapé no fluxo normal, ao final do conteúdo */
+            '#loja-rodape{position:static !important;left:auto !important;right:auto !important;bottom:auto !important;width:100% !important;margin:32px 0 0 0 !important;padding:18px 16px !important;border-radius:0 !important;box-shadow:none !important;z-index:1 !important;}',
+            /* WhatsApp flutuante no canto esquerdo */
+            '#loja-whatsapp{position:fixed !important;left:16px !important;right:auto !important;bottom:18px !important;z-index:1002 !important;}',
+            /* Carrinho flutuante no canto direito */
+            '#btnCarrinho,#carrinhoBtn,#carrinho-fixo,.carrinho-flutuante,.carrinho-btn,.cart-float,.btn-carrinho{z-index:1001 !important;bottom:18px !important;}',
+            /* Sem espaço reservado para rodapé fixo */
+            'body{padding-bottom:0 !important;}'
+        ].join('\n');
+        document.head.appendChild(st);
+    }
+
+    function ehCarrinho(el) {
+        if (!el || el.nodeType !== 1) return false;
+        if (el.id === 'loja-whatsapp' || el.id === 'loja-rodape') return false;
+        var r = el.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) return false;
+        if (getComputedStyle(el).position !== 'fixed') return false;
+        var onclick = (el.getAttribute && el.getAttribute('onclick') || '').toLowerCase();
+        if (/carrinho|cart/.test(onclick)) return true;
+        if (el.querySelector && el.querySelector('.fa-shopping-cart, .fa-cart-shopping, .fa-shopping-basket')) return true;
+        return /🛒/.test(el.textContent || '');
+    }
+
+    function aplicar() {
+        injetarCSS();
+        document.documentElement.style.setProperty('--rodape-h', '0px');
+        document.body.style.paddingBottom = '0px';
+
+        // Garante o rodapé no fim do documento
+        var ft = document.getElementById('loja-rodape');
+        if (ft && ft.parentNode !== document.body) document.body.appendChild(ft);
+
+        // WhatsApp: canto esquerdo, posição fixa simples
+        var zap = document.getElementById('loja-whatsapp');
+        if (zap) {
+            zap.style.setProperty('left', '16px', 'important');
+            zap.style.setProperty('right', 'auto', 'important');
+            zap.style.setProperty('bottom', '18px', 'important');
+        }
+
+        // Carrinho: limpa qualquer bottom herdado
+        var els = document.querySelectorAll('button, a, div');
+        for (var i = 0; i < els.length; i++) {
+            if (!ehCarrinho(els[i])) continue;
+            els[i].style.setProperty('bottom', '18px', 'important');
+            els[i].style.setProperty('z-index', '1001', 'important');
+        }
+    }
+
+    function iniciar() {
+        aplicar();
+        window.addEventListener('resize', aplicar);
+        window.addEventListener('orientationchange', aplicar);
+        setTimeout(aplicar, 500);
+        setTimeout(aplicar, 1500);
+        var grid = document.getElementById('produtosGrid');
+        if (grid) new MutationObserver(aplicar).observe(grid, { childList: true, subtree: true });
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
+    else iniciar();
+})();
+/* ============================================================
+   RODAPÉ — só aparece depois do cardápio carregado
+   - Fica oculto enquanto o cardápio não renderiza
+   - Aparece no fim da página, junto com o conteúdo
+   ============================================================ */
+(function () {
+    if (window.__rodapeAposCarregar) return;
+    window.__rodapeAposCarregar = true;
+
+    function cardapioCarregado() {
+        var grid = document.getElementById('produtosGrid');
+        if (!grid) return false;
+        if (grid.querySelector('.loading-spinner')) return false;
+        return grid.querySelectorAll('.categoria-secao').length > 0;
+    }
+
+    function esconderRodape() {
+        var ft = document.getElementById('loja-rodape');
+        if (ft) ft.style.setProperty('display', 'none', 'important');
+    }
+
+    function mostrarRodape() {
+        var ft = document.getElementById('loja-rodape');
+        if (!ft) return;
+        ft.style.setProperty('display', 'flex', 'important');
+        ft.style.setProperty('position', 'static', 'important');
+        ft.style.setProperty('margin', '32px 0 0 0', 'important');
+        if (ft.parentNode !== document.body) document.body.appendChild(ft);
+    }
+
+    function verificar() {
+        if (cardapioCarregado()) {
+            mostrarRodape();
+            return true;
+        }
+        esconderRodape();
+        return false;
+    }
+
+    function iniciar() {
+        esconderRodape();
+        var tentativas = 0;
+        var timer = setInterval(function () {
+            tentativas++;
+            if (verificar() || tentativas > 60) clearInterval(timer);
+        }, 250);
+        var grid = document.getElementById('produtosGrid');
+        if (grid) {
+            new MutationObserver(function () { verificar(); })
+                .observe(grid, { childList: true, subtree: true });
+        }
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
+    else iniciar();
 })();
     </script>
 </body>
