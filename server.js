@@ -415,6 +415,7 @@
             res.status(500).json({ success: false, message: 'Erro ao buscar produtos' });
         }
     });
+    
     app.get('/api/produtos/:id', async (req, res) => {
         try {
             const product = await pool.query(
@@ -1314,47 +1315,34 @@ app.post('/api/pedidos/:id/notificar', authMiddleware, async (req, res) => {
             res.status(500).json({ success: false, message: 'Erro ao remover usuário' });
         }
     });
-    app.post('/api/produtos', authMiddleware, async (req, res) => {
+   app.post('/api/produtos', authMiddleware, async (req, res) => {
         try {
-            const { name, description, category_id, icone, is_active, display_order } = req.body;
-            let result;
-            try {
-                result = await pool.query(
-                    'INSERT INTO s_products (name, description, category_id, icone, is_active, display_order) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
-                    [name, description, category_id, icone || '', is_active !== false, display_order || 0]
-                );
-            } catch (e) {
-                result = await pool.query(
-                    'INSERT INTO s_products (name, description, category_id, is_active, display_order) VALUES ($1,$2,$3,$4,$5) RETURNING *',
-                    [name, description, category_id, is_active !== false, display_order || 0]
-                );
+            const { name, description, category_id, is_active, display_order, imagem } = req.body;
+            if (!name || !category_id) {
+                return res.status(400).json({ success: false, message: 'Nome e categoria são obrigatórios' });
             }
+            const result = await pool.query(
+                'INSERT INTO s_products (name, description, category_id, is_active, display_order, imagem) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+                [name, description || '', category_id, is_active !== false, display_order || 0, imagem || null]
+            );
             res.status(201).json({ success: true, data: result.rows[0] });
         } catch (err) {
-            console.error('Erro ao criar produto:', err);
-            res.status(500).json({ success: false, message: 'Erro ao criar produto' });
+            console.error('[produtos] ERRO no INSERT:', err.message);
+            res.status(500).json({ success: false, message: 'Erro ao criar produto: ' + err.message });
         }
     });
-    app.put('/api/produtos/:id', authMiddleware, async (req, res) => {
+     app.put('/api/produtos/:id', authMiddleware, async (req, res) => {
         try {
-            const { name, description, category_id, icone, is_active, display_order } = req.body;
-            let result;
-            try {
-                result = await pool.query(
-                    'UPDATE s_products SET name=$1, description=$2, category_id=$3, icone=$4, is_active=$5, display_order=$6 WHERE id=$7 RETURNING *',
-                    [name, description, category_id, icone || '', is_active, display_order, req.params.id]
-                );
-            } catch (e) {
-                result = await pool.query(
-                    'UPDATE s_products SET name=$1, description=$2, category_id=$3, is_active=$4, display_order=$5 WHERE id=$6 RETURNING *',
-                    [name, description, category_id, is_active, display_order, req.params.id]
-                );
-            }
+            const { name, description, category_id, is_active, display_order, imagem } = req.body;
+            const result = await pool.query(
+                'UPDATE s_products SET name=$1, description=$2, category_id=$3, is_active=$4, display_order=$5, imagem=$6 WHERE id=$7 RETURNING *',
+                [name, description || '', category_id, is_active, display_order || 0, imagem || null, req.params.id]
+            );
             if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Produto não encontrado' });
             res.json({ success: true, data: result.rows[0] });
         } catch (err) {
-            console.error('Erro ao atualizar produto:', err);
-            res.status(500).json({ success: false, message: 'Erro ao atualizar produto' });
+            console.error('[produtos] ERRO no UPDATE:', err.message);
+            res.status(500).json({ success: false, message: 'Erro ao atualizar produto: ' + err.message });
         }
     });
     app.delete('/api/produtos/:id', authMiddleware, async (req, res) => {
@@ -1370,32 +1358,44 @@ app.post('/api/pedidos/:id/notificar', authMiddleware, async (req, res) => {
     app.post('/api/precos', authMiddleware, async (req, res) => {
         try {
             const { product_id, price_type, quantity, unit_label, label, price, opcoes, composicao, regras, regras_quantidades, bolo_kit } = req.body;
+            if (!product_id) return res.status(400).json({ success: false, message: 'Produto não informado' });
+            if (!label) return res.status(400).json({ success: false, message: 'Informe o rótulo do preço' });
+            const precoNum = parseFloat(price);
+            if (isNaN(precoNum) || precoNum <= 0) return res.status(400).json({ success: false, message: 'Informe um preço válido' });
+            const qtdNum = (quantity === '' || quantity === null || quantity === undefined) ? null : parseFloat(quantity);
             const rq = typeof regras_quantidades === 'object' && regras_quantidades !== null
                 ? JSON.stringify(regras_quantidades)
                 : (regras_quantidades || null);
+            console.log('[precos] INSERT recebido:', { product_id, label, price: precoNum, price_type, quantity: qtdNum });
             const result = await pool.query(
                 'INSERT INTO s_product_prices (product_id, price_type, quantity, unit_label, label, price, opcoes, composicao, regras, regras_quantidades, bolo_kit) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *',
-                [product_id, price_type, quantity, unit_label, label, price, opcoes || '', composicao || '', regras || '', rq, bolo_kit === true]
+                [product_id, price_type || '', qtdNum, unit_label || '', label, precoNum, opcoes || '', composicao || '', regras || '', rq, bolo_kit === true]
             );
             res.status(201).json({ success: true, data: result.rows[0] });
         } catch (err) {
-            res.status(500).json({ success: false, message: 'Erro ao criar preço' });
+            console.error('[precos] ERRO no INSERT:', err.message);
+            res.status(500).json({ success: false, message: 'Erro ao criar preço: ' + err.message });
         }
     });
-    app.put('/api/precos/:id', authMiddleware, async (req, res) => {
+      app.put('/api/precos/:id', authMiddleware, async (req, res) => {
         try {
             const { price_type, quantity, unit_label, label, price, is_active, opcoes, composicao, regras, regras_quantidades, bolo_kit } = req.body;
+            const precoNum = parseFloat(price);
+            if (isNaN(precoNum) || precoNum <= 0) return res.status(400).json({ success: false, message: 'Informe um preço válido' });
+            const qtdNum = (quantity === '' || quantity === null || quantity === undefined) ? null : parseFloat(quantity);
             const rq = typeof regras_quantidades === 'object' && regras_quantidades !== null
                 ? JSON.stringify(regras_quantidades)
                 : (regras_quantidades || null);
+            console.log('[precos] UPDATE recebido:', { id: req.params.id, label, price: precoNum, quantity: qtdNum });
             const result = await pool.query(
                 'UPDATE s_product_prices SET price_type=$1, quantity=$2, unit_label=$3, label=$4, price=$5, is_active=$6, opcoes=$7, composicao=$8, regras=$9, regras_quantidades=$10, bolo_kit=$11 WHERE id=$12 RETURNING *',
-                [price_type, quantity, unit_label, label, price, is_active, opcoes, composicao, regras, rq, bolo_kit === true, req.params.id]
+                [price_type || '', qtdNum, unit_label || '', label, precoNum, is_active !== false, opcoes || '', composicao || '', regras || '', rq, bolo_kit === true, req.params.id]
             );
             if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Preço não encontrado' });
             res.json({ success: true, data: result.rows[0] });
         } catch (err) {
-            res.status(500).json({ success: false, message: 'Erro ao atualizar preço' });
+            console.error('[precos] ERRO no UPDATE:', err.message);
+            res.status(500).json({ success: false, message: 'Erro ao atualizar preço: ' + err.message });
         }
     });
     app.delete('/api/precos/:id', authMiddleware, async (req, res) => {

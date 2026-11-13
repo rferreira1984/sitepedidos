@@ -770,7 +770,7 @@ if (imagensPedido.length > 0) {
             html += '.itemPai { font-size: 15px; font-weight: bold; padding: 4px 0 2px 0; border-bottom: 1px solid #000; margin-top: 6px; word-break: break-word; }';
             html += '.area { font-size: 16px; font-weight: bold; font-style: italic; text-align: center; color: #000; padding: 2px 0; margin: 4px 0 2px 0; }';
             html += '.item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 15px; font-weight: bold}';
-            html += '.item .desc { flex: 1; padding-right: 4px; word-break: break-word; }';
+            html += '.item .desc { flex: 1; padding-right: 4px; word-break: break-word; text-align: left;}';
             html += '.item .qtd { font-weight: bold; white-space: nowrap; }';
             html += '.obsItem { font-size: 15px;font-weight: bold; font-style: italic; padding: 1px 0 1px 8px; word-break: break-word; }';
             html += '.obs { font-size: 15px;font-weight: bold; margin-top: 4px; }';
@@ -794,7 +794,7 @@ if (imagensPedido.length > 0) {
                 itens.forEach(function (i) {
                     // ===== LINHA DO ITEM DO PEDIDO (pedido_itens) =====
                     var labelItem = i.label || '';
-                    var linhaItem = String(i.product_id || '') + ' - ' + (i.product_name || 'Item');
+                    var linhaItem = (i.product_name || 'Item');
                     
                     html += '<div class="itemPai">' + linhaItem + '</div>';
 
@@ -806,21 +806,22 @@ if (imagensPedido.length > 0) {
                             if (!grupos[area]) grupos[area] = [];
                             grupos[area].push({
                                 desc: c.product_name || 'Item',
-                                qtd: fmtQtdLocal(c.quantidade) + 'unIII'
+                                qtd: fmtQtdLocal(c.quantidade) + ''
                             });
                         });
                         Object.keys(grupos).sort().forEach(function (area) {
                             html += '<div class="area">' + area + '</div>';
                             grupos[area].forEach(function (it) {
-                                html += '<div class="item"><span class="desc">' + it.desc + '</span><span class="qtd">' + it.qtd + '</span></div>';
+                             
+                                html += '<div class="item"><span class="qtd">' + it.qtd + '-'+'</span><span class="desc">' + it.desc+ '</span></div>';
                             });
                         });
                     } else {
                         // Item simples: imprime direto na área dele
                         var areaSimples = (i.local_producao || 'GERAL').trim().toUpperCase() || 'GERAL';
-                        var qtd = i.quantidade_kg ? fmtQtdLocal(i.quantidade_kg) + 'kg' : fmtQtdLocal(i.quantidade) + 'un';
+                        var qtd = i.quantidade_kg ? fmtQtdLocal(i.quantidade_kg) + 'kg' : fmtQtdLocal(i.quantidade) + '';
                         html += '<div class="area">' + areaSimples + '</div>';
-                        html += '<div class="item"><span class="desc">' + (i.product_name || 'Item') + (labelItem ? ' (' + labelItem + ')' : '') + '</span><span class="qtd">' + qtd + '</span></div>';
+                        html += '<div class="item"><span class="qtd">' + qtd + '-</span><span class="desc">' + (i.product_name || 'Item') + (labelItem ? ' (' + labelItem + ')' : '') + '</span></div>';
                     }
 
                     if (i.observacao) {
@@ -925,7 +926,7 @@ if (imagensPedido.length > 0) {
             html += '.itemPai { font-size: 15px; font-weight: bold; padding: 4px 0 2px 0; border-bottom: 1px solid #000; margin-top: 6px; word-break: break-word; }';
             html += '.area { font-size: 16px; font-weight: bold; font-style: italic; text-align: center; color: #000; padding: 2px 0; margin: 4px 0 2px 0; }';
             html += '.item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 15px; font-weight: bold}';
-            html += '.item .desc { flex: 1; padding-right: 4px; word-break: break-word; }';
+            html += '.item .desc { flex: 1; padding-right: 4px; word-break: break-word; text-align: left;}';
             html += '.item .qtd { font-weight: bold; white-space: nowrap; }';
             html += '.obsItem { font-size: 15px;font-weight: bold; font-style: italic; padding: 1px 0 1px 8px; word-break: break-word; }';
             html += '.obs { font-size: 15px;font-weight: bold; margin-top: 4px; }';
@@ -950,7 +951,7 @@ if (imagensPedido.length > 0) {
             var temConteudo = false;
             itens.forEach(function (i) {
                 var labelItem = i.label || '';
-                var linhaItem = String(i.product_id || '') + ' - ' + (i.product_name || 'Item');
+                var linhaItem =(i.product_name || 'Item');
                 //if (labelItem) linhaItem += ' - ' + labelItem + ' (' + labelItem + ')';
 
                 if (i.composicao && i.composicao.length > 0) {
@@ -962,14 +963,14 @@ if (imagensPedido.length > 0) {
                     temConteudo = true;
                     html += '<div class="itemPai">' + linhaItem + '</div>';
                     entradas.forEach(function (c) {
-                        html += '<div class="item"><span class="desc">' + fmtQtdLocal(c.quantidade) + '</span><span class="qtd">' + (c.product_name || 'Item') + 'un</span></div>';
+                        html += '<div class="item"><span class="qtd">' + fmtQtdLocal(c.quantidade) + '-</span><span class="desc">' + (c.product_name || 'Item') + '</span></div>';
                     });
                 } else if (norm(i.local_producao) === areaNorm) {
                     // Item simples desta área
                     temConteudo = true;
                     html += '<div class="itemPai">' + linhaItem + '</div>';
-                    var qtd = i.quantidade_kg ? fmtQtdLocal(i.quantidade_kg) + 'kg' : fmtQtdLocal(i.quantidade) + 'un';
-                    html += '<div class="item"><span class="desc">' + (i.product_name || 'Item') + (labelItem ? ' (' + labelItem + ')' : '') + '</span><span class="qtd">' + qtd + '</span></div>';
+                    var qtd = i.quantidade_kg ? fmtQtdLocal(i.quantidade_kg) + '-kg' : fmtQtdLocal(i.quantidade) + '';
+                    html += '<div class="item"><span class="qtd">' +qtd+ '-</span><span class="desc">' +  (i.product_name || 'Item') + (labelItem ? ' (' + labelItem + ')' : '')  + '</span></div>';
                 }
                  if (i.observacao) {
                      html += '<div class="linha"></div>';
@@ -2089,6 +2090,12 @@ if (imagensPedido.length > 0) {
                         '<select id="gpCategoria"></select>' +
                         '<input type="text" id="gpIcone" placeholder="Ícone/emoji (ex.: 🥟)" style="max-width:180px;" />' +
                         '<input type="number" id="gpOrdem" placeholder="Ordem" style="max-width:120px;" />' +
+                        '<div style="flex:1 1 100%;display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px;">' +
+                            '<input type="file" id="gpImagemFile" accept="image/jpeg,image/png,image/webp" style="flex:1;min-width:200px;padding:8px;border:1px dashed #d1d5db;border-radius:8px;background:#f9fafb;font-size:13px;" />' +
+                            '<img id="gpImagemPreview" alt="Prévia" style="display:none;width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;" />' +
+                            '<button type="button" class="gp-btn gp-btn-sec" id="gpRemoverImagem" style="display:none;padding:6px 12px;font-size:12px;">Remover</button>' +
+                        '</div>' +
+                        '<input type="hidden" id="gpImagemUrl" />' +
                     '</div>' +
                     '<textarea id="gpDescricao" placeholder="Descrição do produto (aparece no cardápio)"></textarea>' +
                     '<label class="gp-check"><input type="checkbox" id="gpAtivo" checked /> Ativo (visível no cardápio)</label>' +
@@ -2149,6 +2156,15 @@ if (imagensPedido.length > 0) {
         document.getElementById('gpCancelarPreco').onclick = limparFormPreco;
         document.getElementById('gpFiltroCategoria').onchange = renderTabela;
         document.getElementById('gpBusca').oninput = renderTabela;
+        document.getElementById('gpImagemFile').onchange = enviarImagemProduto;
+        document.getElementById('gpRemoverImagem').onclick = function () {
+            document.getElementById('gpImagemUrl').value = '';
+            document.getElementById('gpImagemFile').value = '';
+            var prev = document.getElementById('gpImagemPreview');
+            prev.src = '';
+            prev.style.display = 'none';
+            document.getElementById('gpRemoverImagem').style.display = 'none';
+        };
     }
 
     function abrir() {
@@ -2260,7 +2276,45 @@ if (imagensPedido.length > 0) {
             if (acao === 'excluir') b.onclick = function () { excluirProduto(p); };
         });
     }
-
+    // ===== UPLOAD DA IMAGEM DO PRODUTO (Picsur) =====
+    function enviarImagemProduto() {
+        var input = document.getElementById('gpImagemFile');
+        var file = input.files && input.files[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+            toast('Imagem muito grande (máx. 5 MB).', 'error');
+            input.value = '';
+            return;
+        }
+        var prev = document.getElementById('gpImagemPreview');
+        var btnRem = document.getElementById('gpRemoverImagem');
+        var reader = new FileReader();
+        reader.onload = function (e) {
+            prev.src = e.target.result;
+            prev.style.display = 'block';
+            toast('Enviando imagem...', 'info');
+            fetch('/api/upload', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ base64: e.target.result, filename: file.name })
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+                if (!j.success || !j.url) throw new Error(j.message || 'Falha no upload');
+                document.getElementById('gpImagemUrl').value = j.url;
+                btnRem.style.display = 'inline-block';
+                toast('✅ Imagem enviada!', 'success');
+            })
+            .catch(function (err) {
+                document.getElementById('gpImagemUrl').value = '';
+                prev.style.display = 'none';
+                btnRem.style.display = 'none';
+                input.value = '';
+                toast('Erro ao enviar imagem: ' + err.message, 'error');
+            });
+        };
+        reader.readAsDataURL(file);
+    }
     // ===== FORMULÁRIO DE PRODUTO =====
     function abrirFormProduto(p) {
         produtoEditando = p;
@@ -2272,6 +2326,20 @@ if (imagensPedido.length > 0) {
         document.getElementById('gpOrdem').value = p ? (p.display_order || 0) : 0;
         document.getElementById('gpDescricao').value = p ? (p.description || '') : '';
         document.getElementById('gpAtivo').checked = p ? !!p.is_active : true;
+        var urlImg = p ? (p.imagem || '') : '';
+        document.getElementById('gpImagemUrl').value = urlImg;
+        document.getElementById('gpImagemFile').value = '';
+        var prev = document.getElementById('gpImagemPreview');
+        var btnRem = document.getElementById('gpRemoverImagem');
+        if (urlImg) {
+            prev.src = urlImg;
+            prev.style.display = 'block';
+            btnRem.style.display = 'inline-block';
+        } else {
+            prev.src = '';
+            prev.style.display = 'none';
+            btnRem.style.display = 'none';
+        }
         document.getElementById('gpFormProdutoCard').scrollIntoView({ behavior: 'smooth' });
     }
     function limparFormProduto() {
@@ -2290,7 +2358,8 @@ if (imagensPedido.length > 0) {
             category_id: parseInt(cat),
             icone: document.getElementById('gpIcone').value || '',
             display_order: parseInt(document.getElementById('gpOrdem').value) || 0,
-            is_active: document.getElementById('gpAtivo').checked
+            is_active: document.getElementById('gpAtivo').checked,
+            imagem: document.getElementById('gpImagemUrl').value || null
         };
         var url = produtoEditando ? '/api/produtos/' + produtoEditando.id : '/api/produtos';
         fetch(url, { method: produtoEditando ? 'PUT' : 'POST', headers: authHeaders(), body: JSON.stringify(body) })
@@ -2310,7 +2379,7 @@ if (imagensPedido.length > 0) {
             method: 'PUT', headers: authHeaders(),
             body: JSON.stringify({
                 name: p.name, description: p.description, category_id: p.category_id,
-                icone: p.icone || '', is_active: !p.is_active, display_order: p.display_order || 0
+                icone: p.icone || '', is_active: !p.is_active, display_order: p.display_order || 0,imagem: p.imagem || null
             })
         })
         .then(function (r) { return r.json(); })
@@ -2434,7 +2503,7 @@ if (imagensPedido.length > 0) {
             label: label,
             price: price,
             price_type: document.getElementById('gpPrecoTipo').value || '',
-            quantity: qtd !== '' ? parseFloat(qtd) : null,
+            quantity: (qtd !== '' && !isNaN(parseFloat(qtd))) ? parseFloat(qtd) : null,
             unit_label: document.getElementById('gpPrecoUnidade').value || '',
             bolo_kit: document.getElementById('gpPrecoBoloKit').checked,
             is_active: document.getElementById('gpPrecoAtivo').checked,
