@@ -806,7 +806,7 @@ if (imagensPedido.length > 0) {
                             if (!grupos[area]) grupos[area] = [];
                             grupos[area].push({
                                 desc: c.product_name || 'Item',
-                                qtd: fmtQtdLocal(c.quantidade) + 'un'
+                                qtd: fmtQtdLocal(c.quantidade) + 'unIII'
                             });
                         });
                         Object.keys(grupos).sort().forEach(function (area) {
@@ -962,7 +962,7 @@ if (imagensPedido.length > 0) {
                     temConteudo = true;
                     html += '<div class="itemPai">' + linhaItem + '</div>';
                     entradas.forEach(function (c) {
-                        html += '<div class="item"><span class="desc">' + (c.product_name || 'Item') + '</span><span class="qtd">' + fmtQtdLocal(c.quantidade) + 'un</span></div>';
+                        html += '<div class="item"><span class="desc">' + fmtQtdLocal(c.quantidade) + '</span><span class="qtd">' + (c.product_name || 'Item') + 'un</span></div>';
                     });
                 } else if (norm(i.local_producao) === areaNorm) {
                     // Item simples desta área
