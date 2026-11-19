@@ -264,8 +264,8 @@
                 <section class="table-container">
                     <div style="overflow-x:auto;">
                         <table class="orders-table">
-                            <thead><tr><th>ID</th><th>Cliente</th><th>Telefone</th><th>Produtos</th><th>Valor</th><th>Pagamento</th><th>Logística</th><th>Data Pedido</th><th>Data Entrega</th><th>Hora Agendada</th><th>Status</th><th>Ações</th></tr></thead>
-                            <tbody id="ordersBody"><tr><td colspan="10" style="text-align:center;padding:40px;color:#6b7280;"><div class="loading-spinner"><i class="fas fa-spinner"></i><br><br>Carregando pedidos...</div></td></tr></tbody>
+                        <thead><tr><th>ID</th><th>Origem</th><th>Cliente</th><th>Telefone</th><th>Produtos</th><th>Valor</th><th>Pagamento</th><th>Logística</th><th>Data Pedido</th><th>Data Entrega</th><th>Hora Agendada</th><th>Status</th><th>Ações</th></tr></thead>
+                            <tbody id="ordersBody"><tr><td colspan="13" style="text-align:center;padding:40px;color:#6b7280;"><div class="loading-spinner"><i class="fas fa-spinner"></i><br><br>Carregando pedidos...</div></td></tr></tbody>
                         </table>
                     </div>
                     <div class="pagination-bar">
@@ -351,6 +351,17 @@
             };
             return map[s] || 'btn-status-finalizado';
         }
+        // ===== ORIGEM DO PEDIDO (coluna sistema em s_pedidos: 1 = Site, 0 = WhatsApp) =====
+function badgeSistema(v) {
+    var n = parseInt(v);
+    if (n === 1) {
+        return '<span class="origem-badge origem-site" title="Pedido feito pelo site">🌐 Site</span>';
+    }
+    if (n === 0) {
+        return '<span class="origem-badge origem-whats" title="Pedido feito pelo WhatsApp">💬 WhatsApp</span>';
+    }
+    return '<span class="origem-badge origem-null" title="Origem não informada">—</span>';
+}
         // ===== IMPRESSÃO 80MM =====
         function esc(s) {
             return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -477,18 +488,18 @@
                 document.getElementById('totalBadge').textContent = pagination.total;
                 const tbody = document.getElementById('ordersBody');
                 if (!data || data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:40px;color:#6b7280;">Nenhum pedido encontrado.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:40px;color:#6b7280;">Nenhum pedido encontrado.</td></tr>';
                 } else {
                     tbody.innerHTML = data.map(p => {
                         const sc = badgeStatus(p.status);
-                        return '<tr><td><strong>#' + String(p.id).padStart(3,'0') + '</strong></td><td>' + (p.nome_cliente||'-') + '</td><td>' + (p.telefone||'-') + '</td><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (p.items||'') + '">' + (p.items||'-') + '</td><td><strong>R$ ' + parseFloat(p.valor_total||0).toFixed(2).replace('.',',') + '</strong></td><td>' + (p.forma_pagamento||'-') + '</td><td>' + (p.tipo_logistica||'-') + '</td><td>' + (p.data_criacao ? new Date(p.data_criacao).toLocaleDateString('pt-BR') : '-') + '<td>' + (p.data_entrega ? new Date(p.data_entrega).toLocaleDateString('pt-BR') +  '<td>'  + (p.hora_entrega || '') : '-') + '</td>' +'</td><td><span class="status-badge ' + sc + '">' + p.status + '</span></td><td><button class="btn-action" onclick="abrirDetalhes(' + p.id + ')" title="Ver detalhes"><i class="fas fa-eye"></i></button></td></tr>';
+                        return '<tr><td><strong>#' + String(p.id).padStart(3,'0') + '</strong></td><td>' + badgeSistema(p.sistema) + '</td><td>' + (p.nome_cliente||'-') + '</td><td>' + (p.telefone||'-') + '</td><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (p.items||'') + '">' + (p.items||'-') + '</td><td><strong>R$ ' + parseFloat(p.valor_total||0).toFixed(2).replace('.',',') + '</strong></td><td>' + (p.forma_pagamento||'-') + '</td><td>' + (p.tipo_logistica||'-') + '</td><td>' + (p.data_criacao ? new Date(p.data_criacao).toLocaleDateString('pt-BR') : '-') + '<td>' + (p.data_entrega ? new Date(p.data_entrega).toLocaleDateString('pt-BR') +  '<td>'  + (p.hora_entrega || '') : '-') + '</td>' +'</td><td><span class="status-badge ' + sc + '">' + p.status + '</span></td><td><button class="btn-action" onclick="abrirDetalhes(' + p.id + ')" title="Ver detalhes"><i class="fas fa-eye"></i></button></td></tr>';
                     }).join('');
                 }
                 document.getElementById('paginationInfo').textContent = 'Página ' + currentPage + ' de ' + totalPages + ' (' + pagination.total + ' pedidos)';
                 document.getElementById('prevPage').disabled = currentPage <= 1;
                 document.getElementById('nextPage').disabled = currentPage >= totalPages;
             } catch (err) {
-                document.getElementById('ordersBody').innerHTML = '<tr><td colspan="10" style="text-align:center;padding:40px;color:#f87171;">Erro: ' + err.message + '</td></tr>';
+                document.getElementById('ordersBody').innerHTML = '<tr><td colspan="13" style="text-align:center;padding:40px;color:#f87171;">Erro: ' + err.message + '</td></tr>';
             }
         }
         function mudarPagina(page) { if (page < 1 || page > totalPages) return; carregarPedidos(page); }
@@ -731,6 +742,50 @@ if (imagensPedido.length > 0) {
             }
         })();
 /* ============================================================
+   PARSER DA STRING "items" — pedidos do WhatsApp (sistema 0)
+   Formato: "1 x Cento Misto Salgados Fritos -20 x Risoles Pizza
+             -20 x Quibe 1 x Sprite 2 litros"
+   Regra: cada "N x Produto" vira uma linha.
+   O primeiro item (sem "-" na frente) é o item pai.
+   ============================================================ */
+function parsearItemsTexto(items) {
+    if (!items) return [];
+    var texto = String(items).replace(/\s+/g, ' ').trim();
+    if (!texto) return [];
+    // Quebra antes de cada "N x " que NÃO esteja no início da string.
+    // O hífen opcional antes do número é absorvido pelo separador.
+    var partes = texto.split(/\s*-?\s*(?=\d+\s*x\s)/i);
+    var linhas = [];
+    partes.forEach(function (p) {
+        var t = String(p || '').trim().replace(/^-\s*/, '');
+        if (!t) return;
+        // Normaliza "1 x Produto" -> "1 x Produto"
+        var m = t.match(/^(\d+(?:[.,]\d+)?)\s*x\s*(.+)$/i);
+        if (m) {
+            linhas.push({ qtd: m[1], nome: m[2].trim(), bruto: t });
+        } else {
+            linhas.push({ qtd: '', nome: t, bruto: t });
+        }
+    });
+    return linhas;
+}
+
+// Renderiza as linhas no padrão da impressão térmica
+function htmlItensTexto(items) {
+    var linhas = parsearItemsTexto(items);
+    if (linhas.length === 0) return '';
+    var html = '';
+    linhas.forEach(function (l) {
+        var qtd = l.qtd ? l.qtd + '' : '';
+        html += '<div class="item">'
+            + '<span class="qtd">' + qtd + (qtd ? '-' : '') + '</span>'
+            + '<span class="desc">' + l.nome + '</span>'
+            + '</div>';
+    });
+    return html;
+}
+        
+/* ============================================================
    IMPRESSÃO COZINHA — TÉRMICA 80mm
    Cabeçalho padrão + itens agrupados por área de produção
    ============================================================ */
@@ -769,9 +824,9 @@ if (imagensPedido.length > 0) {
             html += '.info { font-size: 15px; line-height: 1.5;font-weight: bold }';
             html += '.itemPai { font-size: 15px; font-weight: bold; padding: 4px 0 2px 0; border-bottom: 1px solid #000; margin-top: 6px; word-break: break-word; }';
             html += '.area { font-size: 16px; font-weight: bold; font-style: italic; text-align: center; color: #000; padding: 2px 0; margin: 4px 0 2px 0; }';
-            html += '.item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 15px; font-weight: bold}';
-            html += '.item .desc { flex: 1; padding-right: 4px; word-break: break-word; text-align: left;}';
-            html += '.item .qtd { font-weight: bold; white-space: nowrap; }';
+            html += '.item { display: flex; align-items: flex-start; padding: 2px 0; font-size: 15px; font-weight: bold; }';
+            html += '.item .qtd { flex: 0 0 auto; min-width: 26px; white-space: nowrap; }';
+            html += '.item .desc { flex: 1; padding-right: 4px; word-break: break-word; text-align: left; }';
             html += '.obsItem { font-size: 15px;font-weight: bold; font-style: italic; padding: 1px 0 1px 8px; word-break: break-word; }';
             html += '.obs { font-size: 15px;font-weight: bold; margin-top: 4px; }';
             html += '.rodape { text-align: center; font-size: 10px; margin-top: 8px; }';
@@ -789,8 +844,14 @@ if (imagensPedido.length > 0) {
             html += '<div class="linha"></div>';
 
             if (itens.length === 0) {
-                html += '<div class="centro">--- SEM ITENS ---</div>';
-            } else {
+    // Pedido do WhatsApp (sistema 0): sem pedido_itens -> usa a string items
+    var htmlTexto = htmlItensTexto(p.items);
+    if (htmlTexto) {
+        html += htmlTexto;
+    } else {
+        html += '<div class="centro">--- SEM ITENS ---</div>';
+    }
+} else {
                 itens.forEach(function (i) {
                     // ===== LINHA DO ITEM DO PEDIDO (pedido_itens) =====
                     var labelItem = i.label || '';
@@ -813,7 +874,7 @@ if (imagensPedido.length > 0) {
                             html += '<div class="area">' + area + '</div>';
                             grupos[area].forEach(function (it) {
                              
-                                html += '<div class="item"><span class="qtd">' + it.qtd + '-'+'</span><span class="desc">' + it.desc+ '</span></div>';
+                                html += '<div class="item"><span class="qtd">' + it.qtd + '-'+'</span><span class="desc">' + esc(it.desc) + '</span></div>';
                             });
                         });
                     } else {
@@ -925,9 +986,9 @@ if (imagensPedido.length > 0) {
             html += '.info { font-size: 15px; line-height: 1.5;font-weight: bold }';
             html += '.itemPai { font-size: 15px; font-weight: bold; padding: 4px 0 2px 0; border-bottom: 1px solid #000; margin-top: 6px; word-break: break-word; }';
             html += '.area { font-size: 16px; font-weight: bold; font-style: italic; text-align: center; color: #000; padding: 2px 0; margin: 4px 0 2px 0; }';
-            html += '.item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 15px; font-weight: bold}';
-            html += '.item .desc { flex: 1; padding-right: 4px; word-break: break-word; text-align: left;}';
-            html += '.item .qtd { font-weight: bold; white-space: nowrap; }';
+html += '.item { display: flex; align-items: flex-start; padding: 2px 0; font-size: 15px; font-weight: bold; }';
+html += '.item .qtd { flex: 0 0 auto; min-width: 26px; white-space: nowrap; }';
+html += '.item .desc { flex: 1; padding-right: 4px; word-break: break-word; text-align: left; }';
             html += '.obsItem { font-size: 15px;font-weight: bold; font-style: italic; padding: 1px 0 1px 8px; word-break: break-word; }';
             html += '.obs { font-size: 15px;font-weight: bold; margin-top: 4px; }';
             html += '.rodape { text-align: center; font-size: 10px; margin-top: 8px; }';
@@ -947,6 +1008,27 @@ if (imagensPedido.length > 0) {
 
             // ===== FAIXA DA ÁREA =====
             html += '<div class="area">' + area + '</div>';
+            if (itens.length === 0) {
+    var htmlTextoArea = htmlItensTexto(p.items);
+    if (htmlTextoArea) {
+        html += htmlTextoArea;
+    } else {
+        html += '<div class="centro">--- SEM ITENS NESTA ÁREA ---</div>';
+    }
+    // segue para observações/rodapé
+    if (p.observacoes) {
+        html += '<div class="linha"></div>';
+        html += '<div class="obs"><b>OBS Pedido:*</b> ' + p.observacoes + '</div>';
+    }
+    html += '<div class="linha"></div>';
+    html += '<div class="rodape">' + new Date().toLocaleString('pt-BR') + '</div>';
+    html += '<div class="no-print centro" style="margin-top:10px;"><button onclick="window.print()" style="padding:8px 20px;font-size:13px;">🖨️ Imprimir</button></div>';
+    html += '</body></html>';
+    var w0 = window.open('', '_blank', 'width=340,height=600');
+    if (!w0) { alert('Permita pop-ups para imprimir.'); return; }
+    w0.document.write(html); w0.document.close(); w0.focus(); w0.print();
+    return;
+}
 
             var temConteudo = false;
             itens.forEach(function (i) {
@@ -963,7 +1045,7 @@ if (imagensPedido.length > 0) {
                     temConteudo = true;
                     html += '<div class="itemPai">' + linhaItem + '</div>';
                     entradas.forEach(function (c) {
-                        html += '<div class="item"><span class="qtd">' + fmtQtdLocal(c.quantidade) + '-</span><span class="desc">' + (c.product_name || 'Item') + '</span></div>';
+                        html += '<div class="item"><span class="qtd">' + fmtQtdLocal(c.quantidade) + '-</span><span class="desc">' + esc(c.product_name || 'Item') + '</span></div>';
                     });
                 } else if (norm(i.local_producao) === areaNorm) {
                     // Item simples desta área
@@ -1126,8 +1208,13 @@ if (imagensPedido.length > 0) {
             html += '<div class="linha"></div>';
 
             if (itens.length === 0) {
-                html += '<div class="centro">--- SEM ITENS ---</div>';
-            } else {
+    var htmlTextoGeral = htmlItensTexto(p.items);
+    if (htmlTextoGeral) {
+        html += htmlTextoGeral;
+    } else {
+        html += '<div class="centro">--- SEM ITENS ---</div>';
+    }
+} else {
                 itens.forEach(function (i) {
                     var labelItem = i.label || '';
                     var linhaItem = String(i.product_id || '') + ' - ' + (i.product_name || 'Item');

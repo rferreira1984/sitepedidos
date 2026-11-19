@@ -231,6 +231,10 @@
         .tl-item .dt { font-size: 11px; color: #9ca3af; }
         .tl-item .obs { font-size: 12px; color: #6b7280; margin-top: 2px; }
         .status-badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 20px; color: #fff; margin-bottom: 8px; }
+        .origem-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+        .origem-site { background: rgba(59,130,246,0.15); color: #60a5fa; }
+        .origem-whats { background: rgba(37,211,102,0.15); color: #25D366; }
+        .origem-null { background: rgba(148,163,184,0.15); color: #94a3b8; }
         .loading { text-align: center; color: #6b7280; padding: 20px; }
         .loading i { font-size: 24px; animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

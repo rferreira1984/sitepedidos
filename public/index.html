@@ -3147,11 +3147,12 @@ function ehBoloCaseiroAtual() {
         }
     }
 
-    var _abrirCentoModal = window.abrirCentoModal;
+     var _abrirCentoModal = window.abrirCentoModal;
     if (typeof _abrirCentoModal === 'function') {
         window.abrirCentoModal = function (produtoId) {
             var r = _abrirCentoModal.apply(this, arguments);
             setTimeout(corrigirLabelsModal, 0);
+            setTimeout(inserirAvisoPrazo, 0);
             return r;
         };
     }
@@ -3183,17 +3184,53 @@ function ehBoloCaseiroAtual() {
     }
 
     /* ==================== 5.2 / 6) AVISOS NOS MODAIS ==================== */
+    /* ==================== 5.2 / 6) AVISOS NOS MODAIS ==================== */
+    function prazoDoModal(idOverlay) {
+        // Kit Festa, Festa na Caixa e Bolos por Kg: 2 dias
+        // Cento de salgados/doces: 1 hora
+        if (idOverlay === 'quiloModalOverlay') return { dias: PRAZO_MIN_DIAS, horas: 0 };
+        try {
+            if (typeof modoCento !== 'undefined' && modoCento) return { dias: 0, horas: 1 };
+            if (typeof centoAtual !== 'undefined' && centoAtual != null) return { dias: 0, horas: 1 };
+        } catch (e) {}
+        return { dias: PRAZO_MIN_DIAS, horas: 0 };
+    }
+
+    function textoPrazo(prazo) {
+        if (prazo.horas > 0) {
+            return '<i class="fas fa-clock"></i> <strong>Prazo mínimo de ' + prazo.horas +
+                ' hora' + (prazo.horas > 1 ? 's' : '') + '.</strong> Escolha um horário com pelo menos ' +
+                prazo.horas + ' hora' + (prazo.horas > 1 ? 's' : '') + ' de antecedência.';
+        }
+        return '<i class="fas fa-clock"></i> <strong>Prazo mínimo de ' + prazo.dias +
+            ' dias.</strong> Escolha uma data com pelo menos ' + prazo.dias +
+            ' dias de antecedência antes de personalizar.';
+    }
+
     function inserirAvisoPrazo() {
         ['kitModalOverlay', 'quiloModalOverlay'].forEach(function (idOverlay) {
             var overlay = document.getElementById(idOverlay);
             if (!overlay) return;
             var modal = overlay.querySelector('.kit-modal');
-            if (!modal || modal.querySelector('.aviso-prazo')) return;
-            var aviso = document.createElement('div');
+            if (!modal) return;
+
+            var prazo = prazoDoModal(idOverlay);
+            var texto = textoPrazo(prazo);
+            var aviso = modal.querySelector('.aviso-prazo');
+
+            if (aviso) {
+                // Já existe: só atualiza o texto se o tipo mudou
+                if (aviso.getAttribute('data-prazo') !== texto) {
+                    aviso.innerHTML = texto;
+                    aviso.setAttribute('data-prazo', texto);
+                }
+                return;
+            }
+
+            aviso = document.createElement('div');
             aviso.className = 'aviso-prazo';
-            aviso.innerHTML = '<i class="fas fa-clock"></i> <strong>Prazo mínimo de ' + PRAZO_MIN_DIAS +
-                ' dias.</strong> Escolha uma data com pelo menos ' + PRAZO_MIN_DIAS +
-                ' dias de antecedência antes de personalizar.';
+            aviso.innerHTML = texto;
+            aviso.setAttribute('data-prazo', texto);
             var sub = modal.querySelector('.km-subtitle');
             if (sub && sub.parentNode === modal) modal.insertBefore(aviso, sub.nextSibling);
             else modal.insertBefore(aviso, modal.firstChild);
