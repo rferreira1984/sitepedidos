@@ -132,7 +132,7 @@
                     </div>
                     <span class="pedido-status" style="background:${statusCor(p.status)}">${p.status}</span>
                     <div class="pedido-info"><strong>${p.tipo_logistica || '—'}</strong>${p.tipo_logistica === 'Entrega' && p.endereco_rua ? ' · ' + (p.endereco_rua || '') + (p.endereco_numero ? ', ' + p.endereco_numero : '') : ''}</div>
-                    <div class="pedido-info">Data entrega: <strong>${p.data_entrega || '—'}</strong> · Hora: <strong>${p.hora_entrega || '—'}</strong></div>
+                    <div class="pedido-info">📅 Entrega: <strong>${fmtDataEntrega(p.data_entrega)}</strong>${rotuloData(p.data_entrega) ? ' (' + rotuloData(p.data_entrega) + ')' : ''} · ⏰ <strong>${fmtHoraEntrega(p.hora_entrega)}</strong></div>
                     <div class="pedido-total">R$ ${fmt(p.valor_total)}</div>
                 </div>
             `).join('');
@@ -156,12 +156,26 @@
             }
         }
         function renderizarDetalhe(json) {
-            const p = json.data;
-            const itens = json.itens || [];
-            const historico = json.historico || [];
+            const conteudo = document.getElementById('modalConteudo');
+    const p = json.data;
+    const itens = json.itens || [];
+    const historico = json.historico || [];
             const itensHtml = itens.length > 0
-                ? itens.map(i => `<div class="item-linha"><span class="nome">${i.product_name || i.nome || ''}${i.label ? ' (' + i.label + ')' : ''}</span><span class="qtd">x${i.quantidade}</span><span class="preco">R$ ${fmt(i.preco_total)}</span></div>`).join('')
-                : `<div class="linha"><span>${p.items || '—'}</span></div>`;
+    ? itens.map(i => {
+        const comp = (i.composicao || []).map(c =>
+            `<div class="item-linha" style="padding-left:14px;font-size:12px;opacity:.75;">
+                <span class="nome">↳ ${c.product_name || ''}</span>
+                <span class="qtd">x${c.quantidade}</span>
+                <span class="preco"></span>
+            </div>`).join('');
+        const qtdTxt = i.quantidade_kg ? `${fmt(i.quantidade_kg)} kg` : `x${i.quantidade}`;
+        return `<div class="item-linha">
+                    <span class="nome">${i.product_name || i.nome || ''}${i.label ? ' (' + i.label + ')' : ''}</span>
+                    <span class="qtd">${qtdTxt}</span>
+                    <span class="preco">R$ ${fmt(i.preco_total)}</span>
+                </div>${comp}`;
+    }).join('')
+    : `<div class="linha"><span>${p.items || '—'}</span></div>`;
             const histHtml = historico.length > 0
                 ? `<div class="timeline">${historico.map(h => `
                     <div class="tl-item">
@@ -179,8 +193,8 @@
                 <div class="sec-titulo">🚚 Entrega</div>
                 <div class="linha"><span>Tipo</span><span>${p.tipo_logistica || '—'}</span></div>
                 ${p.tipo_logistica === 'Entrega' ? `<div class="linha"><span>Endereço</span><span>${[p.endereco_rua, p.endereco_numero, p.endereco_bairro, p.endereco_cep].filter(Boolean).join(', ') || '—'}</span></div>` : ''}
-                <div class="linha"><span>Data</span><span>${p.data_entrega || '—'}</span></div>
-                <div class="linha"><span>Horário</span><span>${p.hora_entrega || '—'}</span></div>
+<div class="linha"><span>Data</span><span>${fmtDataEntrega(p.data_entrega)}${rotuloData(p.data_entrega) ? ' (' + rotuloData(p.data_entrega) + ')' : ''}</span></div>
+<div class="linha"><span>Horário</span><span>${fmtHoraEntrega(p.hora_entrega)}</span></div>
                 <div class="sec-titulo">💳 Pagamento</div>
                 <div class="linha"><span>Forma</span><span>${p.forma_pagamento || '—'}</span></div>
                 <div class="linha"><span>Taxa de entrega</span><span>R$ ${fmt(p.taxa_entrega || 0)}</span></div>
@@ -196,6 +210,38 @@
         document.getElementById('telefone').addEventListener('keydown', function(e) {
             if (e.key === 'Enter') consultar();
         });
+        // Data de entrega vem do banco como ISO (2026-11-20T03:00:00.000Z).
+// Lê apenas a parte YYYY-MM-DD, sem converter fuso horário.
+function fmtDataEntrega(dt) {
+    if (!dt) return '—';
+    const m = String(dt).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+    const d = new Date(dt);
+    return isNaN(d) ? '—' : d.toLocaleDateString('pt-BR');
+}
+
+// Hora de entrega: aceita "16:00", "16:00:00" ou ISO completo
+function fmtHoraEntrega(h) {
+    if (!h) return '—';
+    const m = String(h).match(/(\d{2}):(\d{2})/);
+    return m ? `${m[1]}:${m[2]}` : '—';
+}
+
+// Rótulo amigável: Hoje / Amanhã / dia da semana
+function rotuloData(dt) {
+    if (!dt) return '';
+    const s = String(dt);
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return '';
+    const alvo = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const diff = Math.round((alvo - hoje) / 86400000);
+    if (diff === 0) return 'Hoje';
+    if (diff === 1) return 'Amanhã';
+    if (diff > 1 && diff < 7) return alvo.toLocaleDateString('pt-BR', { weekday: 'long' });
+    return '';
+}
         preencherTelefoneLogado();
     </script>
 </body>
