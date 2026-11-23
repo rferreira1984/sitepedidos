@@ -1778,8 +1778,7 @@ function validarDataHoraPedido() {
         if (resultadoFrete) {
             resultadoFrete.style.display = 'block';
             resultadoFrete.innerHTML =
-                '🚚 Distância: ' + d.distancia_texto + faixaTxt + '<br>' +
-                'Taxa de entrega: R$ ' + fmt(custoEntrega);
+                '🚚Taxa de entrega: R$ ' + fmt(custoEntrega);
         }
         atualizarCarrinhoUI();
     } catch (err) {
