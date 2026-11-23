@@ -15,9 +15,9 @@
     const WEBHOOK_VERIFICACAO = process.env.WEBHOOK_VERIFICACAO || 'https://n8n-salgadoscia-n8n.hjs9cn.easypanel.host/webhook/9764c692-0c00-4308-b490-6807e2816662';
     const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyDcy5vIhEOUAeVLBZ9S8pmv8zeOz6NQ8-A';
     const LOJA_ORIGEM = '-24.965348589309297,-53.51220562301614';
-    const TAXA_BASE_ENTREGA = parseFloat(process.env.TAXA_BASE_ENTREGA || '0');
-    const TAXA_POR_KM = parseFloat(process.env.TAXA_POR_KM || '3');
-    const FRETE_GRATIS_ACIMA = parseFloat(process.env.FRETE_GRATIS_ACIMA || '0');
+    //const TAXA_BASE_ENTREGA = parseFloat(process.env.TAXA_BASE_ENTREGA || '0');
+   // const TAXA_POR_KM = parseFloat(process.env.TAXA_POR_KM || '3');
+    //const FRETE_GRATIS_ACIMA = parseFloat(process.env.FRETE_GRATIS_ACIMA || '0');
     const PICSUR_URL = process.env.PICSUR_URL || 'https://site-picsur.hjs9cn.easypanel.host';
     const PICSUR_API_KEY = process.env.PICSUR_API_KEY || 'IZh8ytuqAmEIK34SQlsaBFtVdvjBR47F';
     const WEBHOOK_PIX = process.env.WEBHOOK_PIX || 'https://n8n-salgadoscia-n8n.hjs9cn.easypanel.host/webhook/f141aed9-c772-4bce-87ab-43f4c80173dc';
@@ -26,6 +26,22 @@
     const PIX_CIDADE = process.env.PIX_CIDADE || 'CASCAVEL';
     const MIN_PEDIDO_ENTREGA = parseFloat(process.env.MIN_PEDIDO_ENTREGA || '70');
     const MIN_PEDIDO_RETIRADA = parseFloat(process.env.MIN_PEDIDO_RETIRADA || '0');
+    // ===== TABELA DE FRETE POR DISTÂNCIA =====
+// Faixas de 1 a 10 km (valor fechado) e acima de 10 km (valor por km)
+const TABELA_FRETE = [
+    { ate: 1,  valor: 6.00 },
+    { ate: 2,  valor: 7.00 },
+    { ate: 3,  valor: 10.00 },
+    { ate: 4,  valor: 12.00 },
+    { ate: 5,  valor: 15.00 },
+    { ate: 6,  valor: 16.00 },
+    { ate: 7,  valor: 17.00 },
+    { ate: 8,  valor: 18.00 },
+    { ate: 9,  valor: 20.00 },
+    { ate: 10, valor: 22.00 }
+];
+const FRETE_ACIMA_10_POR_KM = 2.22;
+const FRETE_GRATIS_ACIMA = parseFloat(process.env.FRETE_GRATIS_ACIMA || '0');
 
 
     class Pix {
@@ -154,86 +170,204 @@
             return res.status(401).json({ success: false, message: 'Token inválido ou expirado' });
         }
     }
-    // ===== REGRAS DE HORÁRIOS (backend) =====
-    const REGRAS_HORARIOS = {
-        pedidoMesmoDiaLimite: '16:00',
-        antecedenciaKitMin: 2,
-        antecedenciaItensMin: 1,
-        retirada: {
-            segSexta: { inicio: '07:00', fim: '19:00' },
-            sabado: { inicio: '07:00', fim: '19:00' },
-            domingoFeriado: { inicio: '08:30', fim: '14:30' }
-        },
-        entrega: {
-            segSexta: { inicio: '08:30', fim: '18:00' },
-            sabado: { inicio: '08:30', fim: '16:00' },
-            domingoFeriado: { inicio: '08:30', fim: '14:30' }
-        }
-    };
-    const FERIADOS_FIXOS = ['01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '12-25'];
-    function ehFeriado(dataStr) {
-        const mmdd = String(dataStr).substring(5, 10);
-        return FERIADOS_FIXOS.includes(mmdd);
+   // ===== REGRAS DE HORÁRIOS (backend) =====
+const REGRAS_HORARIOS = {
+    pedidoMesmoDiaLimite: '16:00',
+    antecedenciaKitMin: 2,
+    antecedenciaItensMin: 1,
+    // Regra 2: pedido para o dia seguinte feito antes das 16h → a partir das 08h
+    //          pedido para o dia seguinte feito depois das 16h → a partir das 10h
+    proximoDiaAntes16: '08:00',
+    proximoDiaDepois16: '10:00',
+    // Regra 2: demais dias posteriores → sempre a partir das 08h
+    demaisDiasInicio: '08:00',
+    retirada: {
+        segSexta: { inicio: '07:00', fim: '19:00' },
+        sabado: { inicio: '07:00', fim: '19:00' },
+        domingoFeriado: { inicio: '08:30', fim: '14:30' }
+    },
+    entrega: {
+        segSexta: { inicio: '08:30', fim: '18:00' },
+        sabado: { inicio: '08:30', fim: '16:00' },
+        domingoFeriado: { inicio: '08:30', fim: '14:30' }
     }
-    function diaSemana(dataStr) {
-        const d = new Date(String(dataStr) + 'T12:00:00');
-        return d.getDay();
+};
+
+const FERIADOS_FIXOS = ['01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '12-25'];
+
+function ehFeriado(dataStr) {
+    const mmdd = String(dataStr).substring(5, 10);
+    return FERIADOS_FIXOS.includes(mmdd);
+}
+
+function diaSemana(dataStr) {
+    const d = new Date(String(dataStr) + 'T12:00:00');
+    return d.getDay();
+}
+
+// Data de hoje no fuso de Brasília (evita erro de fuso do toISOString)
+function hojeLocalStr() {
+    const agora = new Date();
+    const fmt = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Sao_Paulo',
+        year: 'numeric', month: '2-digit', day: '2-digit'
+    });
+    return fmt.format(agora);
+}
+
+function somarDias(dataStr, dias) {
+    const d = new Date(String(dataStr) + 'T12:00:00');
+    d.setDate(d.getDate() + dias);
+    return d.toISOString().substring(0, 10);
+}
+
+// Detecta se o pedido contém Kit Festa / Festa na Caixa
+function ehItemKit(nome) {
+    return /kit|festa\s*na\s*caixa/i.test(String(nome || ''));
+}
+
+// Detecta se o pedido contém salgados (para a Regra 4)
+function ehItemSalgado(nome) {
+    return /salgad|cento|centena|frito|assad|coxinha|risole|esfiha|kibe|empadinha|pastelzinho|enroladinho|bolinha/i
+        .test(String(nome || ''));
+}
+
+function pedidoTemKitOuSalgado(itens) {
+    if (!Array.isArray(itens)) return false;
+    return itens.some(i => ehItemKit(i.nome) || ehItemSalgado(i.nome));
+}
+
+function janelaHorario(tipoLogistica, dataStr) {
+    const dia = diaSemana(dataStr);
+    const feriado = ehFeriado(dataStr);
+    const regras = tipoLogistica === 'Retirada' ? REGRAS_HORARIOS.retirada : REGRAS_HORARIOS.entrega;
+    if (feriado || dia === 0) return regras.domingoFeriado;
+    if (dia === 6) return regras.sabado;
+    return regras.segSexta;
+}
+
+function validarRegrasPedido(dataEntrega, horaEntrega, tipoLogistica, itens) {
+    if (!dataEntrega || !horaEntrega) {
+        return { ok: false, msg: 'Data e horário são obrigatórios' };
     }
-    function janelaHorario(tipoLogistica, dataStr) {
-        const dia = diaSemana(dataStr);
-        const feriado = ehFeriado(dataStr);
-        const regras = tipoLogistica === 'Retirada' ? REGRAS_HORARIOS.retirada : REGRAS_HORARIOS.entrega;
-        if (feriado || dia === 0) return regras.domingoFeriado;
-        if (dia === 6) return regras.sabado;
-        return regras.segSexta;
+
+    const agora = new Date();
+    const hojeStr = hojeLocalStr();
+    const amanhaStr = somarDias(hojeStr, 1);
+    const dia = diaSemana(dataEntrega);
+    const feriado = ehFeriado(dataEntrega);
+    const dataPedido = new Date(dataEntrega + 'T' + horaEntrega + ':00');
+
+    if (dataPedido < agora) {
+        return { ok: false, msg: 'A data/horário escolhida já passou.' };
     }
-    function validarRegrasPedido(dataEntrega, horaEntrega, tipoLogistica, itens) {
-        if (!dataEntrega || !horaEntrega) {
-            return { ok: false, msg: 'Data e horário são obrigatórios' };
+
+    const temKit = Array.isArray(itens) && itens.some(i => ehItemKit(i.nome));
+    const temKitOuSalgado = pedidoTemKitOuSalgado(itens);
+    const horaAtualMin = agora.getHours() * 60 + agora.getMinutes();
+    const limite16Min = 16 * 60;
+
+    // ===== REGRA 4: sábado/domingo não recebem kit/salgados para o MESMO fim de semana =====
+    if (temKitOuSalgado) {
+        const diaHoje = diaSemana(hojeStr);
+        const hojeEhFimSemana = (diaHoje === 0 || diaHoje === 6);
+        const destinoEhFimSemana = (dia === 0 || dia === 6);
+
+        if (hojeEhFimSemana && destinoEhFimSemana) {
+            // Sábado → domingo do mesmo fim de semana está bloqueado
+            // Domingo → sábado já passou (bloqueado pela validação de data)
+            return {
+                ok: false,
+                msg: 'Pedidos de Kit Festa e salgados não são aceitos no sábado e domingo para o mesmo fim de semana. Escolha uma data a partir da próxima semana.'
+            };
         }
-        const agora = new Date();
-        const hojeStr = agora.toISOString().substring(0, 10);
-        const dataPedido = new Date(dataEntrega + 'T' + horaEntrega + ':00');
-        const dia = diaSemana(dataEntrega);
-        const feriado = ehFeriado(dataEntrega);
-        if (dataPedido < agora) {
-            return { ok: false, msg: 'A data/horário escolhida já passou.' };
+    }
+
+    // ===== REGRA 3: sábado/domingo/feriado → pedido até sexta anterior às 16h =====
+    if (dia === 0 || dia === 6 || feriado) {
+        // Encontra a sexta-feira imediatamente anterior à data de entrega
+        let diasAteSexta = (dia - 5 + 7) % 7;
+        if (diasAteSexta === 0) diasAteSexta = 7; // se a entrega é sexta, a referência é a própria sexta
+        const sextaAnterior = somarDias(dataEntrega, -diasAteSexta);
+
+        // Data de hoje precisa ser <= sexta anterior
+        if (hojeStr > sextaAnterior) {
+            return {
+                ok: false,
+                msg: 'Pedidos para sábado, domingo ou feriado devem ser feitos até a sexta-feira anterior às 16h. Escolha uma data posterior.'
+            };
         }
-        // Sábado/domingo/feriado: pedido deve ser confirmado até sexta
-        if (dia === 0 || dia === 6 || feriado) {
-            if (dataEntrega === hojeStr) {
-                return { ok: false, msg: 'Pedidos para sábado/domingo/feriado precisam ser confirmados até sexta-feira. Entre em contato para verificar disponibilidade.' };
-            }
+        // Se hoje É a sexta anterior, o pedido precisa ser feito antes das 16h
+        if (hojeStr === sextaAnterior && horaAtualMin > limite16Min) {
+            return {
+                ok: false,
+                msg: 'Pedidos para sábado, domingo ou feriado devem ser feitos até a sexta-feira anterior às 16h. Escolha uma data posterior.'
+            };
         }
-        // Mesmo dia: limite 16h + antecedência
-        if (dataEntrega === hojeStr) {
-            const horaAtualMin = agora.getHours() * 60 + agora.getMinutes();
-            if (horaAtualMin > 16 * 60) {
-                return { ok: false, msg: 'Pedidos para hoje devem ser feitos até às 16h00.' };
-            }
-            const temKit = Array.isArray(itens) && itens.some(i => String(i.nome || '').toLowerCase().includes('kit'));
-            const minAntecedencia = temKit ? REGRAS_HORARIOS.antecedenciaKitMin * 60 : REGRAS_HORARIOS.antecedenciaItensMin * 60;
-            const [hh, mm] = String(horaEntrega).split(':').map(Number);
-            const horaPedidoMin = hh * 60 + mm;
-            if (horaPedidoMin - horaAtualMin < minAntecedencia) {
-                const tipo = temKit ? 'Kit Festa (2h)' : 'itens (1h)';
-                return { ok: false, msg: 'Para pedidos no mesmo dia, o ' + tipo + ' exige antecedência mínima.' };
-            }
+    }
+
+    // ===== REGRA 1: mesmo dia → até 16h + antecedência de 2h (kit) / 1h (demais) =====
+    if (dataEntrega === hojeStr) {
+        if (horaAtualMin > limite16Min) {
+            return { ok: false, msg: 'Pedidos para hoje devem ser feitos até às 16h00. Escolha outra data.' };
         }
-        // Janela de retirada/entrega
-        const janela = janelaHorario(tipoLogistica, dataEntrega);
-        const [hIni, mIni] = janela.inicio.split(':').map(Number);
-        const [hFim, mFim] = janela.fim.split(':').map(Number);
+        const minAntecedencia = temKit
+            ? REGRAS_HORARIOS.antecedenciaKitMin * 60
+            : REGRAS_HORARIOS.antecedenciaItensMin * 60;
         const [hh, mm] = String(horaEntrega).split(':').map(Number);
-        const horaMin = hh * 60 + mm;
-        const iniMin = hIni * 60 + mIni;
-        const fimMin = hFim * 60 + mFim;
-        if (horaMin < iniMin || horaMin > fimMin) {
-            const tipo = tipoLogistica === 'Retirada' ? 'retirada' : 'entrega';
-            return { ok: false, msg: 'Horário de ' + tipo + ' fora da janela permitida (' + janela.inicio + ' às ' + janela.fim + ').' };
+        const horaPedidoMin = hh * 60 + mm;
+        if (horaPedidoMin - horaAtualMin < minAntecedencia) {
+            const tipo = temKit ? 'Kit Festa (2h)' : 'itens (1h)';
+            return { ok: false, msg: 'Para pedidos no mesmo dia, o ' + tipo + ' exige antecedência mínima.' };
         }
-        return { ok: true };
     }
+
+    // ===== REGRA 2: dia seguinte → 08h se pedido antes das 16h, 10h se depois =====
+    if (dataEntrega === amanhaStr) {
+        const [hh, mm] = String(horaEntrega).split(':').map(Number);
+        const horaPedidoMin = hh * 60 + mm;
+        const inicioMin = horaAtualMin < limite16Min
+            ? parseInt(REGRAS_HORARIOS.proximoDiaAntes16.split(':')[0]) * 60
+            : parseInt(REGRAS_HORARIOS.proximoDiaDepois16.split(':')[0]) * 60;
+        if (horaPedidoMin < inicioMin) {
+            const inicioTxt = horaAtualMin < limite16Min
+                ? REGRAS_HORARIOS.proximoDiaAntes16
+                : REGRAS_HORARIOS.proximoDiaDepois16;
+            return {
+                ok: false,
+                msg: 'Para pedidos no dia seguinte, o horário mínimo é ' + inicioTxt + '. Escolha um horário mais tarde.'
+            };
+        }
+    }
+
+    // ===== REGRA 2: demais dias posteriores → a partir das 08h =====
+    if (dataEntrega > amanhaStr) {
+        const [hh, mm] = String(horaEntrega).split(':').map(Number);
+        const horaPedidoMin = hh * 60 + mm;
+        const inicioMin = parseInt(REGRAS_HORARIOS.demaisDiasInicio.split(':')[0]) * 60;
+        if (horaPedidoMin < inicioMin) {
+            return {
+                ok: false,
+                msg: 'Para esta data, o horário mínimo é ' + REGRAS_HORARIOS.demaisDiasInicio + '. Escolha um horário mais tarde.'
+            };
+        }
+    }
+
+    // ===== Janela de retirada/entrega =====
+    const janela = janelaHorario(tipoLogistica, dataEntrega);
+    const [hIni, mIni] = janela.inicio.split(':').map(Number);
+    const [hFim, mFim] = janela.fim.split(':').map(Number);
+    const [hh, mm] = String(horaEntrega).split(':').map(Number);
+    const horaMin = hh * 60 + mm;
+    const iniMin = hIni * 60 + mIni;
+    const fimMin = hFim * 60 + mFim;
+    if (horaMin < iniMin || horaMin > fimMin) {
+        const tipo = tipoLogistica === 'Retirada' ? 'retirada' : 'entrega';
+        return { ok: false, msg: 'Horário de ' + tipo + ' fora da janela permitida (' + janela.inicio + ' às ' + janela.fim + ').' };
+    }
+
+    return { ok: true };
+}
     // ===== PASTA DE UPLOADS (imagens de decoração) =====
     const UPLOAD_DIR = path.join(__dirname, 'public', 'uploads');
     if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -655,33 +789,51 @@
             return false;
         }
     }
-    async function calcularCustoEntrega(endereco, subtotal) {
-        if (!GOOGLE_MAPS_API_KEY) {
-            return { erro: 'API do Google Maps não configurada' };
-        }
-        const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(LOJA_ORIGEM)}&destinations=${encodeURIComponent(endereco)}&key=${GOOGLE_MAPS_API_KEY}&mode=driving&language=pt-BR`;
-        const res = await fetch(url);
-        const json = await res.json();
-        if (json.status !== 'OK' || !json.rows || !json.rows[0] || !json.rows[0].elements || !json.rows[0].elements[0]) {
-            return { erro: 'Não foi possível calcular a distância' };
-        }
-        const element = json.rows[0].elements[0];
-        if (element.status !== 'OK') {
-            return { erro: 'Endereço não encontrado' };
-        }
-        const distanciaKm = element.distance.value / 1000;
-        let custo = TAXA_BASE_ENTREGA + (distanciaKm * TAXA_POR_KM);
-        if (FRETE_GRATIS_ACIMA > 0 && subtotal >= FRETE_GRATIS_ACIMA) {
-            custo = 0;
-        }
-        custo = Math.round(custo * 100) / 100;
-        return {
-            distancia_km: Math.round(distanciaKm * 100) / 100,
-            custo_entrega: custo,
-            distancia_texto: element.distance.text,
-            duracao_texto: element.duration.text
-        };
+    // Calcula o frete pela tabela de faixas
+function calcularFretePorDistancia(distanciaKm) {
+    const km = parseFloat(distanciaKm) || 0;
+    if (km <= 0) return 0;
+    // Acima de 10 km: R$ 2,22 por quilômetro (distância total)
+    if (km > 10) {
+        return Math.round(km * FRETE_ACIMA_10_POR_KM * 100) / 100;
     }
+    // Até 10 km: valor fechado da faixa
+    for (const faixa of TABELA_FRETE) {
+        if (km <= faixa.ate) return faixa.valor;
+    }
+    return TABELA_FRETE[TABELA_FRETE.length - 1].valor;
+}
+
+async function calcularCustoEntrega(endereco, subtotal) {
+    if (!GOOGLE_MAPS_API_KEY) {
+        return { erro: 'API do Google Maps não configurada' };
+    }
+    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(LOJA_ORIGEM)}&destinations=${encodeURIComponent(endereco)}&key=${GOOGLE_MAPS_API_KEY}&mode=driving&language=pt-BR`;
+    const res = await fetch(url);
+    const json = await res.json();
+    if (json.status !== 'OK' || !json.rows || !json.rows[0] || !json.rows[0].elements || !json.rows[0].elements[0]) {
+        return { erro: 'Não foi possível calcular a distância' };
+    }
+    const element = json.rows[0].elements[0];
+    if (element.status !== 'OK') {
+        return { erro: 'Endereço não encontrado' };
+    }
+    const distanciaKm = element.distance.value / 1000;
+    let custo = calcularFretePorDistancia(distanciaKm);
+    if (FRETE_GRATIS_ACIMA > 0 && subtotal >= FRETE_GRATIS_ACIMA) {
+        custo = 0;
+    }
+    custo = Math.round(custo * 100) / 100;
+    return {
+        distancia_km: Math.round(distanciaKm * 100) / 100,
+        custo_entrega: custo,
+        distancia_texto: element.distance.text,
+        duracao_texto: element.duration.text,
+        faixa_aplicada: distanciaKm > 10
+            ? 'Acima de 10 km — R$ ' + FRETE_ACIMA_10_POR_KM.toFixed(2).replace('.', ',') + '/km'
+            : 'Até ' + Math.ceil(distanciaKm) + ' km'
+    };
+}
     // ==================== ROTAS DE AUTENTICAÇÃO ====================
     app.post('/api/auth/login', async (req, res) => {
         try {
@@ -707,6 +859,16 @@
             res.status(500).json({ success: false, message: 'Erro interno' });
         }
     });
+    app.get('/api/frete/tabela', (req, res) => {
+    res.json({
+        success: true,
+        data: {
+            faixas: TABELA_FRETE,
+            acima_de_10_por_km: FRETE_ACIMA_10_POR_KM,
+            frete_gratis_acima: FRETE_GRATIS_ACIMA
+        }
+    });
+});
     // ==================== AUTENTICAÇÃO DO CLIENTE ====================
     app.post('/api/auth/cliente/registrar', async (req, res) => {
         try {
