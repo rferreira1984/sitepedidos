@@ -28,9 +28,20 @@
         .btn-header:hover { background: rgba(255,255,255,0.1); color: #fff; }
         .btn-header.user { border-color: rgba(251,191,36,0.4); color: #fbbf24; font-weight: 600; }
         .btn-header.user:hover { background: rgba(251,191,36,0.15); }
-        .categorias-nav { display: flex; gap: 8px; padding: 12px 0; overflow-x: auto; flex-wrap: nowrap; position: sticky; top: 68px; z-index: 90; background: #fada9a; }
-        .categorias-nav::-webkit-scrollbar { height: 4px; }
-        .categorias-nav::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+        .categorias-nav {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 0;
+    position: sticky;
+    top: 68px;
+    z-index: 90;
+    background: #fada9a;
+    overflow: visible;
+}
+
         .cat-btn { padding: 8px 16px; background: #f08a1e; border: 1px solid #f08a1e    ; border-radius: 50px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 4px; color: #fff; }
         .cat-btn:hover { border-color: #680102; color: #680102; }
         .cat-btn.active { background: #680102; color: #fff; border-color: #680102; }
@@ -194,6 +205,14 @@
             .checkout-modal { max-height: calc(100dvh - 32px); }
             .kit-modal-overlay { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
             .kit-modal { max-height: calc(100dvh - 32px); }
+            categorias-nav {
+        gap: 6px;
+        padding: 10px 0;
+    }
+    .cat-btn {
+        padding: 7px 12px;
+        font-size: 12px;
+    }
         }
 .btn-cart {
     position: fixed;
@@ -260,7 +279,7 @@
         </div>
         <div class="cart-footer" id="cartFooter" style="display:none;">
             <div class="cart-total"><span>Total</span><span id="cartTotal">R$ 0,00</span></div>
-            <button class="btn-checkout" onclick="abrirCheckout()"><i class="fas fa-check-circle"></i> Fechar Pedido</button>
+            <button class="btn-checkout" onclick="abrirCheckout()"><i class="fas fa-check-circle"></i> Fazer Pedido</button>
         </div>
     </div>
     <div class="checkout-overlay" id="checkoutOverlay">
@@ -933,7 +952,7 @@ function validarDataHoraPedido() {
                 const nav = document.getElementById('categoriasNav');
                 nav.innerHTML = '<button class="cat-btn active" data-slug="" data-cat="" onclick="filtrarCategoria(this)">🍽️ Todos</button>';
                 categoriasData.forEach(c => {
-                    const icone = c.slug === 'salgados-fritos' ? '🍤' : c.slug === 'salgados-assados' ? '🥟' : c.slug === 'doces-tradicionais' ? '🍩' : c.slug === 'doces-gourmet' ? '✨' : c.slug === 'bolos-por-kg' ? '🎂' : c.slug === 'sobremesas' ? '🍮' : c.slug === 'kits-festa' ? '🎉' : (c.slug === 'cento-de-salgados' || c.name.toLowerCase().includes('cento')) ? '🥟' : '📦';
+                    const icone = c.slug === 'salgados-fritos' ? '🥟' : c.slug === 'salgados-assados' ? '': c.slug === 'bebidas' ? '🥤': c.slug === 'doces-tradicionais' ? '🍩' : c.slug === 'doces-gourmet' ? '✨' : c.slug === 'bolos-por-kg' ? '🎂' : c.slug === 'sobremesas' ? '🍮' : c.slug === 'kits-festa' ? '🎉' : (c.slug === 'cento-de-salgados' || c.name.toLowerCase().includes('cento')) ? '🥟' : '📦';
                     const slug = c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
                     const catAttr = String(c.name).replace(/"/g, '&quot;');
                     nav.innerHTML += `<button class="cat-btn" data-slug="${slug}" data-cat="${catAttr}" onclick="filtrarCategoria(this)">${icone} ${c.name}</button>`;
@@ -989,7 +1008,7 @@ function validarDataHoraPedido() {
             Object.keys(grupos).forEach(cat => {
                 const slug = cat.toLowerCase().replace(/[^a-z0-9]+/g, '-');
                 const c = cat.toLowerCase();
-                const icone = c.includes('salgado') ? '🍤' : c.includes('doce') ? '🍩' : c.includes('bolo') ? '🎂' : c.includes('sobremesa') ? '🍮' : c.includes('kit') ? '🎉' : c.includes('cento') ? '🥟' : '📦';
+                const icone = c.includes('salgado') ? '🍤' : c.includes('doce') ? '🍩' : c.includes('bolo') ? '🎂' : c.includes('sobremesa') ? '🍮' : c.includes('kit') ? '🎉' : c.includes('cento') ? '🥟' : c.includes('bebida') ? '🥤' : '📦';
                 const catAttr = String(cat).replace(/"/g, '&quot;');
                 html += `<section class="categoria-secao" id="secao-${slug}" data-cat="${catAttr}">`;
                 html += `<h2 class="categoria-titulo">${icone} ${cat}</h2>`;
@@ -1773,21 +1792,22 @@ function validarDataHoraPedido() {
         const d = json.data;
         custoEntrega = parseFloat(d.custo_entrega) || 0;
         window.__freteCalculado = true;
-
         const faixaTxt = d.faixa_aplicada ? ' (' + d.faixa_aplicada + ')' : '';
         if (resultadoFrete) {
             resultadoFrete.style.display = 'block';
             resultadoFrete.innerHTML =
-                '🚚Taxa de entrega: R$ ' + fmt(custoEntrega);
+                'Taxa de entrega: R$ ' + fmt(custoEntrega);
         }
         atualizarCarrinhoUI();
+        atualizarResumoTotal();
     } catch (err) {
-        custoEntrega = 0;
+       custoEntrega = 0;
         window.__freteCalculado = false;
         if (resultadoFrete) {
             resultadoFrete.style.display = 'block';
             resultadoFrete.innerHTML = '⚠️ ' + err.message;
         }
+        atualizarResumoTotal();   // <-- ADICIONAR TAMBÉM AQUI
     } finally {
         if (btn) { btn.disabled = false; btn.textContent = 'Calcular frete'; }
     }
@@ -1797,7 +1817,7 @@ function validarDataHoraPedido() {
             const total = subtotal + custoEntrega;
             const freteLinha = document.getElementById('resumoFreteLinha');
             if (custoEntrega > 0) {
-                freteLinha.style.display = '';
+                freteLinha.style.display = 'flex';
                 document.getElementById('resumoFrete').textContent = `R$ ${fmt(custoEntrega)}`;
             } else {
                 freteLinha.style.display = 'none';
@@ -2596,8 +2616,11 @@ function ehBoloCaseiroAtual() {
             var promise = origFetch.apply(this, arguments);
             if (url.indexOf('/api/entrega/calcular') !== -1) {
                 promise.then(function (resp) {
-                    if (resp && resp.ok) window.__freteCalculado = true;
-                }).catch(function () {});
+    if (!resp || !resp.ok) return;
+    resp.clone().json().then(function (j) {
+        window.__freteCalculado = !!(j && j.success);
+    }).catch(function () {});
+}).catch(function () {});
             }
             return promise;
         };

@@ -190,7 +190,7 @@
                 ${statusBadge(p.status)}
                 <div class="sec-titulo">📋 Itens</div>
                 ${itensHtml}
-                <div class="sec-titulo">🚚 Entrega</div>
+                <div class="sgit stec-titulo">🚚 Entrega</div>
                 <div class="linha"><span>Tipo</span><span>${p.tipo_logistica || '—'}</span></div>
                 ${p.tipo_logistica === 'Entrega' ? `<div class="linha"><span>Endereço</span><span>${[p.endereco_rua, p.endereco_numero, p.endereco_bairro, p.endereco_cep].filter(Boolean).join(', ') || '—'}</span></div>` : ''}
 <div class="linha"><span>Data</span><span>${fmtDataEntrega(p.data_entrega)}${rotuloData(p.data_entrega) ? ' (' + rotuloData(p.data_entrega) + ')' : ''}</span></div>

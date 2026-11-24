@@ -17,9 +17,19 @@
         .btn-header:hover { background: rgba(255,255,255,0.1); color: #fff; }
         .btn-header.user { border-color: rgba(251,191,36,0.4); color: #fbbf24; font-weight: 600; }
         .btn-header.user:hover { background: rgba(251,191,36,0.15); }
-        .categorias-nav { display: flex; gap: 8px; padding: 12px 0; overflow-x: auto; flex-wrap: nowrap; position: sticky; top: 68px; z-index: 90; background: #fada9a; }
-        .categorias-nav::-webkit-scrollbar { height: 4px; }
-        .categorias-nav::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+        .categorias-nav {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 0;
+    position: sticky;
+    top: 68px;
+    z-index: 90;
+    background: #fada9a;
+    overflow: visible;
+}
         .cat-btn { padding: 8px 16px; background: #f08a1e; border: 1px solid #f08a1e    ; border-radius: 50px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 4px; color: #fff; }
         .cat-btn:hover { border-color: #680102; color: #680102; }
         .cat-btn.active { background: #680102; color: #fff; border-color: #680102; }
