@@ -170,6 +170,7 @@ const FRETE_GRATIS_ACIMA = parseFloat(process.env.FRETE_GRATIS_ACIMA || '0');
             return res.status(401).json({ success: false, message: 'Token inválido ou expirado' });
         }
     }
+
    // ===== REGRAS DE HORÁRIOS (backend) =====
 const REGRAS_HORARIOS = {
     pedidoMesmoDiaLimite: '16:00',
@@ -495,8 +496,33 @@ function validarRegrasPedido(dataEntrega, horaEntrega, tipoLogistica, itens) {
             if (doces.length === 0) doces = await buscarProdutosComPreco(`name ILIKE '%doce%' AND name NOT ILIKE '%gourmet%'`);
             if (doces.length === 0) doces = await buscarProdutosComPreco(`name ILIKE '%doce%'`);
             // Refrigerantes com id real (antes eram fixos no front-end)
-            let refrigerantes = await buscarProdutosComPreco(`name ILIKE '%refrigerante%' OR name ILIKE '%refri%' OR name ILIKE '%bebida%'`);
-            res.json({ success: true, data: { bolos, doces, salgados, refrigerantes } });
+            //let refrigerantes = await buscarProdutosComPreco(`name ILIKE '%refrigerante%' OR name ILIKE '%refri%' OR name ILIKE '%bebida%'`);
+            // ==================== REFRIGERANTES POR TIPO DE KIT ====================
+// Kit Festa  -> garrafas 2L
+// Festa na Caixa -> latas 350ml
+// O filtro é feito pelo nome do produto (volume no nome).
+const RX_2L   = /(2\s*l|2\s*litros?|2000\s*ml|garrafa)/i;
+const RX_LATA = /(350\s*ml|lata|300\s*ml|310\s*ml|330\s*ml|269\s*ml)/i;
+
+let refrigerantes = await buscarProdutosComPreco(
+    `name ILIKE '%refrigerante%' OR name ILIKE '%refri%'`
+);
+
+const refrigerantes2L = refrigerantes.filter(r => RX_2L.test(r.name) && !RX_LATA.test(r.name));
+const refrigerantesLata = refrigerantes.filter(r => RX_LATA.test(r.name));
+
+res.json({
+    success: true,
+    data: {
+        bolos,
+        doces,
+        salgados,
+        refrigerantes,          // mantido: compatibilidade
+        refrigerantes_2l: refrigerantes2L,
+        refrigerantes_lata: refrigerantesLata
+    }
+});
+            //res.json({ success: true, data: { bolos, doces, salgados, refrigerantes } });
         } catch (err) {
             console.error('Erro ao buscar sabores:', err);
             res.status(500).json({ success: false, message: 'Erro ao buscar sabores' });
@@ -585,16 +611,19 @@ function validarRegrasPedido(dataEntrega, horaEntrega, tipoLogistica, itens) {
             }
             const ehRetirada = String(tipo_logistica || '').toLowerCase().includes('retirada');
             const minPedido = ehRetirada ? MIN_PEDIDO_RETIRADA : MIN_PEDIDO_ENTREGA;
-            const valorTotalNum = parseFloat(valor_total) || 0;
-            if (minPedido > 0 && valorTotalNum < minPedido - 0.009) {
-                const tipoTxt = ehRetirada ? 'retirada' : 'entrega';
-                return res.status(400).json({
-                    success: false,
-                    message: 'Pedido mínimo de R$ ' + minPedido.toFixed(2).replace('.', ',')
-                        + ' para ' + tipoTxt + '. Seu pedido está em R$ '
-                        + valorTotalNum.toFixed(2).replace('.', ',') + '.'
-                });
-            }
+            const taxaEntregaNum = parseFloat(taxa_entrega) || 0;
+const valorTotalNum = parseFloat(valor_total) || 0;
+const subtotalProdutos = Math.round((valorTotalNum - taxaEntregaNum) * 100) / 100;
+
+if (minPedido > 0 && subtotalProdutos < minPedido - 0.009) {
+    const tipoTxt = ehRetirada ? 'retirada' : 'entrega';
+    return res.status(400).json({
+        success: false,
+        message: 'Pedido mínimo de R$ ' + minPedido.toFixed(2).replace('.', ',')
+            + ' em produtos para ' + tipoTxt + '. Seu pedido está em R$ '
+            + subtotalProdutos.toFixed(2).replace('.', ',') + '.'
+    });
+}
             // TODO PEDIDO INICIA COMO PENDENTE (conforme fluxo)
             const statusInicial = 'Pendente';
             const result = await pool.query(

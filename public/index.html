@@ -550,7 +550,10 @@
         let SABORES_BOLO = ['Brigadeiro', 'Prestígio', 'Dois Amores', 'Quatro Leites'];
         let SABORES_DOCES = ['Brigdeiro', 'Beijinho', 'Cajuzinho', 'Olho de Sogra', 'Bicho de Pé', 'Doce de Coco', 'Suspiro', 'Pé de Moleque'];
         let SABORES_SALGADOS = ['Coxinha', 'Bolinha de Queijo', 'Risole de Carne', 'Risole de Queijo', 'Pastelzinho', 'Esfiha', 'Empadinha', 'Kibe', 'Bolinha de Bacalhau', 'Enroladinho de Salsicha'];
-        let SABORES_REFRIGERANTE = ['Coca-Cola', 'Sprite', 'Fanta Laranja', 'Guaraná'];
+       let SABORES_REFRIGERANTE_2L   = ['Coca-Cola 2L', 'Guaraná Antarctica 2L', 'Fanta Laranja 2L', 'Sprite 2L'];
+let SABORES_REFRIGERANTE_LATA = ['Coca-Cola Lata 350ml', 'Guaraná Lata 350ml', 'Fanta Laranja Lata 350ml', 'Sprite Lata 350ml'];
+let IDS_REFRIGERANTE_2L   = {};
+let IDS_REFRIGERANTE_LATA = {};
         let PRECO_BOLO_POR_SABOR = {};
         let PRECO_BOLO_FALLBACK_KG = 45.00;
         // ===== MAPAS DE ID DOS SABORES (para registrar a composição no banco) =====
@@ -605,11 +608,16 @@
                     SABORES_SALGADOS = s.nomes;
                     IDS_SALGADOS = s.ids;
                 }
-                if (json.data.refrigerantes && json.data.refrigerantes.length > 0) {
-                    const r = normalizarListaSabor(json.data.refrigerantes);
-                    SABORES_REFRIGERANTE = r.nomes;
-                    IDS_REFRIGERANTE = r.ids;
-                }
+                if (json.data.refrigerantes_2l && json.data.refrigerantes_2l.length > 0) {
+    const r2 = normalizarListaSabor(json.data.refrigerantes_2l);
+    SABORES_REFRIGERANTE_2L = r2.nomes;
+    IDS_REFRIGERANTE_2L = r2.ids;
+}
+if (json.data.refrigerantes_lata && json.data.refrigerantes_lata.length > 0) {
+    const rl = normalizarListaSabor(json.data.refrigerantes_lata);
+    SABORES_REFRIGERANTE_LATA = rl.nomes;
+    IDS_REFRIGERANTE_LATA = rl.ids;
+}
             } catch (e) { /* mantém fallback */ }
         }
         let SABORES_CENTO_POR_TIPO = {
@@ -1473,21 +1481,29 @@ function validarDataHoraPedido() {
             atualizarBoloExtra();
         }
         function montarSecaoRefri() {
-            const qtd = kitQtds.Refrigerante;
-            const section = document.getElementById('kmRefriSection');
-            if (qtd <= 0) { section.style.display = 'none'; return; }
-            section.style.display = '';
-            document.getElementById('kmRefriInfo').textContent = qtd === 1 ? 'Selecione 1 refrigerante' : `Selecione ${qtd} refrigerantes`;
-            let html = '';
-            for (let i = 1; i <= qtd; i++) {
-                html += `<select class="km-select-refri" data-idx="${i}">
-                    <option value="">${qtd > 1 ? 'Refrigerante ' + i + ' — ' : ''}selecione a bebida</option>
-                    ${SABORES_REFRIGERANTE.map(s => `<option value="${s}">${s}</option>`).join('')}
-                </select>`;
-            }
-            document.getElementById('kmRefriSelects').innerHTML = html;
-            document.querySelectorAll('.km-select-refri').forEach(s => s.addEventListener('change', verificarKitCompleto));
-        }
+    const qtd = kitQtds.Refrigerante;
+    const section = document.getElementById('kmRefriSection');
+    if (qtd <= 0) { section.style.display = 'none'; return; }
+    section.style.display = '';
+
+    // Define a lista conforme o tipo de kit aberto
+    const ehCaixa = ehFestaNaCaixa();
+    const lista  = ehCaixa ? SABORES_REFRIGERANTE_LATA : SABORES_REFRIGERANTE_2L;
+    const rotulo = ehCaixa ? 'lata 350ml' : 'garrafa 2L';
+
+    document.getElementById('kmRefriInfo').textContent =
+        (qtd === 1 ? 'Selecione 1 refrigerante' : `Selecione ${qtd} refrigerantes`) + ` (${rotulo})`;
+
+    let html = '';
+    for (let i = 1; i <= qtd; i++) {
+        html += `<select class="km-select-refri" data-idx="${i}">
+            <option value="">${qtd > 1 ? 'Refrigerante ' + i + ' — ' : ''}selecione a bebida</option>
+            ${lista.map(s => `<option value="${s}">${s}</option>`).join('')}
+        </select>`;
+    }
+    document.getElementById('kmRefriSelects').innerHTML = html;
+    document.querySelectorAll('.km-select-refri').forEach(s => s.addEventListener('change', verificarKitCompleto));
+}
         function precoBoloSelecionado() {
             const sels = Array.from(document.querySelectorAll('.km-select-bolo')).map(s => s.value).filter(Boolean);
             if (sels.length === 0) return PRECO_BOLO_FALLBACK_KG;
@@ -2174,9 +2190,16 @@ function montarComposicaoKit() {
         comps.push({ grupo: 'Salgados', product_id: ((typeof IDS_SALGADOS !== 'undefined') ? (IDS_SALGADOS[nome] || null) : null), nome: nome, quantidade: qsSalgados[i], observacao: null });
     });
     var refris = Array.from(document.querySelectorAll('.km-select-refri')).map(function(s) { return s.value; }).filter(Boolean);
-    refris.forEach(function(nome) {
-        comps.push({ grupo: 'Refrigerante', product_id: ((typeof IDS_REFRIGERANTE !== 'undefined') ? (IDS_REFRIGERANTE[nome] || null) : null), nome: nome, quantidade: 1, observacao: null });
+var mapaRefri = ehFestaNaCaixa() ? IDS_REFRIGERANTE_LATA : IDS_REFRIGERANTE_2L;
+refris.forEach(function(nome) {
+    comps.push({
+        grupo: 'Refrigerante',
+        product_id: mapaRefri[nome] || null,
+        nome: nome,
+        quantidade: 1,
+        observacao: null
     });
+});
     if (typeof kitBoloExtraGramas !== 'undefined' && kitBoloExtraGramas > 0) {
         comps.push({ grupo: 'Bolo', product_id: null, nome: 'Bolo adicional', quantidade: kitBoloExtraGramas / 1000, observacao: kitBoloExtraGramas + 'g' });
     }
@@ -2923,7 +2946,7 @@ function ehBoloCaseiroAtual() {
                         frete = parseFloat(custoEntrega) || 0;
                     }
                 } catch (e) {}
-                return subtotal + frete;
+                return subtotal;
             }
         } catch (e) {}
         var els = document.querySelectorAll('b, span, div, strong');
@@ -2943,7 +2966,7 @@ function ehBoloCaseiroAtual() {
         var msg = 'Pedido mínimo de ' + fmt(minimo) + ' para '
             + (tipoEhRetirada() ? 'retirada' : 'entrega')
             + '. Seu pedido está em ' + fmt(total) + '.';
-        if (typeof mostrarToast === 'function') mostrarToast(msg);
+        if (typeof mostrarToast === 'function') mostrarToast(msg, 'error');
         else alert(msg);
     }
 
