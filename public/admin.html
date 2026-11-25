@@ -77,7 +77,7 @@
         .orders-table { width: 100%; border-collapse: collapse; }
         .orders-table thead { background: #2a2a4a; }
         .orders-table th { padding: 14px 16px; text-align: left; font-size: 12px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
-        .orders-table td { padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #2a2a4a; }
+        .orders-table td { padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #2a2a4a; text-align:center }
         .orders-table tbody tr:hover { background: rgba(124,58,237,0.05); }
         .orders-table tbody tr:last-child td { border-bottom: none; }
         .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
@@ -264,7 +264,7 @@
                 <section class="table-container">
                     <div style="overflow-x:auto;">
                         <table class="orders-table">
-                        <thead><tr><th>ID</th><th>Origem</th><th>Cliente</th><th>Telefone</th><th>Produtos</th><th>Valor</th><th>Pagamento</th><th>Logística</th><th>Data Pedido</th><th>Data Entrega</th><th>Hora Agendada</th><th>Status</th><th>Ações</th></tr></thead>
+                        <thead><tr><th>ID</th><th>Data Pedido</th><th>Origem</th><th>Cliente</th><th>Telefone</th><th>Produtos</th><th>Valor</th><th>Pagamento</th><th>Logística</th><th>Data Entrega</th><th>Hora Agendada</th><th>Status</th><th>Ações</th></tr></thead>
                             <tbody id="ordersBody"><tr><td colspan="13" style="text-align:center;padding:40px;color:#6b7280;"><div class="loading-spinner"><i class="fas fa-spinner"></i><br><br>Carregando pedidos...</div></td></tr></tbody>
                         </table>
                     </div>
@@ -355,10 +355,10 @@
 function badgeSistema(v) {
     var n = parseInt(v);
     if (n === 1) {
-        return '<span class="origem-badge origem-site" title="Pedido feito pelo site">🌐 Site</span>';
+        return '<span class="origem-badge origem-site" title="Pedido feito pelo site">🌐</span>';
     }
     if (n === 0) {
-        return '<span class="origem-badge origem-whats" title="Pedido feito pelo WhatsApp">💬 WhatsApp</span>';
+        return '<span class="origem-badge origem-whats" title="Pedido feito pelo WhatsApp">🟢</span>';
     }
     return '<span class="origem-badge origem-null" title="Origem não informada">—</span>';
 }
@@ -491,9 +491,30 @@ function badgeSistema(v) {
                     tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:40px;color:#6b7280;">Nenhum pedido encontrado.</td></tr>';
                 } else {
                     tbody.innerHTML = data.map(p => {
-                        const sc = badgeStatus(p.status);
-                        return '<tr><td><strong>#' + String(p.id).padStart(3,'0') + '</strong></td><td>' + badgeSistema(p.sistema) + '</td><td>' + (p.nome_cliente||'-') + '</td><td>' + (p.telefone||'-') + '</td><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (p.items||'') + '">' + (p.items||'-') + '</td><td><strong>R$ ' + parseFloat(p.valor_total||0).toFixed(2).replace('.',',') + '</strong></td><td>' + (p.forma_pagamento||'-') + '</td><td>' + (p.tipo_logistica||'-') + '</td><td>' + (p.data_criacao ? new Date(p.data_criacao).toLocaleDateString('pt-BR') : '-') + '<td>' + (p.data_entrega ? new Date(p.data_entrega).toLocaleDateString('pt-BR') +  '<td>'  + (p.hora_entrega || '') : '-') + '</td>' +'</td><td><span class="status-badge ' + sc + '">' + p.status + '</span></td><td><button class="btn-action" onclick="abrirDetalhes(' + p.id + ')" title="Ver detalhes"><i class="fas fa-eye"></i></button></td></tr>';
-                    }).join('');
+    const sc = badgeStatus(p.status);
+    const dataPedido = p.data_criacao
+        ? new Date(p.data_criacao).toLocaleDateString('pt-BR')
+        : '-';
+    const dataEntrega = p.data_entrega
+        ? new Date(p.data_entrega).toLocaleDateString('pt-BR')
+        : '-';
+    const horaEntrega = p.hora_entrega || '-';
+    return '<tr>' +
+        '<td><strong>#' + String(p.id).padStart(3,'0') + '</strong></td>' +
+        '<td>' + dataPedido + '</td>' +
+        '<td>' + badgeSistema(p.sistema) + '</td>' +
+        '<td>' + (p.nome_cliente||'-') + '</td>' +
+        '<td>' + (p.telefone||'-') + '</td>' +
+        '<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (p.items||'') + '">' + (p.items||'-') + '</td>' +
+        '<td><strong>R$ ' + parseFloat(p.valor_total||0).toFixed(2).replace('.',',') + '</strong></td>' +
+        '<td>' + (p.forma_pagamento||'-') + '</td>' +
+        '<td>' + (p.tipo_logistica||'-') + '</td>' +
+        '<td>' + dataEntrega + '</td>' +
+        '<td>' + horaEntrega + '</td>' +
+        '<td><span class="status-badge ' + sc + '">' + p.status + '</span></td>' +
+        '<td><button class="btn-action" onclick="abrirDetalhes(' + p.id + ')" title="Ver detalhes"><i class="fas fa-eye"></i></button></td>' +
+    '</tr>';
+}).join('');
                 }
                 document.getElementById('paginationInfo').textContent = 'Página ' + currentPage + ' de ' + totalPages + ' (' + pagination.total + ' pedidos)';
                 document.getElementById('prevPage').disabled = currentPage <= 1;
