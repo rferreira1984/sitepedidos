@@ -822,13 +822,18 @@ function htmlItensTexto(items) {
         return (n % 1 === 0) ? String(n) : String(n).replace('.', ',');
     }
     //COZINHA ATUAL
+   (function () {
+    function fmtQtdLocal(v) {
+        var n = parseFloat(v) || 0;
+        return (n % 1 === 0) ? String(n) : String(n).replace('.', ',');
+    }
+
     function imprimirCozinha() {
         try {
             var p = (typeof pedidoAtual !== 'undefined') ? pedidoAtual : (window.pedidoAtual || {});
             var itens = (typeof pedidoAtualItens !== 'undefined' && Array.isArray(pedidoAtualItens))
                 ? pedidoAtualItens : (window.pedidoAtualItens || []);
 
-            // ===== CABEÇALHO PADRÃO =====
             var dataEntrega = p.data_entrega ? new Date(p.data_entrega).toLocaleDateString('pt-BR') : '-';
             var horaEntrega = p.hora_entrega || '-';
 
@@ -842,14 +847,14 @@ function htmlItensTexto(items) {
             html += '.subtitulo { font-size: 15px; font-weight: bold; margin-top: 2px; }';
             html += '.numero { font-size: 16px; font-weight: bold; margin: 2px 0; }';
             html += '.linha { border-top: 1px dashed #000; margin: 4px 0; }';
-            html += '.info { font-size: 15px; line-height: 1.5;font-weight: bold }';
-            html += '.itemPai { font-size: 15px; font-weight: bold; padding: 4px 0 2px 0; border-bottom: 1px solid #000; margin-top: 6px; word-break: break-word; }';
-            html += '.area { font-size: 16px; font-weight: bold; font-style: italic; text-align: center; color: #000; padding: 2px 0; margin: 4px 0 2px 0; }';
+            html += '.info { font-size: 15px; line-height: 1.5; font-weight: bold; }';
+            html += '.area { font-size: 16px; font-weight: bold; font-style: italic; text-align: center; color: #000; padding: 2px 0; margin: 8px 0 2px 0; border-bottom: 2px solid #000; }';
+            html += '.itemPai { font-size: 14px; font-weight: bold; padding: 3px 0 2px 0; margin-top: 5px; border-bottom: 1px solid #000; word-break: break-word; }';
             html += '.item { display: flex; align-items: flex-start; padding: 2px 0; font-size: 15px; font-weight: bold; }';
             html += '.item .qtd { flex: 0 0 auto; min-width: 26px; white-space: nowrap; }';
             html += '.item .desc { flex: 1; padding-right: 4px; word-break: break-word; text-align: left; }';
-            html += '.obsItem { font-size: 15px;font-weight: bold; font-style: italic; padding: 1px 0 1px 8px; word-break: break-word; }';
-            html += '.obs { font-size: 15px;font-weight: bold; margin-top: 4px; }';
+            html += '.obsItem { font-size: 14px; font-weight: bold; font-style: italic; padding: 1px 0 1px 8px; word-break: break-word; }';
+            html += '.obs { font-size: 15px; font-weight: bold; margin-top: 4px; }';
             html += '.rodape { text-align: center; font-size: 10px; margin-top: 8px; }';
             html += '@media print { .no-print { display: none; } }';
             html += '</style></head><body>';
@@ -865,62 +870,104 @@ function htmlItensTexto(items) {
             html += '<div class="linha"></div>';
 
             if (itens.length === 0) {
-    // Pedido do WhatsApp (sistema 0): sem pedido_itens -> usa a string items
-    var htmlTexto = htmlItensTexto(p.items);
-    if (htmlTexto) {
-        html += htmlTexto;
-    } else {
-        html += '<div class="centro">--- SEM ITENS ---</div>';
-    }
-} else {
-                itens.forEach(function (i) {
-                    // ===== LINHA DO ITEM DO PEDIDO (pedido_itens) =====
-                    var labelItem = i.label || '';
-                    var linhaItem = (i.product_name || 'Item');
-                    
-                    html += '<div class="itemPai">' + linhaItem + '</div>';
+                var htmlTexto = htmlItensTexto(p.items);
+                html += htmlTexto || '<div class="centro">--- SEM ITENS ---</div>';
+            } else {
+                // area -> [ { pai, linhas:[{desc, qtdNum, qtdTexto}], obs } ]
+                var areas = {};
+                var ordem = [];
 
-                    // ===== COMPOSIÇÃO AGRUPADA POR ÁREA =====
+                itens.forEach(function (i) {
+                    var paiBase = i.product_name || 'Item';
+                    var labelItem = i.label || '';
+                    var obsItem = i.observacao || '';
+
                     if (i.composicao && i.composicao.length > 0) {
-                        var grupos = {};
+                        var paiNome = paiBase ;///+ (labelItem ? ' - ' + labelItem : '');
+
                         i.composicao.forEach(function (c) {
                             var area = (c.local_producao || i.local_producao || 'GERAL').trim().toUpperCase() || 'GERAL';
-                            if (!grupos[area]) grupos[area] = [];
-                            grupos[area].push({
-                                desc: c.product_name || 'Item',
-                                qtd: fmtQtdLocal(c.quantidade) + ''
-                            });
-                        });
-                        Object.keys(grupos).sort().forEach(function (area) {
-                            html += '<div class="area">' + area + '</div>';
-                            grupos[area].forEach(function (it) {
-                             
-                                html += '<div class="item"><span class="qtd">' + it.qtd + '-'+'</span><span class="desc">' + esc(it.desc) + '</span></div>';
-                            });
+                            if (!areas[area]) { areas[area] = []; ordem.push(area); }
+
+                            // bloco do mesmo item pai dentro da área
+                            var bloco = null;
+                            for (var k = 0; k < areas[area].length; k++) {
+                                if (areas[area][k].pai === paiNome) { bloco = areas[area][k]; break; }
+                            }
+                            if (!bloco) {
+                                bloco = { pai: paiNome, linhas: [], obs: obsItem };
+                                areas[area].push(bloco);
+                            }
+
+                            var nomeComp = c.product_name || 'Item';
+                            var q = parseFloat(c.quantidade);
+                            if (isNaN(q) || q <= 0) q = 1;
+
+                            var existente = null;
+                            for (var m = 0; m < bloco.linhas.length; m++) {
+                                if (bloco.linhas[m].desc.toLowerCase() === nomeComp.toLowerCase()) { existente = bloco.linhas[m]; break; }
+                            }
+                            if (existente) existente.qtdNum += q;
+                            else bloco.linhas.push({ desc: nomeComp, qtdNum: q, qtdTexto: null });
                         });
                     } else {
-                        // Item simples: imprime direto na área dele
-                        var areaSimples = (i.local_producao || 'GERAL').trim().toUpperCase() || 'GERAL';
-                        var qtd = i.quantidade_kg ? fmtQtdLocal(i.quantidade_kg) + 'kg' : fmtQtdLocal(i.quantidade) + '';
-                        html += '<div class="area">' + areaSimples + '</div>';
-                        html += '<div class="item"><span class="qtd">' + qtd + '-</span><span class="desc">' + (i.product_name || 'Item') + (labelItem ? ' (' + labelItem + ')' : '') + '</span></div>';
-                    }
+                        var areaS = (i.local_producao || 'GERAL').trim().toUpperCase() || 'GERAL';
+                        if (!areas[areaS]) { areas[areaS] = []; ordem.push(areaS); }
 
-                    if (i.observacao) {
-                       html += '<div class="linha"></div>';
-                        html += '<div class="obsItem"><b>Obs do Item:**</b> ' + esc(i.observacao) + '</div>';
-                         
+                        var blocoS = null;
+                        for (var k2 = 0; k2 < areas[areaS].length; k2++) {
+                            if (areas[areaS][k2].pai === null && areas[areaS][k2].obs === obsItem) { blocoS = areas[areaS][k2]; break; }
+                        }
+                        if (!blocoS) {
+                            blocoS = { pai: null, linhas: [], obs: obsItem };
+                            areas[areaS].push(blocoS);
+                        }
+
+                        var nomeS = paiBase + (labelItem ? ' (' + labelItem + ')' : '');
+                        if (i.quantidade_kg) {
+                            blocoS.linhas.push({ desc: nomeS, qtdNum: 0, qtdTexto: fmtQtdLocal(i.quantidade_kg) + 'kg' });
+                        } else {
+                            var qs = parseFloat(i.quantidade);
+                            if (isNaN(qs) || qs <= 0) qs = 1;
+                            var existenteS = null;
+                            for (var n = 0; n < blocoS.linhas.length; n++) {
+                                if (blocoS.linhas[n].desc.toLowerCase() === nomeS.toLowerCase() && !blocoS.linhas[n].qtdTexto) {
+                                    existenteS = blocoS.linhas[n]; break;
+                                }
+                            }
+                            if (existenteS) existenteS.qtdNum += qs;
+                            else blocoS.linhas.push({ desc: nomeS, qtdNum: qs, qtdTexto: null });
+                        }
                     }
-                   
-                    
+                });
+
+                ordem.sort().forEach(function (area) {
+                    html += '<div class="area">' + area + '</div>';
+
+                    areas[area].forEach(function (bloco) {
+                        // Item pai (só quando há composição)
+                        if (bloco.pai) {
+                            html += '<div class="itemPai">' + esc(bloco.pai) + '</div>';
+                        }
+                        bloco.linhas.forEach(function (l) {
+                            var qtdTxt = l.qtdTexto ? l.qtdTexto : fmtQtdLocal(l.qtdNum);
+                            html += '<div class="item">'
+                                + '<span class="qtd">' + qtdTxt + '-</span>'
+                                + '<span class="desc">' + esc(l.desc) + '</span>'
+                                + '</div>';
+                        });
+                        if (bloco.obs) {
+                            html += '<div class="obsItem"><b>Obs:</b> ' + esc(bloco.obs) + '</div>';
+                        }
+                    });
                 });
             }
+
             if (p.observacoes) {
                 html += '<div class="linha"></div>';
-                html += '<div class="obs"><b>OBS Pedido:*</b> ' + p.observacoes + '</div>';
+                html += '<div class="obs"><b>OBS Pedido:</b> ' + p.observacoes + '</div>';
             }
 
-            /*html += '<div class="linha"></div>';*/
             html += '<div class="rodape">' + new Date().toLocaleString('pt-BR') + '</div>';
             html += '<div class="no-print centro" style="margin-top:10px;"><button onclick="window.print()" style="padding:8px 20px;font-size:13px;">🖨️ Imprimir</button></div>';
             html += '</body></html>';
@@ -935,6 +982,19 @@ function htmlItensTexto(items) {
             console.warn('Erro na impressão Cozinha:', e);
         }
     }
+
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('button, a') : null;
+        if (!btn) return;
+        var body = btn.closest('#modalBody');
+        if (!body) return;
+        if ((btn.textContent || '').trim() === 'Cozinha') {
+            e.preventDefault();
+            e.stopPropagation();
+            imprimirCozinha();
+        }
+    }, true);
+})();
 
     // Intercepta o clique no botão "Cozinha" (capture phase)
     document.addEventListener('click', function (e) {
@@ -1005,7 +1065,7 @@ function htmlItensTexto(items) {
             html += '.numero { font-size: 16px; font-weight: bold; margin: 2px 0; }';
             html += '.linha { border-top: 1px dashed #000; margin: 4px 0; }';
             html += '.info { font-size: 15px; line-height: 1.5;font-weight: bold }';
-            html += '.itemPai { font-size: 15px; font-weight: bold; padding: 4px 0 2px 0; border-bottom: 1px solid #000; margin-top: 6px; word-break: break-word; }';
+            html += '.itemPai { font-size: 16px; font-weight: bold; padding: 4px 0 2px 0; border-bottom: 1px solid #000; margin-top: 6px; word-break: break-word; }';
             html += '.area { font-size: 16px; font-weight: bold; font-style: italic; text-align: center; color: #000; padding: 2px 0; margin: 4px 0 2px 0; }';
 html += '.item { display: flex; align-items: flex-start; padding: 2px 0; font-size: 15px; font-weight: bold; }';
 html += '.item .qtd { flex: 0 0 auto; min-width: 26px; white-space: nowrap; }';
